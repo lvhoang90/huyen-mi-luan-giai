@@ -73,7 +73,7 @@ async function handleChat(req, res) {
     send({ done: true }); return res.end();
   }
 
-  const system = buildSystemPrompt(phase, profile, chart);
+  const system = buildSystemPrompt(phase, profile, chart, messages);
   const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 700, system, messages });
   res.on('close', () => { try { stream.abort(); } catch {} });
   stream.on('text', (t) => send({ t }));

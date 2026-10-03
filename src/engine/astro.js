@@ -1,6 +1,9 @@
 // Thiên văn học xấp xỉ (Meeus, độ chính xác thấp) — đủ để xác định cung hoàng đạo,
 // tiết khí (cho Tứ Trụ) và cung mọc. Không cần dữ liệu ngoài.
+import * as Astronomy from 'astronomy-engine';
+
 const RAD = Math.PI / 180;
+const timeOfJD = (jd) => Astronomy.MakeTime(new Date((jd - 2440587.5) * 86400000));
 const norm = (x) => ((x % 360) + 360) % 360;
 
 export const VN_UTC_OFFSET = 7;
@@ -17,37 +20,28 @@ export function julianDayNumber(y, m, d) {
   return Math.round(julianDay(y, m, d, 12));
 }
 
-export function sunLongitude(jd) {
-  const n = jd - 2451545.0;
-  const L = norm(280.46 + 0.9856474 * n);
-  const g = norm(357.528 + 0.9856003 * n) * RAD;
-  return norm(L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g));
-}
+/** Kinh độ hoàng đạo thực (of date) — astronomy-engine (VSOP87 / ELP), sai số < 0,01°. */
+export function sunLongitude(jd) { return norm(Astronomy.SunPosition(timeOfJD(jd)).elon); }
+export function moonLongitude(jd) { return norm(Astronomy.Ecliptic(Astronomy.GeoVector('Moon', timeOfJD(jd), true)).elon); }
 
-export function moonLongitude(jd) {
-  const d = jd - 2451545.0;
-  const Lp = 218.3164477 + 13.17639648 * d;
-  const D = (297.8501921 + 12.19074912 * d) * RAD;
-  const M = (357.5291092 + 0.98560028 * d) * RAD;
-  const Mp = (134.9633964 + 13.06499295 * d) * RAD;
-  const F = (93.272095 + 13.22935 * d) * RAD;
-  const lon =
-    Lp +
-    6.288774 * Math.sin(Mp) +
-    1.274027 * Math.sin(2 * D - Mp) +
-    0.658314 * Math.sin(2 * D) +
-    0.213618 * Math.sin(2 * Mp) -
-    0.185116 * Math.sin(M) -
-    0.114332 * Math.sin(2 * F) +
-    0.058793 * Math.sin(2 * D - 2 * Mp) +
-    0.057066 * Math.sin(2 * D - M - Mp) +
-    0.053322 * Math.sin(2 * D + Mp) +
-    0.045758 * Math.sin(2 * D - M);
-  return norm(lon);
+export const PLANETS = [
+  ['Sun', 'Mặt Trời'], ['Moon', 'Mặt Trăng'], ['Mercury', 'Thủy Tinh'], ['Venus', 'Kim Tinh'], ['Mars', 'Hỏa Tinh'],
+  ['Jupiter', 'Mộc Tinh'], ['Saturn', 'Thổ Tinh'], ['Uranus', 'Thiên Vương'], ['Neptune', 'Hải Vương'], ['Pluto', 'Diêm Vương'],
+];
+export function planetLongitude(body, jd) {
+  const t = timeOfJD(jd);
+  if (body === 'Sun') return norm(Astronomy.SunPosition(t).elon);
+  return norm(Astronomy.Ecliptic(Astronomy.GeoVector(body, t, true)).elon);
+}
+/** Hành tinh có đang nghịch hành không (so kinh độ ±1 ngày). */
+export function isRetrograde(body, jd) {
+  if (body === 'Sun' || body === 'Moon') return false;
+  const d = ((planetLongitude(body, jd + 0.5) - planetLongitude(body, jd - 0.5) + 540) % 360) - 180;
+  return d < 0;
 }
 
 export function ascendant(jd, latDeg, lonEastDeg) {
-  const gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0);
+  const gmst = Astronomy.SiderealTime(timeOfJD(jd)) * 15; // giờ → độ
   const ramc = norm(gmst + lonEastDeg) * RAD;
   const eps = 23.4393 * RAD;
   const lat = latDeg * RAD;
@@ -107,22 +101,47 @@ export const PLACES = {
   'phan-thiet': { name: 'Phan Thiết', lat: 10.93, lon: 108.1 },
 };
 
+const ASPECTS = [['Hợp', 0, 8], ['Đối', 180, 8], ['Tam hợp', 120, 6], ['Vuông', 90, 6], ['Lục hợp', 60, 4]];
+
 /**
- * Tính vị trí Mặt Trời / Mặt Trăng / cung mọc cho thời điểm sinh theo giờ Việt Nam (UTC+7).
- * hour = null nghĩa là không rõ giờ sinh: dùng 12:00 cho Mặt Trời, bỏ qua Mặt Trăng nếu sát ranh, bỏ cung mọc.
+ * Chiêm tinh tropical: Mặt Trời → Diêm Vương, nhà cung nguyên (whole sign), góc chiếu chính.
+ * hour = null: dùng 12:00 UT+7 — Mặt Trăng/ cung mọc/ nhà không đáng tin, được đánh dấu.
  */
 export function natalAstro({ y, m, d, hour, minute }, placeKey) {
   const known = hour !== null && hour !== undefined;
   const h = known ? hour + (minute || 0) / 60 : 12;
   const jd = julianDay(y, m, d, h - VN_UTC_OFFSET);
   const sun = signOf(sunLongitude(jd));
-  const moonLon = moonLongitude(jd);
-  const moon = signOf(moonLon);
-  // Mặt Trăng đi ~13°/ngày: nếu không rõ giờ, vị trí có thể lệch tới ±6.5° trong ngày.
-  const moonUncertain = !known && moon.edge < 6.5;
+  const moon = signOf(moonLongitude(jd));
+  const moonUncertain = !known && moon.edge < 6.5; // Mặt Trăng đi ~13°/ngày
   const sunUncertain = !known && sun.edge < 0.6;
-  let asc = null;
   const place = PLACES[placeKey];
-  if (known && place) asc = signOf(ascendant(jd, place.lat, place.lon));
-  return { sun, moon, moonUncertain, sunUncertain, asc, place: place?.name ?? null, jd };
+  const asc = known && place ? signOf(ascendant(jd, place.lat, place.lon)) : null;
+
+  const planets = PLANETS.map(([key, vi]) => {
+    const lon = planetLongitude(key, jd);
+    const sg = signOf(lon);
+    const fast = key === 'Moon';
+    return {
+      key, name: vi, lon, sign: sg.name, element: sg.element, degree: sg.degree,
+      retrograde: isRetrograde(key, jd),
+      house: asc ? ((sg.index - asc.index + 12) % 12) + 1 : null,
+      uncertain: (!known && fast && moonUncertain) || (!known && key === 'Mercury' && sg.edge < 1.5) || (!known && key === 'Venus' && sg.edge < 1),
+      edge: sg.edge,
+    };
+  });
+  const aspects = [];
+  for (let i = 0; i < planets.length; i++) for (let j = i + 1; j < planets.length; j++) {
+    const diff = Math.abs(planets[i].lon - planets[j].lon); const ang = diff > 180 ? 360 - diff : diff;
+    for (const [nm, deg, orb] of ASPECTS) {
+      const off = Math.abs(ang - deg);
+      if (off <= orb) { aspects.push({ a: planets[i].name, b: planets[j].name, type: nm, orb: +off.toFixed(1) }); break; }
+    }
+  }
+  aspects.sort((x, y2) => x.orb - y2.orb);
+  // Tập trung hành tinh theo cung (stellium)
+  const bySign = {}; for (const p of planets) (bySign[p.sign] ||= []).push(p.name);
+  const stellium = Object.entries(bySign).filter(([, v]) => v.length >= 3).map(([k, v]) => ({ sign: k, planets: v }));
+  const elementCount = { Lửa: 0, Đất: 0, Khí: 0, Nước: 0 }; for (const p of planets.slice(0, 7)) elementCount[p.element]++;
+  return { sun, moon, moonUncertain, sunUncertain, asc, place: place?.name ?? null, planets, aspects, stellium, elementCount, jd };
 }
