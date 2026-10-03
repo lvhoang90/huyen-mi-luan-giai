@@ -9,11 +9,10 @@ const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Dáng đứng: tay buông rồi chắp trước bụng. Đơn vị radian, trên khung xương chuẩn hóa của VRM. */
 export const POSE = {
-  upperArm: { z: 1.2, x: 0.0, y: 0.25 }, // z: hạ cánh tay xuống
-  lowerArm: { z: 0.0, x: 0.0, y: 1.3 },  // y: gập khuỷu vào trước
+  upperArm: { z: 1.28, x: 0.0, y: 0.12 }, // z: hạ cánh tay xuống; y: đưa nhẹ ra trước
+  lowerArm: { z: 0.0, x: 0.0, y: 0.55 },  // y: gập khuỷu vào trước
   hand: { z: 0.0, x: 0.0, y: 0.0 },
-  shoulder: { z: 0.06 },
-  tint: 0x232a6b, tintShade: 0x0e1238,
+  shoulder: { z: 0.05 },
 };
 
 
@@ -43,8 +42,9 @@ function measureTorso(vrm, { hips, chest, uc, neck, shX }) {
     const y = y0 + i * dy;
     return k.n > 3 ? { y, rx: k.xmax, rz: (k.zmax - k.zmin) / 2, cz: (k.zmax + k.zmin) / 2 } : { y, ...fb(y) };
   });
-  // làm mượt
-  const sm = rows.map((r, i) => { const a = rows[Math.max(0, i - 2)], b = rows[Math.min(N, i + 2)]; return { y: r.y, rx: (a.rx + r.rx * 2 + b.rx) / 4, rz: (a.rz + r.rz * 2 + b.rz) / 4, cz: (a.cz + r.cz * 2 + b.cz) / 4 }; });
+  // làm mượt nhiều lượt để áo không gợn sóng
+  let sm = rows;
+  for (let pass = 0; pass < 6; pass++) sm = sm.map((r, i) => { const a = sm[Math.max(0, i - 2)], b = sm[Math.min(N, i + 2)]; return { y: r.y, rx: (a.rx + r.rx * 2 + b.rx) / 4, rz: (a.rz + r.rz * 2 + b.rz) / 4, cz: (a.cz + r.cz * 2 + b.cz) / 4 }; });
   return { rows: sm, at(y) { const i = Math.max(0, Math.min(N, Math.round((y - y0) / dy))); return sm[i]; } };
 }
 
@@ -209,7 +209,7 @@ export async function loadVRMAvatar(url) {
     outfit.flow.rotation.x = Math.sin(t * 0.9) * 0.025; outfit.flow.rotation.z = Math.sin(t * 0.7 + 1) * 0.03;
     vrm.update(dt);
     // quả cầu sáng nằm giữa hai bàn tay
-    bones.leftHand.getWorldPosition(handMid); bones.rightHand.getWorldPosition(tmp); handMid.add(tmp).multiplyScalar(0.5);
+    bones.chest.getWorldPosition(handMid); handMid.y -= 0.12; handMid.z += 0.38; // trước ngực, giữa hai tay
     return handMid;
   }
 
