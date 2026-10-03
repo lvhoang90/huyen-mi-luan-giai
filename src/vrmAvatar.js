@@ -21,6 +21,52 @@ const navy = () => new THREE.MeshStandardMaterial({ color: 0x1b2058, roughness: 
 const goldM = () => new THREE.MeshStandardMaterial({ color: 0xd9b36a, roughness: 0.3, metalness: 0.8, emissive: 0x4a3410, emissiveIntensity: 0.4 });
 const hairM = () => new THREE.MeshStandardMaterial({ color: 0x08070d, roughness: 0.3, metalness: 0.15, side: THREE.DoubleSide });
 
+
+/** Lát cắt thân (x rộng, z trước/sau) của lớp da, để áo dài ôm khít. */
+function measureTorso(vrm, { hips, chest, uc, neck, shX }) {
+  let mesh = null; vrm.scene.traverse((o) => { if (o.isSkinnedMesh && [].concat(o.material).some((m) => /Body/.test(m.name))) mesh = o; });
+  const N = 60, y0 = 0, y1 = neck.y + 0.15, dy = (y1 - y0) / N;
+  const sl = Array.from({ length: N + 1 }, () => ({ xmax: 0, zmin: 9, zmax: -9, n: 0 }));
+  const v = new THREE.Vector3();
+  if (mesh) {
+    const cnt = mesh.geometry.attributes.position.count;
+    for (let i = 0; i < cnt; i++) {
+      mesh.getVertexPosition(i, v); v.applyMatrix4(mesh.matrixWorld);
+      if (v.y < y0 || v.y > y1) continue;
+      if (v.y > chest.y && Math.abs(v.x) > shX * 1.1) continue; // bỏ cánh tay ở T-pose
+      const k = sl[Math.round((v.y - y0) / dy)];
+      k.xmax = Math.max(k.xmax, Math.abs(v.x)); k.zmin = Math.min(k.zmin, v.z); k.zmax = Math.max(k.zmax, v.z); k.n++;
+    }
+  }
+  const fb = (y) => ({ rx: y < hips.y ? 0.2 : 0.2, rz: 0.13, cz: 0.02 });
+  const rows = sl.map((k, i) => {
+    const y = y0 + i * dy;
+    return k.n > 3 ? { y, rx: k.xmax, rz: (k.zmax - k.zmin) / 2, cz: (k.zmax + k.zmin) / 2 } : { y, ...fb(y) };
+  });
+  // làm mượt
+  const sm = rows.map((r, i) => { const a = rows[Math.max(0, i - 2)], b = rows[Math.min(N, i + 2)]; return { y: r.y, rx: (a.rx + r.rx * 2 + b.rx) / 4, rz: (a.rz + r.rz * 2 + b.rz) / 4, cz: (a.cz + r.cz * 2 + b.cz) / 4 }; });
+  return { rows: sm, at(y) { const i = Math.max(0, Math.min(N, Math.round((y - y0) / dy))); return sm[i]; } };
+}
+
+/** Thân áo: ôm thân trên, xòe dần xuống hai tà dài chạm sàn. */
+function fittedDress(body, { floor, top, hipY, neckY }) {
+  const rings = 90, seg = 56, pos = [], idx = [];
+  for (let i = 0; i <= rings; i++) {
+    const y = floor + (top - floor) * (i / rings);
+    const m = body.at(y);
+    const k = 1.06; // áo rộng hơn da một chút
+    let rx = m.rx * k + 0.012, rz = m.rz * k + 0.012;
+    if (y < hipY) { const f = 1 - y / hipY; rx += 0.34 * f * f + 0.02 * f; rz += 0.16 * f * f; }   // tà xòe
+    if (y > neckY - 0.02) { const f = Math.min(1, (y - (neckY - 0.02)) / 0.14); rx = rx * (1 - f) + 0.074 * f; rz = rz * (1 - f) + 0.07 * f; } // cổ đứng
+    for (let j = 0; j < seg; j++) { const a = (j / seg) * Math.PI * 2; pos.push(Math.cos(a) * rx, y, m.cz + Math.sin(a) * rz); }
+  }
+  for (let i = 0; i < rings; i++) for (let j = 0; j < seg; j++) {
+    const a = i * seg + j, b = i * seg + ((j + 1) % seg), c = (i + 1) * seg + j, d = (i + 1) * seg + ((j + 1) % seg);
+    idx.push(a, c, b, b, c, d);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+
 /** Áo dài tím than + tay áo + tóc dài, đo theo xương của chính mô hình để vừa khít. */
 function buildOutfit(vrm, B) {
   vrm.scene.updateMatrixWorld(true);
@@ -30,15 +76,14 @@ function buildOutfit(vrm, B) {
   const upLen = sh.distanceTo(el), loLen = el.distanceTo(hand), shX = Math.abs(sh.x);
   const g = new THREE.Group(); const dressMat = navy(), gold = goldM();
 
-  const pts = [[0.52, 0], [0.4, hips.y * 0.45], [0.27, hips.y * 0.8], [0.225, hips.y], [0.185, (hips.y + chest.y) / 2], [0.205, chest.y],
-    [0.215, (chest.y + uc.y) / 2], [shX * 1.0, uc.y + 0.05], [0.1, neck.y + 0.0], [0.072, neck.y + 0.03], [0.07, neck.y + 0.12]].map(([r, y]) => new THREE.Vector2(r, y));
-  const curve = new THREE.SplineCurve(pts).getPoints(80).map((p) => new THREE.Vector2(Math.max(p.x, 0.01), p.y));
-  const body = new THREE.Mesh(new THREE.LatheGeometry(curve, 64), dressMat);
-  body.scale.set(1.0, 1, 0.72); body.position.z = 0.012; g.add(body);
+  // Đo thân hình thật của mô hình theo từng lát cắt ngang rồi may áo ôm theo đó.
+  const body = measureTorso(vrm, { hips, chest, uc, neck, shX });
+  const dressGeo = fittedDress(body, { floor: 0.0, top: neck.y + 0.12, hipY: hips.y, neckY: neck.y });
+  const dress = new THREE.Mesh(dressGeo, dressMat); g.add(dress);
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.073, 0.009, 8, 40), gold);
-  collar.rotation.x = Math.PI / 2; collar.position.set(0, neck.y + 0.125, 0.0); collar.scale.set(1, 0.72, 1); g.add(collar);
-  const hem = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.007, 6, 80), gold);
-  hem.rotation.x = Math.PI / 2; hem.position.y = 0.015; hem.scale.set(1, 0.72, 1); g.add(hem);
+  collar.rotation.x = Math.PI / 2; collar.position.set(0, neck.y + 0.125, body.at(neck.y).cz); collar.scale.set(1, 0.9, 1); g.add(collar);
+  const hem = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.007, 6, 80), gold);
+  hem.rotation.x = Math.PI / 2; hem.position.set(0, 0.015, body.at(0).cz); hem.scale.set(1, 0.72, 1); g.add(hem);
   // đặt trong khung của xương hông để theo chuyển động nhẹ của thân
   B('hips').attach(g);
 
@@ -46,10 +91,10 @@ function buildOutfit(vrm, B) {
   for (const [side, dir] of [['left', 1], ['right', -1]]) {
     const upper = B(side + 'UpperArm'), lower = B(side + 'LowerArm');
     const mk = (len, r0, r1) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 18, 1, true), dressMat); m.geometry.rotateZ(-dir * Math.PI / 2); m.geometry.translate(dir * len / 2, 0, 0); return m; };
-    upper.add(mk(upLen * 1.02, 0.078, 0.066));
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.068, 14, 10), dressMat); ball.position.x = dir * upLen; upper.add(ball);
-    lower.add(mk(loLen * 0.9, 0.066, 0.052));
-    const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.007, 6, 18), gold); cuff.rotation.y = Math.PI / 2; cuff.position.x = dir * loLen * 0.9; lower.add(cuff);
+    upper.add(mk(upLen * 1.02, 0.058, 0.05));
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.052, 14, 10), dressMat); ball.position.x = dir * upLen; upper.add(ball);
+    lower.add(mk(loLen * 0.9, 0.05, 0.04));
+    const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.041, 0.006, 6, 18), gold); cuff.rotation.y = Math.PI / 2; cuff.position.x = dir * loLen * 0.9; lower.add(cuff);
   }
 
   // tóc dài gắn vào xương đầu
@@ -102,15 +147,18 @@ export async function loadVRMAvatar(url) {
   const VIS = ['aa', 'ih', 'ou', 'ee', 'oh'];
   const handMid = new THREE.Vector3(), tmp = new THREE.Vector3();
 
-  function pose(t, dt, state, pointer) {
-    const k = REDUCED ? 0.3 : 1;
-    const think = state.mood === 'think' ? 1 : 0, listen = state.mood === 'listen' ? 1 : 0;
+  function armsFromPose() {
     for (const [side, s] of [['left', -1], ['right', 1]]) {
       bones[side + 'UpperArm'].rotation.set(POSE.upperArm.x, s * POSE.upperArm.y, s * POSE.upperArm.z);
       bones[side + 'LowerArm'].rotation.set(POSE.lowerArm.x, s * POSE.lowerArm.y, s * POSE.lowerArm.z);
       bones[side + 'Hand'].rotation.set(POSE.hand.x, s * POSE.hand.y, s * POSE.hand.z);
       bones[side + 'Shoulder'].rotation.z = s * POSE.shoulder.z * -1;
     }
+  }
+  function pose(t, dt, state, pointer) {
+    const k = REDUCED ? 0.3 : 1;
+    const think = state.mood === 'think' ? 1 : 0, listen = state.mood === 'listen' ? 1 : 0;
+    armsFromPose();
     // thở: ngực nở nhẹ, vai nhấp
     const br = Math.sin(t * 1.5);
     bones.spine.rotation.x = 0.012 * br * k + (state.speaking ? 0.01 * Math.sin(t * 2.1) : 0);
@@ -165,5 +213,5 @@ export async function loadVRMAvatar(url) {
     return handMid;
   }
 
-  return { vrm, scene: vrm.scene, update, lookTarget, bones, scale, outfit };
+  return { vrm, scene: vrm.scene, update, lookTarget, bones, scale, outfit, armsFromPose };
 }
