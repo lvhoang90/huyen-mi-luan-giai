@@ -96,11 +96,28 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
 .src b { color: var(--gold); font-weight: 500; } .src ul { margin: 8px 0 0; padding-left: 18px; }
 .Kim { color: #f1ead2 } .Mộc { color: #7fe3a0 } .Thủy { color: #6fb7ff } .Hỏa { color: #ff8a5c } .Thổ { color: #e0b86a }
 
+/* ---- tabs, tử vi, bảng ---- */
+.tabs { display: flex; gap: 6px; margin: 16px 0 4px; flex-wrap: wrap; }
+.tabs button { padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font-size: 14px; }
+.tabs button.on { background: rgba(226, 194, 125, .18); border-color: var(--gold); color: #fbeecb; }
+.tv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tv { border: 1px solid var(--line); border-radius: 10px; padding: 7px 8px; background: rgba(255, 255, 255, .03); min-height: 118px; display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; line-height: 1.35; }
+.tv.menh { border-color: var(--gold); box-shadow: 0 0 16px rgba(226, 194, 125, .22); }
+.tv-h { display: flex; justify-content: space-between; gap: 4px; } .tv-h i { color: var(--dim); font-style: normal; } .tv-h em { color: var(--gold); font-style: normal; text-align: right; }
+.tv-s { display: flex; flex-direction: column; } .tv-s .chinh { font-family: var(--serif); font-size: 15px; font-weight: 600; color: #f3ecff; }
+.tv-o { display: flex; flex-wrap: wrap; gap: 2px 7px; color: #bdb4e6; } .tv-o .sat { color: #ff9a9a; } .dim { color: #7d76a6; }
+.tv-f { margin-top: auto; display: flex; flex-wrap: wrap; gap: 2px 6px; color: #8f87b8; font-size: 10.5px; } .tv-f u { text-decoration: none; color: #7fe3a0; } .tv-f u.Kỵ { color: #ff8a8a; }
+.tv-c { grid-column: 2 / 4; grid-row: 2 / 4; border: 1px dashed rgba(226, 194, 125, .4); border-radius: 12px; padding: 10px 14px; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 13px; color: var(--dim); }
+.tv-c h4 { margin: 0; font-family: var(--serif); font-size: 22px; color: var(--gold); font-weight: 600; } .tv-c p { margin: 0; line-height: 1.5; } .tv-c b { color: var(--ink); font-weight: 500; }
+.tbl { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13.5px; } .tbl th { text-align: left; color: var(--dim); font-weight: 400; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; padding: 4px 6px; }
+.tbl td { padding: 6px; border-top: 1px solid rgba(190, 170, 255, .1); }
+
 /* ---- mobile ---- */
 @media (max-width: 899px) {
   .dialog { left: 0; right: 0; width: auto; top: 50vh; padding: 0 14px calc(14px + env(safe-area-inset-bottom)); }
   #log { mask-image: linear-gradient(to bottom, transparent 0, #000 28px); -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px); }
   .msg { max-width: 100%; } .msg.my { font-size: 17.5px; padding: 12px 15px; }
-  .pillars { grid-template-columns: repeat(2, 1fr); } .sheet-card { padding: 22px 18px; }
+  .pillars { grid-template-columns: repeat(2, 1fr); } .sheet-card { padding: 22px 14px; }
+  .tv { min-height: 96px; padding: 5px; font-size: 10px; } .tv-s .chinh { font-size: 12.5px; } .tv-f { font-size: 9px; } .tv-c { padding: 6px; font-size: 11px; } .tv-c h4 { font-size: 17px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; } }

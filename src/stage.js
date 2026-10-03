@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadVRMAvatar, POSE } from './vrmAvatar.js';
 
 const ELEMENT_COLORS = { Kim: 0xf1ead2, Mộc: 0x7fe3a0, Thủy: 0x6fb7ff, Hỏa: 0xff8a5c, Thổ: 0xe0b86a };
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -120,7 +121,8 @@ function makeParticles({ count, color, size, speed, spread, sway, height = 7 }) 
 
 // ---------- nhân vật Huyền My ----------
 function makeHuyenMy() {
-  const g = new THREE.Group();
+  const root = new THREE.Group();
+  const g = new THREE.Group(); root.add(g); // g = thân hình procedural (ẩn khi có VRM)
   const skin = new THREE.MeshStandardMaterial({ color: 0xf2d2bc, roughness: 0.62, emissive: 0x3a1a14, emissiveIntensity: 0.12 });
   const dress = new THREE.MeshStandardMaterial({ color: 0x1b2058, roughness: 0.38, metalness: 0.25, emissive: 0x0a0d2a, emissiveIntensity: 0.5 });
   const hairM = new THREE.MeshStandardMaterial({ color: 0x08070d, roughness: 0.3, metalness: 0.15, side: THREE.DoubleSide });
@@ -240,7 +242,7 @@ function makeHuyenMy() {
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), skin); hand.scale.set(0.8, 1, 0.9); hand.position.set(0.055 * s, 1.6, 0.4); g.add(hand);
   }
   // Quả cầu ánh sáng giữa hai lòng bàn tay
-  const orb = new THREE.Group(); orb.position.set(0, 1.78, 0.46); g.add(orb);
+  const orb = new THREE.Group(); orb.position.set(0, 1.78, 0.46); root.add(orb);
   const orbCore = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff2d0 })); orb.add(orbCore);
   const orbGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,235,190,0.95)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
   orbGlow.scale.setScalar(0.45); orb.add(orbGlow);
@@ -248,7 +250,7 @@ function makeHuyenMy() {
 
   // ---- trạng thái hoạt họa ----
   const st = { speaking: false, mood: 'idle', cast: 0, blink: 0, nextBlink: 2.5, mouth: 0, look: new THREE.Vector2(), orbTint: new THREE.Color(0xfff2d0) };
-  function update(t, dt, pointer) {
+  function update(t, dt, pointer, handsAt) {
     const k = REDUCED ? 0.25 : 1;
     // thở
     g.scale.y = 1 + Math.sin(t * 1.5) * 0.0035 * k;
@@ -280,10 +282,11 @@ function makeHuyenMy() {
     st.cast = damp(st.cast, st.mood === 'think' || st.castUntil > t ? 1 : 0, 3, dt);
     const s = 0.9 + Math.sin(t * 2.2) * 0.08 + st.cast * (0.9 + Math.sin(t * 7) * 0.25);
     orbGlow.scale.setScalar(0.45 * s); orbLight.intensity = 0.5 + st.cast * 2.2;
-    orb.position.y = 1.78 + Math.sin(t * 1.3) * 0.015 + st.cast * 0.12;
+    const baseY = handsAt ? handsAt.y + 0.1 : 1.78;
+    orb.position.set(handsAt ? handsAt.x : 0, baseY + Math.sin(t * 1.3) * 0.015 + st.cast * 0.12, handsAt ? handsAt.z + 0.06 : 0.46);
     orbGlow.material.color.lerp(st.orbTint, 0.05); orbCore.material.color.lerp(st.orbTint, 0.05); orbLight.color.lerp(st.orbTint, 0.05);
   }
-  return { group: g, st, update, headWorldY: 3.0 };
+  return { group: root, shell: g, st, update, headWorldY: 3.0 };
 }
 
 // ---------- sân khấu ----------
@@ -305,6 +308,12 @@ export function createStage(canvas) {
   const fill = new THREE.PointLight(0xffc7e0, 8, 8, 2); fill.position.set(-1.2, 2.6, 2.2); scene.add(fill);
 
   const hm = makeHuyenMy(); scene.add(hm.group);
+  let avatar = null;
+  // Nạp nhân vật VRM (chuẩn quốc tế); nếu lỗi/không có tệp thì giữ nhân vật procedural.
+  loadVRMAvatar('/models/huyenmy.vrm').then((a) => {
+    avatar = a; scene.add(a.scene); scene.add(a.lookTarget); hm.shell.visible = false;
+    if (import.meta.env?.DEV) window.__hm = { avatar: a, POSE };
+  }).catch((e) => console.warn('[huyenmy] dùng nhân vật dự phòng:', e.message));
 
   // Vòng bát quái + ngũ hành sau lưng
   const wheelGroup = new THREE.Group(); wheelGroup.position.set(0, 2.55, -1.6); scene.add(wheelGroup);
@@ -360,7 +369,9 @@ export function createStage(canvas) {
     pointer.lerp(tPointer, 1 - Math.exp(-4 * dt));
     camera.position.set(pointer.x * 0.35, target.y + 0.35 + pointer.y * 0.12, camera.userData.dist);
     camera.lookAt(target);
-    hm.update(t, dt, pointer);
+    let hands = null;
+    if (avatar) hands = avatar.update(t, dt, { mood: hm.st.mood, speaking: hm.st.speaking }, pointer, camera);
+    hm.update(t, dt, pointer, hands);
     backdrop.material.uniforms.uTime.value = t;
     backdrop.material.uniforms.uPulse.value = hm.st.cast;
     for (const p of [fireflies, petals, motes]) p.material.uniforms.uTime.value = t;

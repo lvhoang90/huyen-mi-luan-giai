@@ -216,13 +216,25 @@ async function ritual() {
 }
 
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
+const READ_LENS = [
+  { label: 'Luận theo Tử Vi', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tử Vi Đẩu Số giúp mình.', action: 'read' },
+  { label: 'Luận theo Tứ Trụ', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tứ Trụ giúp mình.', action: 'read' },
+  { label: 'Luận theo Chiêm tinh', value: 'Mình đã kể xong rồi. Mời My luận giải theo chiêm tinh phương Tây giúp mình.', action: 'read' },
+];
 const FOLLOW_CHIPS = ['Về con đường sự nghiệp của mình', 'Về chuyện tình cảm', 'Năm nay của mình có gì đáng lưu tâm?', 'Điều đang làm mình rối nhất'];
+const LENS_CHIPS = [
+  { label: 'Soi theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
+  { label: 'Soi theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
+  { label: 'Soi theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
+  { label: 'Soi theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
+  { label: 'Kết hợp tất cả', value: 'My kết hợp các phương pháp để soi giúp mình nhé.' },
+];
 
 async function converse() {
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
   for (;;) {
     stage.setMood('listen');
-    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP] : []) : S.phase === 'companion' && userTurns <= 2 ? FOLLOW_CHIPS : [];
+    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : []) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
     const { text, chip } = await askChat(chips);
     showUser(text); S.messages.push({ role: 'user', content: text }); userTurns++;
     const reading = S.phase === 'listen' && chip;
@@ -237,43 +249,75 @@ async function converse() {
 // ---------------- lá số ----------------
 const ELC = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const el = (hanh) => `<span class="${hanh}">${hanh}</span>`;
-function renderSheet() {
-  const p = S.profile, c = chart ?? (chart = buildChart(p)), b = c.bazi, n = c.numerology, a = c.astro;
+const cell = (k, v, d = '') => `<div class="cell"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
+
+function tabTuTru(c) {
+  const b = c.bazi;
   const pill = (label, pl, dm) => pl
     ? `<div class="pillar ${dm ? 'dm' : ''}"><div class="lbl">${label}</div><div class="nm">${pl.name}</div><div class="el">${el(pl.hanhCan)} · ${el(pl.hanhChi)}</div></div>`
     : `<div class="pillar"><div class="lbl">${label}</div><div class="nm">—</div><div class="el">không rõ giờ</div></div>`;
   const max = Math.max(...Object.values(b.elements.counts), 1);
   const bars = HANH.map((k) => `<div class="bar"><span class="${k}">${k}</span><i><b style="width:${(b.elements.counts[k] / max) * 100}%;background:${ELC[k]}"></b></i><span>${b.elements.counts[k]}</span></div>`).join('');
-  const cell = (k, v, d = '') => `<div class="cell"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`;
-  const sign = (s, unsure) => `${s.name}${unsure ? ' ?' : ''}`;
+  return `<h3>Tứ Trụ <small>theo tiết khí thật · tầng Tính toán</small></h3>
+    <div class="pillars">${pill('Giờ', b.pillars.hour)}${pill('Ngày', b.pillars.day, true)}${pill('Tháng', b.pillars.month)}${pill('Năm', b.pillars.year)}</div>
+    <p class="sub" style="margin-top:10px">Nhật chủ <b>${b.dayMaster.can}</b> (${el(b.dayMaster.hanh)}, ${b.dayMaster.yang ? 'dương' : 'âm'}) · sinh tháng ${b.pillars.month.chi}, ${b.elements.inSeason ? 'đắc lệnh' : 'không đắc lệnh'} · thân ${b.elements.strength} <i>(tham khảo)</i><br>Nạp âm năm: <b>${b.napAmYear.name}</b> — ${b.napAmYear.image}${c.cungMenh ? ` · Cung mệnh: <b>${c.cungMenh.name}</b> (${el(c.cungMenh.hanh)}, ${c.cungMenh.nhom})` : ''}</p>
+    <h3>Ngũ hành <small>can + chi chính khí</small></h3><div class="bars">${bars}</div>
+    <p class="sub" style="margin-top:8px">${b.elements.missing.length ? 'Vắng: ' + b.elements.missing.map(el).join(', ') + '. ' : 'Đủ cả năm hành. '}Trội: ${el(b.elements.dominant)}.${b.elements.balancing.length ? ' Hướng cân bằng gợi ý: ' + b.elements.balancing.map(el).join(' / ') + '.' : ''}</p>`;
+}
+
+function tabTuVi(c) {
+  const t = c.tuvi;
+  if (!t) return `<h3>Tử Vi Đẩu Số</h3><p class="sub">Chưa lập được: cần giờ sinh và giới tính nam/nữ (để xác định chiều đại hạn). Ngày sinh âm lịch của bạn: ${c.lunar.day}/${c.lunar.month}${c.lunar.leap ? ' nhuận' : ''}/${c.lunar.year}.</p>`;
+  // Bố cục 4×4 truyền thống: Tỵ Ngọ Mùi Thân / Thìn … Dậu / Mão … Tuất / Dần Sửu Tý Hợi
+  const order = [5, 6, 7, 8, 4, null, null, 9, 3, null, null, 10, 2, 1, 0, 11];
+  const cellHtml = (pos) => {
+    const p = t.palaces[pos];
+    const stars = p.chinh.map((s) => `<b class="chinh">${s}</b>`).join('');
+    const rest = [...p.phu].map((s) => `<span>${s}</span>`).join('') + p.sat.map((s) => `<span class="sat">${s}</span>`).join('');
+    return `<div class="tv ${pos === t.menh ? 'menh' : ''}"><div class="tv-h"><i>${p.can} ${p.chi}</i><em>${p.name}${p.isThan ? ' · Thân' : ''}</em></div>
+      <div class="tv-s">${stars || '<span class="dim">vô chính diệu</span>'}</div><div class="tv-o">${rest}</div>
+      <div class="tv-f">${p.hoa.map((h) => `<u class="${h.slice(5)}">${h}</u>`).join('')}<span>${p.truongSinh}</span>${p.daiHan ? `<span>${p.daiHan[0]}–${p.daiHan[1]}</span>` : ''}</div></div>`;
+  };
+  const center = `<div class="tv-c"><h4>${esc(S.profile.nickname)}</h4><p>Âm lịch ${c.lunar.day}/${c.lunar.month}${c.lunar.leap ? ' nhuận' : ''}/${t.lunar.year}<br>${t.lunar.canChiYear}</p><p><b>${t.cuc.ten}</b><br>${t.amDuong}</p><p>Thân cư ${t.thanCu}</p></div>`;
+  const grid = order.map((pos, i) => pos === null ? (i === 5 ? center : '') : cellHtml(pos)).join('');
+  return `<h3>Tử Vi Đẩu Số <small>âm lịch Việt Nam · tầng Tính toán</small></h3><div class="tv-grid">${grid}</div>
+    <p class="sub" style="margin-top:10px">Tứ Hóa năm ${t.lunar.canChiYear.split(' ')[0]}: ${Object.entries(t.hoaAt).map(([h, v]) => `${h} → <b>${v.star}</b> (${t.palaces[v.pos].name})`).join(' · ')}.${t.menhVoChinhDieu ? ' Cung Mệnh vô chính diệu: xem sao cung Thiên Di.' : ''}</p>`;
+}
+
+function tabAstro(c) {
+  const a = c.astro;
+  const rows = a.planets.map((p) => `<tr><td>${p.name}</td><td>${p.sign}${p.uncertain ? ' ?' : ''}</td><td>${p.degree}°${p.retrograde ? ' ℞' : ''}</td><td>${p.house ? 'Nhà ' + p.house : '—'}</td></tr>`).join('');
+  return `<h3>Chiêm tinh <small>tropical · astronomy-engine · nhà cung nguyên</small></h3>
+    <div class="grid">
+      ${cell('Mặt Trời', a.sun.name + (a.sunUncertain ? ' ?' : ''), `${a.sun.element} · ${a.sun.degree}°`)}
+      ${cell('Mặt Trăng', a.moon.name + (a.moonUncertain ? ' ?' : ''), a.moonUncertain ? 'thiếu giờ sinh nên chưa chắc' : `${a.moon.element} · ${a.moon.degree}°`)}
+      ${cell('Cung mọc', a.asc ? a.asc.name : '—', a.asc ? `${a.asc.element} · ${a.asc.degree}°` : 'cần giờ và nơi sinh')}
+    </div>
+    <table class="tbl"><thead><tr><th>Thiên thể</th><th>Cung</th><th>Độ</th><th>Nhà</th></tr></thead><tbody>${rows}</tbody></table>
+    ${a.aspects.length ? `<p class="sub" style="margin-top:10px">Góc chiếu chặt: ${a.aspects.slice(0, 6).map((x) => `${x.a} ${x.type.toLowerCase()} ${x.b}`).join(' · ')}.</p>` : ''}`;
+}
+
+function tabThanSo(c) {
+  const n = c.numerology;
+  return `<h3>Thần số học <small>Pythagoras · tên bỏ dấu</small></h3><div class="grid">
+    ${cell('Chủ đạo', n.lifePath, NUMBER_KEYWORDS[n.lifePath])}${cell('Biểu đạt', n.expression, NUMBER_KEYWORDS[n.expression])}
+    ${cell('Linh hồn', n.soul, NUMBER_KEYWORDS[n.soul])}${cell('Nhân cách', n.personality, NUMBER_KEYWORDS[n.personality])}
+    ${cell('Năm cá nhân ' + c.thisYear.year, n.personalYear, PERSONAL_YEAR_THEME[n.personalYear])}</div>`;
+}
+
+let sheetTab = 'tuvi';
+function renderSheet() {
+  const p = S.profile, c = chart ?? (chart = buildChart(p)), a = c.astro;
+  const tabs = [['tuvi', 'Tử Vi'], ['tutru', 'Tứ Trụ'], ['astro', 'Chiêm tinh'], ['thanso', 'Thần số']];
+  const body = { tuvi: tabTuVi, tutru: tabTuTru, astro: tabAstro, thanso: tabThanSo }[sheetTab](c);
   $('#sheet-body').innerHTML = `
     <h2>Lá số của ${esc(p.nickname)}</h2>
     <p class="sub">${esc(p.fullName)} · ${p.birth.d}/${p.birth.m}/${p.birth.y}${p.birth.hour !== null ? ` · ${String(p.birth.hour).padStart(2, '0')}:${String(p.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>
-
-    <h3>Tứ Trụ <small>tính theo tiết khí thật · tầng Tính toán</small></h3>
-    <div class="pillars">${pill('Giờ', b.pillars.hour)}${pill('Ngày', b.pillars.day, true)}${pill('Tháng', b.pillars.month)}${pill('Năm', b.pillars.year)}</div>
-    <p class="sub" style="margin-top:10px">Nhật chủ <b>${b.dayMaster.can}</b> (${el(b.dayMaster.hanh)}, ${b.dayMaster.yang ? 'dương' : 'âm'}) · sinh tháng ${b.pillars.month.chi}, ${b.elements.inSeason ? 'đắc lệnh' : 'không đắc lệnh'} · thân ${b.elements.strength} <i>(tham khảo)</i><br>Nạp âm năm: <b>${b.napAmYear.name}</b> — ${b.napAmYear.image}${c.cungMenh ? ` · Cung mệnh: <b>${c.cungMenh.name}</b> (${el(c.cungMenh.hanh)}, ${c.cungMenh.nhom})` : ''}</p>
-
-    <h3>Ngũ hành <small>can + chi chính khí</small></h3>
-    <div class="bars">${bars}</div>
-    <p class="sub" style="margin-top:8px">${b.elements.missing.length ? 'Vắng: ' + b.elements.missing.map(el).join(', ') + '. ' : 'Đủ cả năm hành. '}Trội: ${el(b.elements.dominant)}.${b.elements.balancing.length ? ' Hướng cân bằng gợi ý: ' + b.elements.balancing.map(el).join(' / ') + '.' : ''}</p>
-
-    <h3>Thần số học <small>Pythagoras · tên bỏ dấu</small></h3>
-    <div class="grid">
-      ${cell('Chủ đạo', n.lifePath, NUMBER_KEYWORDS[n.lifePath])}${cell('Biểu đạt', n.expression, NUMBER_KEYWORDS[n.expression])}
-      ${cell('Linh hồn', n.soul, NUMBER_KEYWORDS[n.soul])}${cell('Nhân cách', n.personality, NUMBER_KEYWORDS[n.personality])}
-      ${cell('Năm cá nhân ' + c.thisYear.year, n.personalYear, PERSONAL_YEAR_THEME[n.personalYear])}
-    </div>
-
-    <h3>Chiêm tinh <small>tropical · Meeus</small></h3>
-    <div class="grid">
-      ${cell('Mặt Trời', sign(a.sun, a.sunUncertain), `${a.sun.element} · ${a.sun.degree}°`)}
-      ${cell('Mặt Trăng', sign(a.moon, a.moonUncertain), a.moonUncertain ? 'thiếu giờ sinh nên chưa chắc' : `${a.moon.element} · ${a.moon.degree}°`)}
-      ${cell('Cung mọc', a.asc ? a.asc.name : '—', a.asc ? `${a.asc.element} · ${a.asc.degree}°` : 'cần giờ và nơi sinh')}
-    </div>
-
-    <div class="src"><b>Minh chứng & giới hạn.</b> Các con số trên được <b>tính</b> từ thuật toán thiên văn, không do AI đoán, và My nhận chúng làm dữ kiện. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b> — một lăng kính biểu tượng. Hiện chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận hay dự báo được sự kiện; giá trị của lá số là gợi những câu hỏi đáng hỏi, rồi My đối chiếu với câu chuyện thật của bạn và những khung <b>tâm lý học đã được kiểm chứng</b>.
+    <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === sheetTab ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${body}
+    <div class="src"><b>Minh chứng & giới hạn.</b> Các con số được <b>tính</b> bằng thuật toán thiên văn (astronomy-engine) và quy tắc cổ truyền, không do AI đoán; My nhận chúng làm dữ kiện. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b> — một lăng kính biểu tượng. Hiện chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận hay dự báo được sự kiện; giá trị của lá số là gợi những câu hỏi đáng hỏi, rồi My đối chiếu với câu chuyện thật của bạn và những khung <b>tâm lý học đã được kiểm chứng</b>.
     <ul>${c.caveats.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  for (const btn of $('#sheet-body').querySelectorAll('[data-tab]')) btn.onclick = () => { sheetTab = btn.dataset.tab; renderSheet(); };
 }
 const sheet = $('#sheet');
 $('#btn-chart').onclick = () => { renderSheet(); sheet.hidden = false; };
