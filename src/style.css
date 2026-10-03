@@ -116,6 +116,8 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
 @media (max-width: 899px) {
   .dialog { left: 0; right: 0; width: auto; top: 50vh; padding: 0 14px calc(14px + env(safe-area-inset-bottom)); }
   #log { mask-image: linear-gradient(to bottom, transparent 0, #000 28px); -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px); }
+  .chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 2px 14px 6px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .chips::-webkit-scrollbar { display: none; } .chip { flex: none; white-space: nowrap; }
   .msg { max-width: 100%; } .msg.my { font-size: 17.5px; padding: 12px 15px; }
   .pillars { grid-template-columns: repeat(2, 1fr); } .sheet-card { padding: 22px 14px; }
   .tv { min-height: 96px; padding: 5px; font-size: 10px; } .tv-s .chinh { font-size: 12.5px; } .tv-f { font-size: 9px; } .tv-c { padding: 6px; font-size: 11px; } .tv-c h4 { font-size: 17px; }
