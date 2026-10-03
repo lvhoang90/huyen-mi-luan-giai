@@ -1,0 +1,112 @@
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Anthropic from '@anthropic-ai/sdk';
+import { normalizeProfile, buildChart } from '../src/engine/index.js';
+import { buildSystemPrompt, PHASE_LIST } from './persona.js';
+import { demoReply } from './demo.js';
+
+try { process.loadEnvFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env')); } catch {}
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const PORT = +process.env.PORT || 5173;
+const MODEL = process.env.HUYENMY_MODEL || 'claude-sonnet-5-5';
+const isProd = process.env.NODE_ENV === 'production';
+const hasKey = !!process.env.ANTHROPIC_API_KEY;
+const client = hasKey ? new Anthropic() : null;
+
+// ---- giới hạn tần suất đơn giản theo IP ----
+const hits = new Map();
+function limited(ip) {
+  const now = Date.now();
+  const arr = (hits.get(ip) ?? []).filter((t) => now - t < 60_000);
+  arr.push(now);
+  hits.set(ip, arr);
+  return arr.length > 20;
+}
+setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (!v.some((t) => now - t < 60_000)) hits.delete(k); }, 60_000).unref();
+
+const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
+
+function readBody(req, max = 64 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0; const chunks = [];
+    req.on('data', (c) => { size += c.length; if (size > max) { reject(new Error('Nội dung quá lớn')); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch { reject(new Error('JSON không hợp lệ')); } });
+    req.on('error', reject);
+  });
+}
+
+function cleanMessages(raw) {
+  if (!Array.isArray(raw) || !raw.length) throw new Error('Thiếu tin nhắn');
+  const out = [];
+  for (const m of raw.slice(-40)) {
+    if (!m || (m.role !== 'user' && m.role !== 'assistant')) continue;
+    const content = String(m.content ?? '').slice(0, 4000).trim();
+    if (!content) continue;
+    const prev = out[out.length - 1];
+    if (prev && prev.role === m.role) prev.content += '\n\n' + content; else out.push({ role: m.role, content });
+  }
+  if (!out.length || out[out.length - 1].role !== 'user') throw new Error('Tin nhắn cuối phải của người dùng');
+  if (out[0].role === 'assistant') out.unshift({ role: 'user', content: '(Cuộc trò chuyện bắt đầu.)' });
+  return out;
+}
+
+async function handleChat(req, res) {
+  const ip = req.socket.remoteAddress ?? '?';
+  if (limited(ip)) return json(res, 429, { error: 'My cần thở một chút — bạn đợi một lát rồi nói tiếp nhé.' });
+  let body;
+  try { body = await readBody(req); } catch (e) { return json(res, 400, { error: e.message }); }
+  let profile, messages, chart;
+  const phase = PHASE_LIST.includes(body.phase) ? body.phase : 'companion';
+  try { profile = normalizeProfile(body.profile); messages = cleanMessages(body.messages); chart = buildChart(profile); }
+  catch (e) { return json(res, 400, { error: e.message }); }
+
+  res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+
+  if (!client) {
+    send({ demo: true });
+    const text = demoReply({ phase, profile, chart, messages });
+    for (const part of text.match(/.{1,24}/gs)) { send({ t: part }); await new Promise((r) => setTimeout(r, 15)); }
+    send({ done: true }); return res.end();
+  }
+
+  const system = buildSystemPrompt(phase, profile, chart);
+  const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 700, system, messages });
+  res.on('close', () => { try { stream.abort(); } catch {} });
+  stream.on('text', (t) => send({ t }));
+  try { await stream.finalMessage(); send({ done: true }); }
+  catch (e) {
+    console.error('[anthropic]', e?.status ?? '', e?.message);
+    send({ error: 'Đường truyền tới My đang chập chờn. Bạn thử nói lại giúp My nhé.' });
+  }
+  res.end();
+}
+
+// ---- static / vite ----
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+let vite = null;
+if (!isProd) {
+  const { createServer } = await import('vite');
+  vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' });
+}
+function serveStatic(req, res) {
+  const dist = path.join(root, 'dist');
+  let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let file = path.normalize(path.join(dist, p));
+  if (!file.startsWith(dist)) { res.writeHead(403); return res.end(); }
+  if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(dist, 'index.html');
+  const ext = path.extname(file);
+  res.writeHead(200, { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' });
+  fs.createReadStream(file).pipe(res);
+}
+
+http.createServer(async (req, res) => {
+  const { pathname } = new URL(req.url, 'http://x');
+  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null });
+  if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });
+  if (vite) return vite.middlewares(req, res);
+  serveStatic(req, res);
+}).listen(PORT, () => console.log(`Huyền My Luận Giải — http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'})`));

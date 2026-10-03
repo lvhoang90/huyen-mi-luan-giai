@@ -1,0 +1,20 @@
+{
+  "name": "huyen-my-luan-giai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Huyền My Luận Giải — nền tảng luận giải huyền học đông-tây với nhân vật 3D và AI.",
+  "scripts": {
+    "dev": "node server/index.js",
+    "build": "vite build",
+    "start": "NODE_ENV=production node server/index.js",
+    "test": "node --test test/engine.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "three": "latest"
+  },
+  "devDependencies": {
+    "vite": "latest"
+  }
+}
