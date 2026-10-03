@@ -44,7 +44,7 @@ function measureTorso(vrm, { hips, chest, uc, neck, shX }) {
   });
   // làm mượt nhiều lượt để áo không gợn sóng
   let sm = rows;
-  for (let pass = 0; pass < 6; pass++) sm = sm.map((r, i) => { const a = sm[Math.max(0, i - 2)], b = sm[Math.min(N, i + 2)]; return { y: r.y, rx: (a.rx + r.rx * 2 + b.rx) / 4, rz: (a.rz + r.rz * 2 + b.rz) / 4, cz: (a.cz + r.cz * 2 + b.cz) / 4 }; });
+  for (let pass = 0; pass < 18; pass++) sm = sm.map((r, i) => { const a = sm[Math.max(0, i - 3)], b = sm[Math.min(N, i + 3)]; return { y: r.y, rx: (a.rx + r.rx * 2 + b.rx) / 4, rz: (a.rz + r.rz * 2 + b.rz) / 4, cz: (a.cz + r.cz * 2 + b.cz) / 4 }; });
   return { rows: sm, at(y) { const i = Math.max(0, Math.min(N, Math.round((y - y0) / dy))); return sm[i]; } };
 }
 
@@ -54,8 +54,8 @@ function fittedDress(body, { floor, top, hipY, neckY }) {
   for (let i = 0; i <= rings; i++) {
     const y = floor + (top - floor) * (i / rings);
     const m = body.at(y);
-    const k = 1.06; // áo rộng hơn da một chút
-    let rx = m.rx * k + 0.012, rz = m.rz * k + 0.012;
+    const k = 1.12; // áo rộng hơn da một chút để da không lòi qua
+    let rx = m.rx * k + 0.03, rz = m.rz * k + 0.035;
     if (y < hipY) { const f = 1 - y / hipY; rx += 0.34 * f * f + 0.02 * f; rz += 0.16 * f * f; }   // tà xòe
     if (y > neckY - 0.02) { const f = Math.min(1, (y - (neckY - 0.02)) / 0.14); rx = rx * (1 - f) + 0.074 * f; rz = rz * (1 - f) + 0.07 * f; } // cổ đứng
     for (let j = 0; j < seg; j++) { const a = (j / seg) * Math.PI * 2; pos.push(Math.cos(a) * rx, y, m.cz + Math.sin(a) * rz); }
@@ -102,10 +102,11 @@ function buildOutfit(vrm, B) {
   const flow = new THREE.Group(); B('head').add(flow);
   const crown = head.y + (neck.y < head.y ? (head.y - neck.y) * 1.9 : 0.4);
   const hairLen = crown - hips.y * 0.82;
-  const long = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.13, hairLen, 28, 10, true), hm);
-  long.scale.z = 0.55; long.position.set(0, (crown - hairLen / 2) - head.y - 0.1, -0.14); flow.add(long);
-  const caps = new THREE.Mesh(new THREE.SphereGeometry(0.2, 32, 24, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), hm);
-  caps.scale.set(1, 1.15, 0.8); caps.position.set(0, crown - head.y - 0.33, -0.12); flow.add(caps);
+  // tóc dài thon dần ở đuôi, hơi phồng quanh vai
+  const hp = [[0.0, 0], [0.13, -0.02], [0.17, -0.18], [0.2, -hairLen * 0.28], [0.2, -hairLen * 0.55], [0.15, -hairLen * 0.82], [0.06, -hairLen]].map(([r, y]) => new THREE.Vector2(r, y));
+  const hc = new THREE.SplineCurve(hp).getPoints(40).map((p) => new THREE.Vector2(Math.max(p.x, 0.001), p.y));
+  const long = new THREE.Mesh(new THREE.LatheGeometry(hc, 28), hm);
+  long.scale.set(1, 1, 0.5); long.position.set(0, crown - head.y - 0.08, -0.15); flow.add(long);
   return { group: g, flow, dims: { hips, neck, head, crown, upLen, loLen, shX } };
 }
 
