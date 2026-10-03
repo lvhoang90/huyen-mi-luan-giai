@@ -53,10 +53,10 @@ function fittedDress(body, { floor, top, hipY, neckY }) {
   const rings = 90, seg = 56, pos = [], idx = [];
   for (let i = 0; i <= rings; i++) {
     const y = floor + (top - floor) * (i / rings);
-    const m = body.at(y);
+    const m = y < hipY * 0.9 ? body.at(hipY * 0.9) : body.at(y); // tà áo: đường cong giải tích, không theo số đo hai chân
     const k = 1.12; // áo rộng hơn da một chút để da không lòi qua
-    let rx = m.rx * k + 0.03, rz = m.rz * k + 0.035;
-    if (y < hipY) { const f = 1 - y / hipY; rx += 0.34 * f * f + 0.02 * f; rz += 0.16 * f * f; }   // tà xòe
+    let rx = m.rx * k + 0.03, rz = m.rz * 1.3 + 0.045; // dày hơn ở trước/sau để không lộ ngực
+    if (y < hipY) { const f = 1 - y / hipY; rx += 0.3 * f * f + 0.02 * f; rz += 0.12 * f * f; }   // tà xòe
     if (y > neckY - 0.02) { const f = Math.min(1, (y - (neckY - 0.02)) / 0.14); rx = rx * (1 - f) + 0.074 * f; rz = rz * (1 - f) + 0.07 * f; } // cổ đứng
     for (let j = 0; j < seg; j++) { const a = (j / seg) * Math.PI * 2; pos.push(Math.cos(a) * rx, y, m.cz + Math.sin(a) * rz); }
   }
