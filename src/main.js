@@ -225,12 +225,15 @@ async function collect() {
   await ritual();
 }
 
+/** My lùi về góc trái để chừa chỗ cho phần luận giải. */
+function dock() { document.body.classList.add('docked'); }
 async function ritual() {
   const p = S.profile;
   clearComposer(); stage.cast(5.5);
   await say('[[an_ui]]*My khép mắt, đặt hai lòng bàn tay lại gần nhau. Giữa lòng tay, một đốm sáng nhỏ bừng lên…*', 2200);
   chart = buildChart(p);
   stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
+  dock();
   const y = chart.bazi.pillars.year;
   await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`, 650, true);
   await say('[[nghiem_tuc]]Nhưng My chưa vội luận. Một tấm bản đồ chỉ có nghĩa khi ta biết người cầm nó đang đi đâu.', 650, true);
@@ -408,7 +411,7 @@ async function enter(resume) {
   $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
-    chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
+    chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false; dock();
     for (const m of S.messages) { if (m.role === 'assistant') { const b = new Bubble(true); b.push(m.content); b.end(); } else showUser(m.content); }
     note('- My vẫn ở đây -');
     await say(`[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
