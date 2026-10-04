@@ -1,6 +1,7 @@
 import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
+import { createLanterns } from './lanterns.js';
 import { parseTagged, stripTags } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
@@ -10,6 +11,7 @@ const $ = (s) => document.querySelector(s);
 const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
+createLanterns($('#lanterns'));
 const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const stage = {
   setMood: (m) => character.setMood(m), setSpeaking: (v) => character.setSpeaking(v), emo: (n) => character.setEmotion(n),

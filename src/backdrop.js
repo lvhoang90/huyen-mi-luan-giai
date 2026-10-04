@@ -33,6 +33,10 @@ export function createBackdrop(canvas, wheelSvg) {
   const mkFly = (init) => ({ x: Math.random(), y: init ? Math.random() : 1.05, v: rand(0.012, 0.04), p: rand(0, 6.28), s: rand(5, 16), tinted: Math.random() < 0.45 });
   const mkPetal = (init) => ({ x: Math.random(), y: init ? Math.random() : -0.05, v: rand(0.02, 0.05), p: rand(0, 6.28), s: rand(5, 11), rot: rand(0, 6.28) });
   const flies = Array.from({ length: REDUCED ? 14 : 44 }, () => mkFly(true)), petals = Array.from({ length: REDUCED ? 6 : 20 }, () => mkPetal(true));
+  // Đom đóm thật: bay lượn không theo đường thẳng, tự phát sáng theo nhịp riêng, kéo đuôi sáng mờ.
+  const fireSprite = glowSprite('#d4ff6a');
+  const mkWander = () => ({ cx: Math.random(), cy: 0.12 + Math.random() * 0.82, ax: rand(0.03, 0.1), ay: rand(0.02, 0.06), fx: rand(0.12, 0.32), fy: rand(0.1, 0.26), p: rand(0, 6.28), q: rand(0, 6.28), blink: rand(0.35, 0.9), s: rand(11, 22), trail: [] });
+  const wanderers = Array.from({ length: REDUCED ? 6 : 22 }, mkWander);
   const glyphs = buildWheel(wheelSvg);
   function resize() { dpr = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
   addEventListener('resize', resize); resize();
@@ -46,6 +50,16 @@ export function createBackdrop(canvas, wheelSvg) {
       f.y -= f.v * dt * boost; f.x += Math.sin(t * 0.6 + f.p) * 0.02 * dt; if (f.y < -0.05) Object.assign(f, mkFly(false));
       ctx.globalAlpha = (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 1.7 + f.p))) * Math.min(1, f.y * 4, (1.05 - f.y) * 4 + 0.2);
       ctx.drawImage(f.tinted ? sprites.tint : sprites.gold, f.x * W - f.s, f.y * H - f.s, f.s * 2, f.s * 2);
+    }
+    for (const w of wanderers) {
+      const x = (w.cx + Math.sin(t * w.fx + w.p) * w.ax + Math.sin(t * w.fx * 2.3 + w.q) * w.ax * 0.4) * W;
+      const y = (w.cy + Math.cos(t * w.fy + w.q) * w.ay + Math.sin(t * w.fy * 1.7 + w.p) * w.ay * 0.5) * H;
+      const wave = Math.sin(t * w.blink * 2.2 + w.p);
+      const lit = Math.max(0, wave) ** 2.4 * 0.95 + 0.06; // sáng bừng rồi tắt dần như đom đóm
+      if (!REDUCED) { w.trail.push(x, y, lit); if (w.trail.length > 18) w.trail.splice(0, 3); }
+      for (let i = 0; i < w.trail.length - 3; i += 3) { ctx.globalAlpha = (i / w.trail.length) * w.trail[i + 2] * 0.35; ctx.drawImage(fireSprite, w.trail[i] - w.s * 0.35, w.trail[i + 1] - w.s * 0.35, w.s * 0.7, w.s * 0.7); }
+      ctx.globalAlpha = Math.min(1, lit); ctx.drawImage(fireSprite, x - w.s * 1.3, y - w.s * 1.3, w.s * 2.6, w.s * 2.6);
+      ctx.globalAlpha = Math.min(1, lit * 1.1); ctx.fillStyle = '#fbffd0'; ctx.beginPath(); ctx.arc(x, y, 1.7, 0, 6.283); ctx.fill();
     }
     ctx.globalAlpha = 0.85;
     for (const p of petals) {
