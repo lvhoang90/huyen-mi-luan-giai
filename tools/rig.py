@@ -207,7 +207,8 @@ def world_fx():
 
 def ear_geom(sgn):
     """Hình học tai (vẽ theo tai phải rồi lật). fill: vùng da của tai (chân tai thụt vào trong má); outer: đường viền ngoài; rim: gờ vành tai."""
-    X = lambda x: 300 + sgn * (x - 300)
+    EAR_OUT = 0.62   # độ nhô ra khỏi má (1 = ban đầu); nhỏ hơn thì tai sát mặt hơn
+    X = lambda x: 300 + sgn * ((410 + (x - 410) * EAR_OUT if x > 410 else x) - 300)
     ang = sgn * 10; cx, cy = X(414), 358
     outer = f'M {X(418)} 334 C {X(433)} 327 {X(440)} 344 {X(435)} 361 C {X(431)} 374 {X(421)} 385 {X(410)} 381'
     fill = outer + f' L {X(402)} 380 L {X(410)} 330 Z'
