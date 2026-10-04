@@ -3,8 +3,7 @@ import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
 import { parseTagged, stripTags } from './emotion-tags.js';
-import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits } from './engine/index.js';
-import { famousFor } from './engine/famous.js';
+import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { HANH } from './engine/bazi.js';
 
@@ -175,6 +174,10 @@ async function streamChat(phase, onText) {
 }
 const DEFAULT_EMO = { listen: 'lang_nghe', reading: 'nghiem_tuc', companion: 'chia_se' };
 async function aiTurn(phase) {
+  busy = true;
+  try { return await aiTurnInner(phase); } finally { busy = false; if (limitHit) closeSession(); }
+}
+async function aiTurnInner(phase) {
   stage.setMood('think'); // suy nghĩ trong lúc chờ
   const b = new Bubble(); let first = true, raw = '';
   try {
@@ -190,6 +193,48 @@ async function aiTurn(phase) {
   await b.end();
   S.messages.push({ role: 'assistant', content: stripTags(raw) }); save();
   return true;
+}
+
+// ---------------- giới hạn phiên: mỗi buổi tối đa 30 phút, rồi My nghỉ và hẹn lần sau ----------------
+const SESSION_MIN = 30, WARN_MIN = 25, COOLDOWN_MIN = 180;
+let clockTimer = 0, limitHit = false, closed = false, busy = false;
+const elapsedMin = () => (S.sessionStart ? (Date.now() - S.sessionStart) / 60000 : 0);
+const hhmm = (t) => new Date(t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+function startClock() {
+  if (!S.sessionStart) { S.sessionStart = Date.now(); S.sessions = (S.sessions ?? 0) + 1; save(); }
+  closed = limitHit = false; clearInterval(clockTimer);
+  const pill = $('#clock'), tick = () => {
+    const left = Math.ceil(SESSION_MIN - elapsedMin());
+    if (left <= SESSION_MIN - WARN_MIN) { pill.hidden = false; pill.textContent = `Còn ${Math.max(left, 0)}′`; }
+    if (left <= 0) { limitHit = true; if (!busy) closeSession(); }
+  };
+  tick(); clockTimer = setInterval(tick, 15000);
+}
+/** Những điều My thật sự chưa kể, lấy từ lá số đã tính: mỗi buổi dành một điều cho lần sau. */
+function teasers() {
+  const c = chart ?? (chart = buildChart(S.profile)), t = distinctiveTraits(S.profile, c), out = [];
+  if (c?.tuvi) out.push('cung Quan Lộc và cung Tài Bạch trong Tử Vi của bạn');
+  out.push(`năm ${c.thisYear?.year ?? 'nay'} của bạn trong thần số học và Tứ Trụ`);
+  if (t[1]) out.push(`nét này trong lá số: ${t[1]}`);
+  if (t[2]) out.push(`một nét nữa: ${t[2]}`);
+  out.push('cách ngũ hành trong Tứ Trụ của bạn cân bằng với công việc hiện tại');
+  return out;
+}
+async function closeSession() {
+  if (closed) return; closed = true; clearInterval(clockTimer); $('#clock').hidden = true;
+  clearComposer();
+  const list = teasers(), next = list[(S.sessions ?? 1) % list.length];
+  S.teaser = next; S.restUntil = Date.now() + COOLDOWN_MIN * 60000; S.sessionStart = null; save();
+  await say(`[[dong_cam]]Đã đến lúc My nghỉ một chút, ${S.profile.nickname}. Mỗi buổi My chỉ trò chuyện tối đa ${SESSION_MIN} phút, để lần nào cũng dành trọn cho bạn.`, 500);
+  await say(`[[chiem_nghiem]]Hôm nay ta đã đi được một đoạn. Còn một điều My chưa kể: **${next}**. My để dành cho lần sau, khoảng ${hhmm(S.restUntil)} My lại ngồi đây.`, 500);
+  await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
+  composer.append(h('div', { className: 'rest' }, h('span', { textContent: `My nghỉ đến ${hhmm(S.restUntil)}` })));
+}
+function restScreen() {
+  $('#veil').classList.remove('gone'); $('#dialog').hidden = true;
+  $('#veil-actions').replaceChildren(
+    h('p', { className: 'tag', textContent: `My đang nghỉ. Hẹn gặp lại lúc ${hhmm(S.restUntil)}.` }),
+    ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
 }
 
 // ---------------- hành trình ----------------
@@ -219,7 +264,8 @@ async function collect() {
       await say('[[chiem_nghiem]]Và nơi bạn chào đời? Giờ sinh chỉ có nghĩa khi gắn với một vùng trời.');
       place = await askPlace();
     }
-    try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place }); break; }
+    const field = await askField();
+    try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place, field }); break; }
     catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
   }
   S.profile = profile; save();
@@ -238,13 +284,17 @@ async function ritual() {
   dock();
   const y = chart.bazi.pillars.year;
   await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`, 650, true);
-  // Điểm chung có thật để mở chuyện: người nổi tiếng cùng ngày sinh, rồi một nét hiếm trong chính lá số.
-  const { d, m } = p.birth;
-  const f = famousFor(m, d);
-  const list = (arr) => arr.map((e) => `**${e.name}** (${e.y}, ${e.desc})`).join('; ');
-  const near = f.near.map((e) => `**${e.name}** (${e.d}/${e.m}/${e.y}, ${e.desc})`).join('; ');
-  if (f.exact.length) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người đáng nể từng chào đời: ${list(f.exact)}.${near ? ` Và sát ngày bạn: ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
+  // Điểm chung có thật để mở chuyện: cùng ngày sinh, cùng nghề, cùng năm sinh; chọn theo tuổi và lĩnh vực của người dùng.
+  const { d, m, y: by } = p.birth;
+  const pick = pickFamous(p);
+  const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
+  const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
+  if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
   else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
+  const extra = [];
+  if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
+  if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
+  if (extra.length) await say(`[[chia_se]]${extra.join(' ')}`, 650, true);
   hookTrait = distinctiveTraits(p, chart)[0] ?? null;
   if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
   const opener = `[[dong_cam]]Bạn muốn bắt đầu từ đâu, ${p.nickname}? Chạm một gợi ý bên dưới, hoặc cứ kể tự do. My ở đây, và My nghe.`;
@@ -277,6 +327,7 @@ const LENS_CHIPS = [
 async function converse() {
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
   for (;;) {
+    if (limitHit) return closeSession();
     stage.setMood('listen');
     const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : startChips()) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
     const { text, chip } = await askChat(chips);
@@ -396,6 +447,13 @@ function askCode(then) {
   input.focus();
 }
 
+/** Lĩnh vực làm việc: một lần chạm (hoặc bỏ qua), để My chọn người nổi tiếng gần gũi với bạn. */
+async function askField() {
+  await say('[[chia_se]]Một câu nhẹ thôi: bạn đang làm trong lĩnh vực nào? My sẽ chọn những người cùng đường với bạn để làm quen.');
+  const v = await ask({ kind: 'choice', chips: [...FIELD_OPTIONS.map((o) => ({ label: o.label, value: o.key })), { label: 'Khác / bỏ qua', value: '' }] });
+  return v || null;
+}
+
 /** Nơi sinh: người dùng tự gõ, My đối chiếu với dữ liệu có sẵn rồi hỏi lại cho chắc. Trả về khóa PLACES hoặc null. */
 async function askPlace() {
   const unknown = { label: 'Không rõ / sinh ở nước ngoài', value: '' };
@@ -424,16 +482,20 @@ async function askPlace() {
 async function enter(resume) {
   await ready;
   if (!OPEN) return askCode(() => enter(resume));
+  if (resume && S.restUntil && Date.now() < S.restUntil) return restScreen();
+  if (resume && S.restUntil) { S.restUntil = null; save(); }
   $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
     chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false; dock();
     for (const m of S.messages) { if (m.role === 'assistant') { const b = new Bubble(true); b.push(m.content); b.end(); } else showUser(m.content); }
     note('- My vẫn ở đây -');
-    await say(`[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
+    await say(S.teaser ? `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Lần trước My hẹn kể về **${S.teaser}**. Bạn muốn nghe luôn, hay có điều gì mới muốn nói trước?` : `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
+    if (S.teaser) { S.teaser = null; save(); }
+    startClock();
     return converse();
   }
-  S.phase = 'intro'; stage.emo('binh_thuong');
+  S.phase = 'intro'; stage.emo('binh_thuong'); startClock();
   for (const line of INTRO) await say(line, 900, true);
   await collect();
 }
@@ -445,5 +507,6 @@ if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes
     $('#veil-actions').replaceChildren(
       h('button', { className: 'btn primary', textContent: `Tiếp tục cùng ${S.profile.nickname}`, onclick: () => enter(true) }),
       h('button', { className: 'btn', textContent: 'Bắt đầu lại', onclick: () => { try { localStorage.removeItem(STORE); } catch {} S = { profile: null, messages: [], phase: 'intro' }; location.reload(); } }));
+    if (S.restUntil && Date.now() < S.restUntil) restScreen();
   } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);

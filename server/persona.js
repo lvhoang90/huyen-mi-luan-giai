@@ -82,7 +82,7 @@ const OPENERS = [
 const hash = (str) => [...str].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
 
 export function buildSystemPrompt(phase, profile, chart, messages = []) {
-  const who = JSON.stringify({ ten_goi: profile.nickname, ho_ten_khai_sinh: profile.fullName, gioi_tinh: profile.gender });
+  const who = JSON.stringify({ ten_goi: profile.nickname, ho_ten_khai_sinh: profile.fullName, gioi_tinh: profile.gender, linh_vuc_lam_viec: profile.field ?? 'chua_noi' });
   const traits = distinctiveTraits(profile, chart).map((t) => `- ${t}`).join('\n');
   const used = messages.filter((m) => m.role === 'assistant').slice(-5).map((m) => `- "${m.content.replace(/\s+/g, ' ').slice(0, 70)}…"`).join('\n');
   const style = OPENERS[hash(profile.fullName + messages.length) % OPENERS.length];

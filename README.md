@@ -15,6 +15,11 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 | **Đạo đức** | Dọa "hạn", bán giải hạn | Không nói lời tổn thương, không nói sai sự thật, không nịnh (chống hiệu ứng Barnum), không bán cúng bái, không tiên đoán bệnh/chết/đầu tư, có quy trình khi gặp khủng hoảng |
 | **Cảm xúc** | Giao diện chat phẳng | Nhân vật chibi **Huyền My** 2D (áo dài tím thêu sen, nón lá viền lông có ngôi sao ngũ hành, voan phủ) với **18 trạng thái cảm xúc**: vui, cười tít mắt, hào hứng, buồn, đồng cảm, xúc động (rơm rớm nước mắt), chia sẻ, trăn trở, chiêm nghiệm, suy nghĩ, ngạc nhiên, e thẹn, an ủi, khích lệ, tinh nghịch, nghiêm túc, lắng nghe, bình thường. Mỗi trạng thái chỉnh mắt (chớp, nháy, tròn xoe, cong tít, ướt), mày, miệng, má, tư thế tay, hướng nhìn và dáng đầu. Miệng nhép theo từng chữ My gõ ra. AI tự chọn cảm xúc cho từng đoạn bằng thẻ `[[ten]]` ẩn. Xem tất cả tại `/emotions.html` |
 
+## Mở đầu và nhịp buổi trò chuyện
+
+- **Hook mở đầu:** sau khi tính xong lá số, My kể những người nổi tiếng cùng ngày sinh (hoặc sát ngày), một người cùng lĩnh vực làm việc của bạn và người cùng năm sinh, chọn theo tuổi: người trẻ nhận ngôi sao trẻ, người lớn tuổi nhận danh nhân, nhà khoa học, nhà văn. Dữ liệu ở `src/engine/famous.js` và `famous-more.js` (khoảng 470 người, tự soạn, chưa đối chiếu nguồn mở; `tools/fetch-famous.mjs` dựng bộ đầy đủ từ Wikidata khi có mạng). My luôn nói rõ đó chỉ là điểm chung, không phải số phận.
+- **Mỗi buổi tối đa 30 phút:** còn 5 phút thì hiện đồng hồ, hết giờ My tạm biệt, nói điều thật sự chưa kể từ lá số, rồi nghỉ 3 giờ. Chỉnh `SESSION_MIN`, `WARN_MIN`, `COOLDOWN_MIN` trong `src/main.js`.
+
 ## Chạy
 
 ```bash

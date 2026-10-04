@@ -1,5 +1,6 @@
 // Người nổi tiếng theo ngày sinh dương lịch: dùng làm "điểm chung" mở đầu cuộc trò chuyện.
-// Mỗi mục: [tháng, ngày, năm, tên, mô tả ngắn, ưu tiên?]. 1 = người Việt, hiện lên trước.
+// Mỗi mục: [tháng, ngày, năm, tên, mô tả ngắn, ưu tiên?]. 1 = người Việt, hiện lên trước. Bộ bổ sung có thêm lĩnh vực: xem famous-more.js.
+import { MORE } from './famous-more.js';
 // Nguồn: tự soạn từ kiến thức phổ thông, chỉ giữ những mốc ngày sinh được ghi nhận rộng rãi (đã bỏ các trường hợp tranh cãi).
 // CHƯA đối chiếu tự động với Wikidata; xem tools/fetch-famous.mjs để dựng bộ đầy đủ khi có mạng.
 const D = [
@@ -17,21 +18,84 @@ const D = [
 [12,3,1857,'Joseph Conrad','nhà văn'],[12,4,1875,'Rainer Maria Rilke','nhà thơ'],[12,5,1901,'Walt Disney','nhà sáng lập hãng Disney'],[12,6,1896,'Ira Gershwin','nhà viết lời'],[12,7,1873,'Willa Cather','nhà văn đoạt giải Pulitzer'],[12,8,1865,'Jean Sibelius','nhà soạn nhạc'],[12,9,1608,'John Milton','nhà thơ, tác giả "Thiên đường đã mất"'],[12,10,1815,'Ada Lovelace','lập trình viên đầu tiên'],[12,11,1843,'Robert Koch','nhà vi khuẩn học đoạt giải Nobel'],[12,12,1915,'Frank Sinatra','ca sĩ'],[12,14,1503,'Nostradamus','nhà tiên tri'],[12,15,1832,'Gustave Eiffel','kỹ sư, cha đẻ tháp Eiffel'],[12,16,1775,'Jane Austen','nhà văn'],[12,18,1946,'Steven Spielberg','đạo diễn'],[12,21,1937,'Jane Fonda','diễn viên'],[12,22,1858,'Giacomo Puccini','nhà soạn nhạc'],[12,25,1821,'Clara Barton','người sáng lập Hội Chữ thập đỏ Mỹ'],[12,27,1571,'Johannes Kepler','nhà thiên văn học'],[12,28,1856,'Woodrow Wilson','tổng thống Mỹ'],[12,30,1865,'Rudyard Kipling','tác giả "Sách rừng xanh"'],[12,31,1869,'Henri Matisse','họa sĩ'],
 ];
 
-const ENTRIES = D.map(([m, d, y, name, desc, vn]) => ({ m, d, y, name, desc, vn: !!vn }));
+// Lĩnh vực suy ra từ mô tả cho bộ gốc; bộ bổ sung ghi sẵn.
+const FIELD_RULES = [
+  [/nhạc|ca sĩ|rapper|guitar|dương cầm|nghệ sĩ jazz|reggae|rock|ba lê|nhà soạn/i, 'm'], [/diễn viên|đạo diễn|phim|nghệ sĩ ảo thuật|hoạt hình/i, 'f'],
+  [/bóng|quần vợt|vận động viên|tay vợt|thể dục/i, 'p'], [/tổng thống|thủ tướng|nữ hoàng|vua |hoàng|chính khách|nhà lãnh đạo|nhà cách mạng|nhà ngoại giao|đệ nhất|tổng thư ký|công nương/i, 'g'],
+  [/doanh nhân|nhà sáng lập|nhà tư bản|nhà đầu tư|CEO/i, 'b'], [/tâm lý|phân tâm|tâm thần/i, 'y'], [/giáo dục|nhà giáo|điều dưỡng|bác sĩ|vắc-xin|vi khuẩn|vi sinh|Chữ thập đỏ/i, 'h'],
+  [/vật lý|toán|hóa học|thiên văn|sinh học|sinh lý|di truyền|nhà phát minh|kỹ sư|bác học|khám phá|phát hiện|lập trình|tên lửa|Nobel/i, 's'],
+];
+FIELD_RULES.push([/nhà văn|nhà thơ|họa sĩ|điêu khắc|kiến trúc sư|triết gia|nhà soạn kịch|nhà tiểu luận|nhà viết|tác giả|nhà tư tưởng|nhà báo/i, 'a'], [/lãnh tụ|lãnh đạo/i, 'g']);
+const fieldOf = (desc) => (FIELD_RULES.find(([re]) => re.test(desc)) ?? [null, 'x'])[1];
+const BASE = D.map(([m, d, y, name, desc, vn]) => ({ m, d, y, name, desc, vn: !!vn, f: fieldOf(desc) }));
+const EXTRA = MORE.map(([m, d, y, name, desc, f, vn]) => ({ m, d, y, name, desc, vn: !!vn, f }));
+const seen = new Set();
+const ENTRIES = [...BASE, ...EXTRA].filter((e) => { const k = e.name; if (seen.has(k)) return false; seen.add(k); return true; });
+// Những cái tên gần như ai cũng biết, kể cả người trẻ.
+const ICONS = new Set(['Albert Einstein', 'Isaac Newton', 'Hồ Chí Minh', 'Wolfgang Amadeus Mozart', 'Leonardo da Vinci', 'Steve Jobs', 'Bill Gates', 'Stephen Hawking', 'Marie Curie', 'Walt Disney', 'Elvis Presley', 'Michael Jordan', 'Napoléon Bonaparte', 'Mahatma Gandhi', 'Nelson Mandela', 'Charlie Chaplin', 'Pablo Picasso', 'Vincent van Gogh', 'Lionel Messi', 'Cristiano Ronaldo']);
+
 const dayOfYear = (m, d) => Math.round((Date.UTC(2001, m - 1, d) - Date.UTC(2001, 0, 1)) / 864e5);
 const span = (a, b) => { const x = Math.abs(a - b); return Math.min(x, 365 - x); };
 
+// Lĩnh vực của người dùng (chạm một nút) khớp với những nhóm nào của người nổi tiếng.
+export const FIELD_OPTIONS = [
+  { key: 'biz', label: 'Kinh doanh, tài chính', match: ['b'] },
+  { key: 'tech', label: 'Công nghệ', match: ['t', 's'] },
+  { key: 'edu', label: 'Giáo dục, nghiên cứu', match: ['e', 's', 'y'] },
+  { key: 'health', label: 'Y tế, chăm sóc', match: ['h', 'y'] },
+  { key: 'art', label: 'Sáng tạo, nghệ thuật, truyền thông', match: ['a', 'm', 'f', 'c'] },
+  { key: 'gov', label: 'Nhà nước, luật, chính trị', match: ['g'] },
+  { key: 'sport', label: 'Thể thao', match: ['p'] },
+  { key: 'student', label: 'Học sinh, sinh viên', match: [] },
+];
+const FIELD_NAME = Object.fromEntries(FIELD_OPTIONS.map((o) => [o.key, o.label]));
+const fieldMatch = (key, f) => !!key && !!FIELD_OPTIONS.find((o) => o.key === key)?.match.includes(f);
+
+/** Điểm "người này có gần gũi với bạn không": cùng nghề, đúng thế hệ (người trẻ biết ngôi sao trẻ, người lớn biết chính khách, nhà khoa học, nhà văn), người Việt. */
+function score(e, { age, field }) {
+  let s = e.vn ? 2 : 0;
+  if (fieldMatch(field, e.f)) s += 4;
+  if (ICONS.has(e.name)) s += 2;
+  if (age <= 26) s += e.y >= 1990 ? 3 : e.y >= 1975 ? 1.5 : 0;           // Gen Z: ca sĩ, diễn viên, KOL, cầu thủ thế hệ mình
+  else if (age <= 40) s += e.y >= 1960 && e.y <= 2003 ? 2 : 0;
+  else s += e.y < 1950 ? 3 : e.y < 1975 ? 1.5 : 0;                            // người lớn tuổi: chính khách, nhà khoa học, nhà văn, nhạc sĩ kinh điển
+  if (age > 40 && ['g', 's', 'a', 'e', 'h'].includes(e.f)) s += 1;
+  if (age > 40 && e.y >= 1985 && !ICONS.has(e.name)) s -= 3;                  // người lớn tuổi ít biết ngôi sao trẻ
+  if (age <= 26 && e.y < 1950 && !ICONS.has(e.name)) s -= 3;                  // người trẻ ít biết danh nhân xưa nếu không phải biểu tượng
+  if (age <= 26 && ['m', 'f', 'p', 'c', 't'].includes(e.f)) s += 1;
+  return s;
+}
+/** Người này có thể thế hệ bạn không biết không? (người lớn tuổi ít biết ngôi sao trẻ, người trẻ ít biết danh nhân xưa không phải biểu tượng) */
+const isKnown = (e, { age }) => ICONS.has(e.name) || !((age > 40 && e.y >= 1985) || (age <= 26 && e.y < 1950));
+const ageOf = (y, now = new Date()) => now.getFullYear() - y;
+
 /**
- * Người nổi tiếng sinh cùng ngày dương lịch; nếu chưa đủ `limit` thì bù bằng người sinh sát ngày (trong 3 ngày).
- * Trả { exact, near: [{...,gap}] }; người Việt đứng trước, rồi người sinh sớm hơn.
+ * Chọn người để mở chuyện cho một hồ sơ: { sameDay, nearDay, sameField, sameYear }.
+ * - sameDay/nearDay: cùng ngày dương lịch, bù bằng người sinh sát ngày (3 ngày) cho đủ `limit`.
+ * - sameField: một người cùng lĩnh vực của bạn sinh trong 15 ngày quanh ngày sinh (nếu có).
+ * - sameYear: người cùng năm sinh mà thế hệ bạn biết (chỉ khi bạn dưới 41 tuổi).
  */
-export function famousFor(m, d, limit = 3) {
-  const order = (a, b) => (b.vn - a.vn) || (a.y - b.y);
-  const exact = ENTRIES.filter((e) => e.m === m && e.d === d).sort(order).slice(0, limit);
-  if (exact.length >= limit) return { exact, near: [] };
+export function pickFamous(profile, limit = 3, now = new Date()) {
+  const { y, m, d } = profile.birth, ctx = { age: ageOf(y, now), field: profile.field };
   const t = dayOfYear(m, d);
-  const near = ENTRIES.map((e) => ({ ...e, gap: span(dayOfYear(e.m, e.d), t) })).filter((e) => e.gap <= 3)
-    .sort((a, b) => a.gap - b.gap || order(a, b)).filter((e) => e.gap > 0).slice(0, limit - exact.length);
-  return { exact, near };
+  const rank = (a, b) => score(b, ctx) - score(a, ctx) || a.y - b.y;
+  const withGap = ENTRIES.map((e) => ({ ...e, gap: span(dayOfYear(e.m, e.d), t) }));
+  // Cùng ngày được cộng điểm vì gần gũi nhất, nhưng người cùng ngày mà thế hệ bạn không biết có thể thua người sinh sát ngày mà bạn biết.
+  const cands = withGap.filter((e) => e.gap <= 3);
+  const known = cands.filter((e) => isKnown(e, ctx));
+  const pool = (known.length ? known : cands).map((e) => ({ e, v: score(e, ctx) + (e.gap === 0 ? 3 : 0) - e.gap * 0.3 }))
+    .sort((a, b) => b.v - a.v || a.e.gap - b.e.gap || a.e.y - b.e.y).slice(0, limit).map((x) => x.e);
+  const sameDay = pool.filter((e) => e.gap === 0), nearDay = pool.filter((e) => e.gap > 0);
+  const used = new Set([...sameDay, ...nearDay].map((e) => e.name));
+  const sameField = ctx.field && ctx.field !== 'student'
+    ? withGap.filter((e) => e.gap <= 15 && !used.has(e.name) && fieldMatch(ctx.field, e.f)).sort((a, b) => a.gap - b.gap || rank(a, b))[0] ?? null : null;
+  const sameYear = ctx.age <= 40 ? withGap.filter((e) => e.y === y && !used.has(e.name) && e.name !== sameField?.name).sort(rank).slice(0, 2) : [];
+  return { sameDay, nearDay, sameField, sameYear, fieldName: FIELD_NAME[ctx.field] ?? null };
+}
+
+/** Giữ tương thích: người nổi tiếng theo tháng/ngày, không xét hồ sơ. */
+export function famousFor(m, d, limit = 3) {
+  const r = pickFamous({ birth: { y: 1990, m, d } }, limit);
+  return { exact: r.sameDay, near: r.nearDay };
 }
 export const FAMOUS_COUNT = ENTRIES.length;
