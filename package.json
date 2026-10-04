@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
-    "@pixiv/three-vrm": "^3.5.5",
     "astronomy-engine": "^2.1.19",
     "three": "latest"
   },

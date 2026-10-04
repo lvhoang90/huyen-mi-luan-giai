@@ -6,7 +6,21 @@ import { HANH } from './engine/bazi.js';
 
 const $ = (s) => document.querySelector(s);
 const STORE = 'huyenmy.v1';
-const stage = createStage($('#stage'));
+// 3D có thể không chạy được (không có WebGL) hoặc người dùng muốn tiết kiệm pin: lùi về bản 2D.
+const NOOP = { setSpeaking() {}, setMood() {}, cast() {}, setElement() {}, setActive() {} };
+let stage3d = null;
+try { stage3d = createStage($('#stage')); } catch (e) { console.warn('[huyenmy] không dựng được 3D, dùng bản 2D:', e.message); }
+let mode = (() => { try { return localStorage.getItem('huyenmy.mode'); } catch { return null; } })() || '3d';
+if (!stage3d) mode = '2d';
+const art2d = $('#art2d');
+function applyMode() {
+  const is3d = mode === '3d' && !!stage3d;
+  stage3d?.setActive(is3d); art2d.hidden = is3d; $('#btn-mode').textContent = is3d ? '3D' : '2D';
+  try { localStorage.setItem('huyenmy.mode', mode); } catch {}
+}
+const stage = new Proxy({}, { get: (_, k) => (k === 'setSpeaking' ? (v) => { stage3d?.setSpeaking(v); art2d.classList.toggle('speaking', !!v); } : (stage3d?.[k] ?? NOOP[k])) });
+$('#btn-mode').onclick = () => { if (!stage3d) return; mode = mode === '3d' ? '2d' : '3d'; applyMode(); };
+applyMode();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------------- trạng thái ----------------

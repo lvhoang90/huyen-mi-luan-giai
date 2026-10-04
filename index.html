@@ -6,19 +6,21 @@
   <meta name="theme-color" content="#0a0a24" />
   <meta name="description" content="Huyền My Luận Giải — soi mình qua thần số học, chiêm tinh và ngũ hành, cùng một người đồng hành biết lắng nghe." />
   <title>Huyền My Luận Giải</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%231b2058'/%3E%3Ccircle cx='38' cy='28' r='14' fill='%23e9defa'/%3E%3Ccircle cx='44' cy='24' r='13' fill='%231b2058'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/svg+xml" href="/art/huyenmy-avatar.svg" />
+  <meta property="og:title" content="Huyền My Luận Giải" />
+  <meta property="og:description" content="Soi mình qua thần số, tinh tượng và ngũ hành cùng Huyền My." />
+  <meta property="og:image" content="/art/huyenmy-v2-nen.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500&display=swap&subset=vietnamese" rel="stylesheet" />
 </head>
 <body>
   <canvas id="stage" aria-hidden="true"></canvas>
+  <div id="art2d" hidden aria-hidden="true"><img src="/art/huyenmy-v2-dong-trong.svg" alt="" /></div>
 
   <div id="veil" role="dialog" aria-label="Chào mừng">
     <div class="veil-inner">
-      <div class="seal" aria-hidden="true">
-        <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="38"/><path d="M50 12v76M12 50h76" /><circle cx="50" cy="50" r="7"/></svg>
-      </div>
+      <img class="hero-art" src="/art/huyenmy-v2-dong-trong.svg" alt="Huyền My, nhân vật chibi mặc áo dài tím, đội nón lá phủ voan" width="260" height="347" />
       <h1>Huyền My <span>Luận Giải</span></h1>
       <p class="tag">Soi mình qua thần số, tinh tượng và ngũ hành —<br>cùng một người biết lắng nghe.</p>
       <div id="veil-actions"><button id="enter" class="btn primary">Bước vào</button></div>
@@ -30,6 +32,7 @@
     <div class="brand">Huyền My</div>
     <div class="tools">
       <span id="demo-badge" class="badge" hidden title="Chưa có ANTHROPIC_API_KEY trên máy chủ">chế độ demo</span>
+      <button id="btn-mode" class="icon txt" aria-label="Đổi giữa 3D và 2D" title="Đổi giữa 3D và 2D">3D</button>
       <button id="btn-chart" class="icon" hidden aria-label="Xem lá số" title="Lá số của bạn">☯</button>
       <button id="btn-sound" class="icon" aria-label="Bật giọng nói" title="Giọng nói" aria-pressed="false">♪</button>
       <button id="btn-reset" class="icon" aria-label="Bắt đầu lại" title="Bắt đầu lại">↺</button>
