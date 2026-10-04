@@ -7,6 +7,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { normalizeProfile, buildChart } from '../src/engine/index.js';
 import { buildSystemPrompt, PHASE_LIST } from './persona.js';
 import { demoReply } from './demo.js';
+import { openDb } from './db.js';
+import { createApi } from './routes.js';
 
 try { process.loadEnvFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env')); } catch {}
 
@@ -16,6 +18,9 @@ const MODEL = process.env.HUYENMY_MODEL || 'claude-sonnet-5-5';
 const isProd = process.env.NODE_ENV === 'production';
 const hasKey = !!process.env.ANTHROPIC_API_KEY;
 const client = hasKey ? new Anthropic() : null;
+const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(root, 'data'));
+const db = openDb(process.env.DATABASE_FILE || path.join(DATA_DIR, 'huyenmy.db'));
+const api = createApi({ db });
 const ACCESS_CODE = (process.env.HUYENMY_ACCESS_CODE || '').trim();   // để trống = ai cũng vào được
 
 // ---- mã truy cập: so sánh hằng thời gian, đếm lần nhập sai theo IP ----
@@ -78,6 +83,7 @@ async function handleChat(req, res) {
     if (!codeOk(req.headers['x-access-code'])) { noteFail(ip); return json(res, 401, { error: 'Cần mã truy cập để trò chuyện với My.', locked: true }); }
   }
   if (limited(ip)) return json(res, 429, { error: 'My cần thở một chút - bạn đợi một lát rồi nói tiếp nhé.' });
+  const who = api.chatGate(req, res); if (!who) return;
   let body;
   try { body = await readBody(req); } catch (e) { return json(res, 400, { error: e.message }); }
   let profile, messages, chart;
@@ -87,20 +93,26 @@ async function handleChat(req, res) {
 
   res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+  const t0 = Date.now(); let ttft = null, reply = '';
+  const lastUser = messages[messages.length - 1]?.content ?? '', prevReplies = messages.filter((m) => m.role === 'assistant').map((m) => m.content);
+  const minute = Number.isFinite(+body.minute) ? Math.min(60, Math.max(0, +body.minute)) : null;
+  const record = (ok) => { try { api.recordTurn({ actor: who.actor, sid: body.sid, phase, minute, ms: Date.now() - t0, ttft, reply, userMsg: lastUser, prevReplies, ok }); } catch (e) { console.error('[turn]', e.message); } };
 
   if (!client) {
     send({ demo: true });
     const text = demoReply({ phase, profile, chart, messages });
+    reply = text;
     for (const part of text.match(/.{1,24}/gs)) { send({ t: part }); await new Promise((r) => setTimeout(r, 15)); }
-    send({ done: true }); return res.end();
+    record(true); send({ done: true }); return res.end();
   }
 
-  const system = buildSystemPrompt(phase, profile, chart, messages);
+  const system = buildSystemPrompt(phase, profile, chart, messages, { minute });
   const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 1000, thinking: { type: 'between_tools' }, system, messages });
   res.on('close', () => { try { stream.abort(); } catch {} });
-  stream.on('text', (t) => send({ t }));
-  try { await stream.finalMessage(); send({ done: true }); }
+  stream.on('text', (t) => { if (ttft == null) ttft = Date.now() - t0; reply += t; send({ t }); });
+  try { await stream.finalMessage(); record(true); send({ done: true }); }
   catch (e) {
+    record(false);
     console.error('[anthropic]', e?.status ?? '', e?.message);
     send({ error: 'Đường truyền tới My đang chập chờn. Bạn thử nói lại giúp My nhé.' });
   }
@@ -126,10 +138,12 @@ function serveStatic(req, res) {
 }
 
 http.createServer(async (req, res) => {
-  const { pathname } = new URL(req.url, 'http://x');
-  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE });
+  let { pathname } = new URL(req.url, 'http://x');
+  if (pathname.startsWith('/api/') && await api.handle(req, res, pathname)) return;
+  if (pathname === '/admin' || pathname === '/admin/') { req.url = '/admin.html'; pathname = '/admin.html'; }
+  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn });
   if (pathname === '/api/unlock' && req.method === 'POST') return handleUnlock(req, res);
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });
   if (vite) return vite.middlewares(req, res);
   serveStatic(req, res);
-}).listen(PORT, () => console.log(`Huyền My Luận Giải - http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'}; mã truy cập: ${ACCESS_CODE ? 'BẬT' : 'tắt'})`));
+}).listen(PORT, () => console.log(`Huyền My Luận Giải - http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'}; mã truy cập: ${ACCESS_CODE ? 'BẬT' : 'tắt'}; tài khoản: ${api.accountsOn ? 'BẬT' : 'tắt'}; quản trị: ${api.adminConfigured ? 'có' : 'chưa đặt ADMIN_EMAILS'})`));

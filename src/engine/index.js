@@ -1,4 +1,5 @@
 import { natalAstro, PLACES } from './astro.js';
+import { FIELD_OPTIONS } from './famous.js';
 import { computeBazi, cungMenh, yearPillarOfYear } from './bazi.js';
 import { computeTuVi } from './tuvi.js';
 import { solarToLunar } from './lunar.js';
@@ -7,6 +8,7 @@ import { CUNG_TEN } from './tuvi.js';
 
 export { PLACES };
 export { findPlaces } from './places.js';
+export { pickFamous, famousFor, FIELD_OPTIONS } from './famous.js';
 
 /** Kiểm tra & chuẩn hóa hồ sơ người dùng. Ném Error nếu sai. */
 export function normalizeProfile(p) {
@@ -28,7 +30,8 @@ export function normalizeProfile(p) {
       throw new Error('Giờ sinh không hợp lệ');
   }
   const place = PLACES[p?.place] ? p.place : null;
-  return { fullName, nickname, gender, birth: { y, m, d, hour, minute }, place };
+  const field = FIELD_OPTIONS.some((o) => o.key === p?.field) ? p.field : null;
+  return { fullName, nickname, gender, birth: { y, m, d, hour, minute }, place, field };
 }
 
 export function buildChart(profile, now = new Date()) {

@@ -184,3 +184,20 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
   .lantern:nth-of-type(1) { left: 3% !important; top: 0 !important; } .lantern:nth-of-type(2) { left: 96% !important; top: 0 !important; }
 }
 @media (prefers-reduced-motion: reduce) { .lantern, .lantern .lamp svg, .lantern .halo, .brand .b1 { animation: none !important; } }
+
+#clock { color: #fbeecb; border-color: rgba(226, 194, 125, .55); background: rgba(226, 194, 125, .12); font-variant-numeric: tabular-nums; }
+.rest { text-align: center; color: var(--dim); font-size: 14px; padding: 10px; }
+
+/* ---- đăng ký bằng email, hộp tài khoản ---- */
+.signup { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--glass); backdrop-filter: blur(14px); }
+.su-title { margin: 0; font-family: var(--read); font-size: 16.5px; line-height: 1.5; color: #fbeecb; }
+.su-sub { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--dim); }
+.su-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--dim); }
+.su-consent input { margin-top: 3px; accent-color: var(--gold); }
+.su-msg { margin: 0; min-height: 1.2em; font-size: 13px; color: #ffb4a8; }
+.su-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn.danger { border-color: rgba(255, 138, 138, .5); color: #ffc9c0; }
+.modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(4, 4, 18, .7); backdrop-filter: blur(6px); }
+.modal-card { position: relative; width: min(460px, 100%); padding: 22px 20px 18px; border: 1px solid var(--line); border-radius: 22px; background: #14103a; display: flex; flex-direction: column; gap: 12px; }
+.modal-card .close { position: absolute; right: 10px; top: 10px; }
+.modal-card .signup { border: 0; padding: 0; background: none; backdrop-filter: none; }

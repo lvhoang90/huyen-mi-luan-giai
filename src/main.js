@@ -2,8 +2,10 @@ import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
+import { track, sessionId, ageBand } from './track.js';
+import { shareCard } from './share.js';
 import { parseTagged, stripTags } from './emotion-tags.js';
-import { normalizeProfile, buildChart, PLACES, findPlaces } from './engine/index.js';
+import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { HANH } from './engine/bazi.js';
 
@@ -22,7 +24,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------------- trạng thái ----------------
 let S = { profile: null, messages: [], phase: 'intro' };
-const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} };
+let ACCOUNT = { accounts: false, user: null, refCode: '' }, syncTimer = 0;
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} scheduleSync(); };
+/** Người dùng đã đăng nhập và đồng ý lưu: đẩy trạng thái lên máy chủ (chỉ hồ sơ, tin nhắn và nhịp buổi), gom 8 giây một lần. */
+function scheduleSync() {
+  if (!ACCOUNT.user?.consentMemory || !S.profile) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: S }) }).catch(() => {}), 8000);
+}
 const load = () => { try { return JSON.parse(localStorage.getItem(STORE)); } catch { return null; } };
 let chart = null;
 
@@ -96,7 +105,7 @@ log.addEventListener('click', () => current?.skip());
 const paceBtn = $('#btn-pace');
 const showPace = () => { paceBtn.textContent = pace === 'auto' ? '»' : '›'; paceBtn.title = pace === 'auto' ? 'Nhịp: tự động (bấm để chuyển sang chạm Tiếp)' : 'Nhịp: chạm Tiếp (bấm để chuyển sang tự động)'; paceBtn.setAttribute('aria-label', paceBtn.title); };
 showPace();
-paceBtn.onclick = () => { pace = pace === 'auto' ? 'tap' : 'auto'; try { localStorage.setItem(PACE_KEY, pace); } catch {} showPace(); note(pace === 'auto' ? 'Nhịp tự động: My sẽ tự nói tiếp sau mỗi câu.' : 'Nhịp chạm: bạn bấm "Tiếp" khi đã đọc xong.'); };
+paceBtn.onclick = () => { pace = pace === 'auto' ? 'tap' : 'auto'; try { localStorage.setItem(PACE_KEY, pace); } catch {} showPace(); track('pace_toggle', { mode: pace }); note(pace === 'auto' ? 'Nhịp tự động: My sẽ tự nói tiếp sau mỗi câu.' : 'Nhịp chạm: bạn bấm "Tiếp" khi đã đọc xong.'); };
 function showUser(text) { const d = document.createElement('div'); d.className = 'msg me'; d.textContent = text; log.append(d); scrollDown(); }
 function note(text) { const d = document.createElement('div'); d.className = 'msg note'; d.textContent = text; log.append(d); scrollDown(); }
 
@@ -156,8 +165,8 @@ const CODE_KEY = 'huyenmy.code';
 const getCode = () => { try { return localStorage.getItem(CODE_KEY) || ''; } catch { return ''; } };
 const setCode = (v) => { try { v ? localStorage.setItem(CODE_KEY, v) : localStorage.removeItem(CODE_KEY); } catch {} };
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages }) });
-  if (!res.ok) { const j = await res.json().catch(() => ({})); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()) }) });
+  if (!res.ok) { const j = await res.json().catch(() => ({})); if (j.needAuth) throw Object.assign(new Error(j.error), { needAuth: true }); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {
     const { value, done } = await reader.read(); if (done) break;
@@ -174,11 +183,16 @@ async function streamChat(phase, onText) {
 }
 const DEFAULT_EMO = { listen: 'lang_nghe', reading: 'nghiem_tuc', companion: 'chia_se' };
 async function aiTurn(phase) {
+  busy = true;
+  try { return await aiTurnInner(phase); } finally { busy = false; if (limitHit) closeSession(); }
+}
+async function aiTurnInner(phase) {
   stage.setMood('think'); // suy nghĩ trong lúc chờ
   const b = new Bubble(); let first = true, raw = '';
   try {
     await streamChat(phase, (t) => { if (first) { first = false; stage.emo(DEFAULT_EMO[phase] ?? 'binh_thuong'); } raw += t; b.push(t); });
   } catch (e) {
+    if (e.needAuth) { b.push('[[dong_cam]]' + e.message); await b.end(); S.messages.pop(); save(); signupGate('limit'); return false; }
     stage.emo('tran_tro');
     if (!raw) b.push(e.message || 'Đường truyền chập chờn, bạn thử lại giúp My nhé.');
     else b.push('\n\n*(đường truyền bị ngắt giữa chừng)*');
@@ -191,6 +205,175 @@ async function aiTurn(phase) {
   return true;
 }
 
+// ---------------- giới hạn phiên: mỗi buổi tối đa 30 phút, rồi My nghỉ và hẹn lần sau ----------------
+const SESSION_MIN = 30, WARN_MIN = 25, COOLDOWN_MIN = 180;
+let clockTimer = 0, limitHit = false, closed = false, busy = false;
+const elapsedMin = () => (S.sessionStart ? (Date.now() - S.sessionStart) / 60000 : 0);
+const hhmm = (t) => new Date(t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+function startClock() {
+  if (!S.sessionStart) { S.sessionStart = Date.now(); S.sessions = (S.sessions ?? 0) + 1; save(); }
+  closed = limitHit = false; clearInterval(clockTimer);
+  const pill = $('#clock'), tick = () => {
+    const left = Math.ceil(SESSION_MIN - elapsedMin());
+    if (left <= SESSION_MIN - WARN_MIN) { if (pill.hidden) track('warn_shown'); pill.hidden = false; pill.textContent = `Còn ${Math.max(left, 0)}′`; }
+    if (left <= 0) { limitHit = true; if (!busy) closeSession(); }
+  };
+  tick(); clockTimer = setInterval(tick, 15000);
+}
+/** Những điều My thật sự chưa kể, lấy từ lá số đã tính: mỗi buổi dành một điều cho lần sau. */
+function teasers() {
+  const c = chart ?? (chart = buildChart(S.profile)), t = distinctiveTraits(S.profile, c), out = [];
+  if (c?.tuvi) out.push('cung Quan Lộc và cung Tài Bạch trong Tử Vi của bạn');
+  out.push(`năm ${c.thisYear?.year ?? 'nay'} của bạn trong thần số học và Tứ Trụ`);
+  if (t[1]) out.push(`nét này trong lá số: ${t[1]}`);
+  if (t[2]) out.push(`một nét nữa: ${t[2]}`);
+  out.push('cách ngũ hành trong Tứ Trụ của bạn cân bằng với công việc hiện tại');
+  return out;
+}
+async function closeSession() {
+  if (closed) return; closed = true; clearInterval(clockTimer); $('#clock').hidden = true;
+  clearComposer();
+  const list = teasers(), next = list[(S.sessions ?? 1) % list.length];
+  const spent = Math.round(elapsedMin() || SESSION_MIN);
+  S.teaser = next; S.restUntil = Date.now() + COOLDOWN_MIN * 60000; S.sessionStart = null; save();
+  await say(`[[dong_cam]]Đã đến lúc My nghỉ một chút, ${S.profile.nickname}. Mỗi buổi My chỉ trò chuyện tối đa ${SESSION_MIN} phút, để lần nào cũng dành trọn cho bạn.`, 500);
+  await say(`[[chiem_nghiem]]Hôm nay ta đã đi được một đoạn. Còn một điều My chưa kể: **${next}**. My để dành cho lần sau, khoảng ${hhmm(S.restUntil)} My lại ngồi đây.`, 500);
+  track('session_close', { min: spent });
+  await askNps();
+  await signupGate('close');
+  await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
+  clearComposer(); composer.append(h('div', { className: 'rest' }, h('span', { textContent: `My nghỉ đến ${hhmm(S.restUntil)}` })));
+}
+function restScreen() {
+  track('rest_view');
+  $('#veil').classList.remove('gone'); $('#dialog').hidden = true;
+  $('#veil-actions').replaceChildren(
+    h('p', { className: 'tag', textContent: `My đang nghỉ. Hẹn gặp lại lúc ${hhmm(S.restUntil)}.` }),
+    ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
+}
+
+// ---------------- tài khoản (email), đánh giá, chia sẻ ----------------
+async function apiJson(path, method = 'GET', body) {
+  const r = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, ...j };
+}
+/** Biểu mẫu đăng ký tối giản trong `host`: email, mã 6 số, một ô đồng ý lưu trò chuyện (mặc định không chọn). `done(bool)` khi xong hoặc bỏ qua. */
+function buildSignup(host, { title, done, canSkip = true }) {
+  host.replaceChildren();
+  const msg = h('p', { className: 'su-msg', role: 'alert' });
+  const email = h('input', { className: 'field', type: 'email', placeholder: 'Email của bạn', autocomplete: 'email', inputMode: 'email', maxLength: 120, ariaLabel: 'Email' });
+  const consent = h('input', { type: 'checkbox', id: 'su-consent' });
+  const go = h('button', { className: 'btn primary', textContent: 'Gửi mã vào email' });
+  const skip = h('button', { className: 'btn', textContent: 'Để sau', onclick: () => { track('signup_skip'); done(false); } });
+  const code = h('input', { className: 'field', placeholder: 'Mã 6 số', autocomplete: 'one-time-code', inputMode: 'numeric', maxLength: 6, ariaLabel: 'Mã xác nhận' });
+  const ok = h('button', { className: 'btn primary', textContent: 'Xác nhận' });
+  const again = h('button', { className: 'btn', textContent: 'Gửi lại mã' });
+  const step1 = () => {
+    host.replaceChildren(
+      h('p', { className: 'su-title', textContent: title }),
+      h('p', { className: 'su-sub', textContent: 'Không cần mật khẩu. My chỉ gửi một mã 6 số để xác nhận email của bạn.' }),
+      h('div', { className: 'row' }, email),
+      h('label', { className: 'su-consent', htmlFor: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
+      msg, h('div', { className: 'su-actions' }, go, ...(canSkip ? [skip] : [])));
+    email.focus();
+  };
+  const step2 = () => {
+    host.replaceChildren(
+      h('p', { className: 'su-title', textContent: `My đã gửi mã tới ${email.value.trim()}` }),
+      h('p', { className: 'su-sub', textContent: 'Mã có hiệu lực 10 phút. Nếu chưa thấy, bạn xem cả thư mục thư rác nhé.' }),
+      h('div', { className: 'row' }, code), msg,
+      h('div', { className: 'su-actions' }, ok, again, h('button', { className: 'btn', textContent: 'Đổi email', onclick: () => { msg.textContent = ''; step1(); } })));
+    code.focus();
+  };
+  go.onclick = async () => {
+    msg.textContent = ''; go.disabled = true; track('signup_submit');
+    const r = await apiJson('/api/auth/request', 'POST', { email: email.value });
+    go.disabled = false;
+    if (!r.ok) { msg.textContent = r.error || 'Chưa gửi được mã, bạn thử lại nhé.'; return; }
+    step2();
+  };
+  again.onclick = async () => { const r = await apiJson('/api/auth/request', 'POST', { email: email.value }); msg.textContent = r.ok ? 'My đã gửi lại mã.' : (r.error || 'Chưa gửi lại được.'); };
+  const verify = async () => {
+    msg.textContent = ''; ok.disabled = true;
+    const wantsMemory = consent.checked;
+    const r = await apiJson('/api/auth/verify', 'POST', { email: email.value, code: code.value, consentMemory: wantsMemory });
+    ok.disabled = false;
+    if (!r.ok) { msg.textContent = r.error || 'Chưa xác nhận được.'; return; }
+    ACCOUNT.user = r.user; track('signup_verified', { isNew: !!r.isNew });
+    if (wantsMemory) { ACCOUNT.user.consentMemory = true; scheduleSync(); }
+    done(true);
+  };
+  ok.onclick = verify; code.onkeydown = (e) => e.key === 'Enter' && verify(); email.onkeydown = (e) => e.key === 'Enter' && go.click();
+  step1();
+}
+/** Gắn email sớm, ngay sau điều thú vị đầu tiên: My đề nghị gửi chính điều vừa kể vào hộp thư và nhớ bạn. Không bắt buộc. */
+async function earlySignup(lines) {
+  if (!ACCOUNT.accounts || ACCOUNT.user) return;
+  await say('[[chia_se]]Điều vừa rồi mới là phần mở đầu thôi. Bạn để lại email, My gửi chính những điều vừa kể vào hộp thư và nhớ bạn cho lần gặp sau nhé? Không cần mật khẩu, và bạn bỏ qua cũng không sao.', 300);
+  track('signup_view', { why: 'hook' });
+  await new Promise((resolve) => {
+    clearComposer();
+    const host = h('div', { className: 'signup' }); composer.append(host);
+    buildSignup(host, {
+      title: 'Nhận điều thú vị này qua email',
+      done: async (created) => { clearComposer(); if (created) { apiJson('/api/account/hook', 'POST', { lines }).then((r) => note(r.ok ? 'My đã gửi vào email của bạn.' : 'My chưa gửi được email, bạn xem lại sau nhé.')); } resolve(created); },
+    });
+  });
+}
+/** Cổng đăng ký sau buổi đầu 30 phút, hoặc khi máy chủ yêu cầu. Trả về promise khi xong hoặc bỏ qua. */
+function signupGate(why) {
+  if (!ACCOUNT.accounts || ACCOUNT.user) return Promise.resolve(!!ACCOUNT.user);
+  track('signup_view', { why });
+  return new Promise((resolve) => {
+    clearComposer();
+    const host = h('div', { className: 'signup' }); composer.append(host);
+    buildSignup(host, {
+      title: why === 'limit' ? 'Tạo tài khoản để My nhớ bạn và hẹn buổi sau' : 'Giữ lại buổi hôm nay và hẹn lần sau',
+      done: async (created) => { clearComposer(); if (created) await say(`[[vui]]Cảm ơn bạn, ${S.profile?.nickname ?? ''}. My đã ghi nhớ bạn. Lần sau My kể tiếp điều đã hứa nhé.`, 300); resolve(created); },
+    });
+  });
+}
+async function askNps() {
+  await say('[[lang_nghe]]Một câu cuối thôi: bạn có muốn giới thiệu My cho bạn bè không? Chọn từ 0 (không) đến 10 (chắc chắn).', 300);
+  const v = await ask({ kind: 'choice', chips: [...Array.from({ length: 11 }, (_, i) => ({ label: String(i), value: i })), { label: 'Bỏ qua', value: '' }] });
+  if (v !== '') track('nps', { value: v });
+}
+async function askResonance() {
+  await say('[[lang_nghe]]Điều My vừa nói có đúng với bạn không? Bạn cứ nói thật, My không phật lòng đâu.', 300);
+  const v = await ask({ kind: 'choice', chips: [{ label: 'Rất đúng với mình', value: 3 }, { label: 'Gần đúng', value: 2 }, { label: 'Chưa đúng lắm', value: 1 }, { label: 'Bỏ qua', value: '' }] });
+  if (v === '') return;
+  track('resonance', { value: v });
+  await say(v === 3 ? '[[xuc_dong]]Cảm ơn bạn. Đoạn nào chạm bạn nhất, bạn kể My nghe nhé? My cũng có thể làm một tấm thẻ nhỏ để bạn lưu hoặc gửi bạn bè.' : v === 2 ? '[[suy_nghi]]Cảm ơn bạn. Phần nào chưa thật khớp với bạn? Bạn nói ra, My sẽ soi lại cho đúng hơn.' : '[[dong_cam]]Cảm ơn bạn đã nói thẳng, điều đó quý với My. Phần nào My nói chưa đúng với bạn? Lá số chỉ là tấm gương, và gương có thể soi lệch.', 300);
+  if (v === 3) { const c = await ask({ kind: 'choice', chips: [{ label: 'Tạo thẻ chia sẻ', value: 'card' }, { label: 'Để sau', value: '' }] }); if (c === 'card') await doShare(); }
+}
+async function doShare() {
+  const f = pickFamous(S.profile).sameDay[0] ?? pickFamous(S.profile).nearDay[0];
+  const r = await shareCard({ nickname: S.profile.nickname, element: chart?.bazi.dayMaster.hanh, trait: hookTrait, famous: f?.name, url: `${location.origin}/?ref=${ACCOUNT.refCode}` });
+  track('share_card', { action: r });
+  note(r === 'saved' ? 'Thẻ đã được tải về máy bạn.' : r === 'shared' ? 'Đã mở chia sẻ.' : 'Bạn chưa chia sẻ thẻ.');
+}
+function openAccount() {
+  if ($('.modal')) return;
+  const close = () => $('.modal')?.remove();
+  const card = h('div', { className: 'modal-card', role: 'dialog', ariaLabel: 'Tài khoản' });
+  const host = h('div', { className: 'signup' });
+  const render = () => {
+    card.replaceChildren(h('button', { className: 'icon close', textContent: '×', ariaLabel: 'Đóng', onclick: close }));
+    if (!ACCOUNT.user) { card.append(host); buildSignup(host, { title: 'Đăng nhập hoặc đăng ký bằng email', canSkip: false, done: () => render() }); return; }
+    const u = ACCOUNT.user;
+    card.append(h('p', { className: 'su-title', textContent: u.email }),
+      h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
+      h('div', { className: 'su-actions' },
+        h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
+        h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; close(); } }),
+        h('button', { className: 'btn danger', textContent: 'Xóa tài khoản và dữ liệu', onclick: (e) => { if (e.target.dataset.sure) { apiJson('/api/account/delete', 'POST').then(() => { ACCOUNT.user = null; try { localStorage.removeItem(STORE); } catch {} location.reload(); }); } else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa'; } } })));
+  };
+  render();
+  document.body.append(h('div', { className: 'modal', onclick: (e) => e.target.classList.contains('modal') && close() }, card));
+}
+$('#btn-account').onclick = openAccount;
+
 // ---------------- hành trình ----------------
 const INTRO = [
   '[[vui]]Chào bạn, người lữ khách đã tìm đến đây.',
@@ -202,33 +385,40 @@ async function collect() {
   S.phase = 'collect'; save();
   await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
   const fullName = await ask({ placeholder: 'Họ và tên khai sinh', validate: (v) => v.length >= 2 && /\p{L}/u.test(v) });
-  await say(`[[vui]]Cảm ơn bạn. Còn khi trò chuyện, bạn muốn My gọi bạn là gì cho thân tình?`);
-  const last = fullName.trim().split(/\s+/).pop();
-  const nickname = await ask({ placeholder: 'Tên gọi thân mật', chips: [last] });
-  await say(`[[e_then]]${nickname} nhé. [[lang_nghe]]Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
+  track('intake_step', { step: 'name' });
+  const nickname = fullName.trim().split(/\s+/).pop(); // My gọi bằng tên cuối, đỡ một câu hỏi
+  await say(`[[e_then]]Rất vui được gặp ${nickname}. [[lang_nghe]]Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
   const gender = await ask({ kind: 'choice', chips: [{ label: 'Nữ', value: 'nu' }, { label: 'Nam', value: 'nam' }, { label: 'Không muốn nói', value: 'khac' }] });
+  track('intake_step', { step: 'gender' });
   let profile;
   for (;;) {
     await say('[[chia_se]]Ngày tháng năm sinh dương lịch của bạn? Bạn không cần quy ra âm lịch, My sẽ tự đối chiếu theo tiết khí thật của trời đất.');
     const date = await ask({ kind: 'date' });
     const [y, m, d] = date.split('-').map(Number);
+    track('intake_step', { step: 'date' });
     await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
     const time = await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] });
+    track('intake_step', { step: 'time' });
     let hour = null, minute = null; if (time) [hour, minute] = time.split(':').map(Number);
     let place = null;
     if (time) {
       await say('[[chiem_nghiem]]Và nơi bạn chào đời? Giờ sinh chỉ có nghĩa khi gắn với một vùng trời.');
       place = await askPlace();
     }
-    try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place }); break; }
+    track('intake_step', { step: 'place' });
+    const field = await askField();
+    track('intake_step', { step: 'field' });
+    try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place, field }); break; }
     catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
   }
   S.profile = profile; save();
+  track('intake_done', { ageBand: ageBand(profile.birth.y), field: profile.field ?? 'none', hasTime: profile.birth.hour != null, hasPlace: !!profile.place });
   await ritual();
 }
 
 /** My lùi về góc trái để chừa chỗ cho phần luận giải. */
 function dock() { document.body.classList.add('docked'); }
+let hookTrait = null;
 async function ritual() {
   const p = S.profile;
   clearComposer(); stage.cast(5.5);
@@ -238,8 +428,26 @@ async function ritual() {
   dock();
   const y = chart.bazi.pillars.year;
   await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`, 650, true);
-  await say('[[nghiem_tuc]]Nhưng My chưa vội luận. Một tấm bản đồ chỉ có nghĩa khi ta biết người cầm nó đang đi đâu.', 650, true);
-  const opener = `[[dong_cam]]Hãy kể cho My nghe: điều gì đã khiến bạn tìm đến đây hôm nay, ${p.nickname}? Cứ kể như đang nói với một người bạn tin, không cần sắp xếp. My ở đây, và My nghe.`;
+  // Điểm chung có thật để mở chuyện: cùng ngày sinh, cùng nghề, cùng năm sinh; chọn theo tuổi và lĩnh vực của người dùng.
+  const { d, m, y: by } = p.birth;
+  const pick = pickFamous(p);
+  const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
+  const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
+  const plain = (t) => stripTags(t).replace(/\*/g, '');
+  const hookLines = [];
+  if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
+  else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
+  if (same) hookLines.push(plain(`Ngày ${d}/${m} có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''}`)); else if (near) hookLines.push(plain(`Sát ngày ${d}/${m} có: ${near}.`));
+  track('hook_shown', { same: pick.sameDay.length, near: pick.nearDay.length, field: !!pick.sameField, year: pick.sameYear.length > 0 });
+  const extra = [];
+  if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
+  if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
+  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); hookLines.push(plain(extra.join(' '))); }
+  hookTrait = distinctiveTraits(p, chart)[0] ?? null;
+  if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
+  if (hookTrait) hookLines.push(`Nét hiếm trong lá số của bạn: ${hookTrait}.`);
+  await earlySignup(hookLines);
+  const opener = `[[dong_cam]]Bạn muốn bắt đầu từ đâu, ${p.nickname}? Chạm một gợi ý bên dưới, hoặc cứ kể tự do. My ở đây, và My nghe.`;
   await say(opener, 200);
   S.messages = [{ role: 'assistant', content: stripTags(opener) }]; S.phase = 'listen'; save();
   await converse();
@@ -250,6 +458,12 @@ const READ_LENS = [
   { label: 'Luận theo Tử Vi', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tử Vi Đẩu Số giúp mình.', action: 'read' },
   { label: 'Luận theo Tứ Trụ', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tứ Trụ giúp mình.', action: 'read' },
   { label: 'Luận theo Chiêm tinh', value: 'Mình đã kể xong rồi. Mời My luận giải theo chiêm tinh phương Tây giúp mình.', action: 'read' },
+];
+const startChips = () => [
+  ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
+  { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
+  { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },
+  { label: 'Một chuyện đang làm mình rối', value: 'Dạo này có một chuyện đang làm mình rối.' },
 ];
 const FOLLOW_CHIPS = ['Về con đường sự nghiệp của mình', 'Về chuyện tình cảm', 'Năm nay của mình có gì đáng lưu tâm?', 'Điều đang làm mình rối nhất'];
 const LENS_CHIPS = [
@@ -263,16 +477,22 @@ const LENS_CHIPS = [
 async function converse() {
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
   for (;;) {
+    if (limitHit) return closeSession();
     stage.setMood('listen');
-    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : []) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
+    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : startChips()) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
     const { text, chip } = await askChat(chips);
+    const sc = userTurns === 0 && S.phase === 'listen' ? startChips().find((c) => c.value === text) : null;
+    if (userTurns === 0) track('first_message', { viaChip: !!sc });
+    if (sc) track('start_choice', { chip: sc.label });
     showUser(text); S.messages.push({ role: 'user', content: text }); userTurns++;
+    track('message_sent', { n: userTurns });
     const reading = S.phase === 'listen' && chip;
-    if (reading) { stage.cast(4); }
+    if (reading) { stage.cast(4); track('reading_requested'); }
     save();
     const ok = await aiTurn(reading ? 'reading' : S.phase);
     if (!ok) { userTurns--; continue; }
-    if (reading) S.phase = 'companion'; save();
+    if (reading) { S.phase = 'companion'; save(); track('reading_received'); await askResonance(); }
+    save();
   }
 }
 
@@ -350,7 +570,7 @@ function renderSheet() {
   for (const btn of $('#sheet-body').querySelectorAll('[data-tab]')) btn.onclick = () => { sheetTab = btn.dataset.tab; renderSheet(); };
 }
 const sheet = $('#sheet');
-$('#btn-chart').onclick = () => { renderSheet(); sheet.hidden = false; };
+$('#btn-chart').onclick = () => { track('chart_open'); renderSheet(); sheet.hidden = false; };
 $('#sheet-close').onclick = () => (sheet.hidden = true);
 sheet.onclick = (e) => { if (e.target === sheet) sheet.hidden = true; };
 addEventListener('keydown', (e) => e.key === 'Escape' && (sheet.hidden = true));
@@ -368,10 +588,21 @@ async function tryCode(code) {
   return (await r.json().catch(() => ({}))).error || 'Chưa mở được, bạn thử lại nhé.';
 }
 // Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
-const ready = fetch('/api/status').then((r) => r.json()).then(async (s) => {
+const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/[^\w-]/g, '').slice(0, 20);
+track('landing_view', { ref: urlRef });
+const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
+  ACCOUNT = { accounts: !!me.accounts, user: me.user ?? null, refCode: me.refCode ?? '' };
+  $('#btn-account').hidden = !ACCOUNT.accounts;
+  // Đăng nhập trên thiết bị mới: lấy lại cuộc trò chuyện đã lưu nếu người dùng đã đồng ý.
+  if (ACCOUNT.user?.consentMemory && !load()?.profile) {
+    const r = await apiJson('/api/state');
+    if (r.state?.profile) { try { S = { ...r.state, profile: normalizeProfile(r.state.profile) }; save(); offerResume(); } catch {} }
+  }
+}).catch(() => {});
+const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async (s) => {
   $('#demo-badge').hidden = s.ai;
   LOCKED = !!s.locked; OPEN = !LOCKED || (!!getCode() && (await tryCode(getCode())) === null);
-}).catch(() => {});
+}).catch(() => {}), meReady]);
 function askCode(then) {
   if ($('.code-box')) return;
   const input = h('input', { type: 'password', className: 'code-input', placeholder: 'Mã truy cập', autocomplete: 'off', ariaLabel: 'Mã truy cập' });
@@ -380,6 +611,13 @@ function askCode(then) {
   input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
   $('#veil-actions').before(h('div', { className: 'code-box' }, h('p', { className: 'code-hint', textContent: 'Phòng này cần mã truy cập.' }), input, h('button', { className: 'btn', textContent: 'Mở cửa', onclick: submit }), msg));
   input.focus();
+}
+
+/** Lĩnh vực làm việc: một lần chạm (hoặc bỏ qua), để My chọn người nổi tiếng gần gũi với bạn. */
+async function askField() {
+  await say('[[chia_se]]Một câu nhẹ thôi: bạn đang làm trong lĩnh vực nào? My sẽ chọn những người cùng đường với bạn để làm quen.');
+  const v = await ask({ kind: 'choice', chips: [...FIELD_OPTIONS.map((o) => ({ label: o.label, value: o.key })), { label: 'Khác / bỏ qua', value: '' }] });
+  return v || null;
 }
 
 /** Nơi sinh: người dùng tự gõ, My đối chiếu với dữ liệu có sẵn rồi hỏi lại cho chắc. Trả về khóa PLACES hoặc null. */
@@ -408,28 +646,35 @@ async function askPlace() {
 }
 
 async function enter(resume) {
+  track(resume ? 'resume_click' : 'enter_click');
+  if (resume && (S.sessions ?? 0) >= 1) track('return_visit', { n: S.sessions });
   await ready;
   if (!OPEN) return askCode(() => enter(resume));
+  if (resume && S.restUntil && Date.now() < S.restUntil) return restScreen();
+  if (resume && S.restUntil) { S.restUntil = null; save(); }
   $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
     chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false; dock();
     for (const m of S.messages) { if (m.role === 'assistant') { const b = new Bubble(true); b.push(m.content); b.end(); } else showUser(m.content); }
     note('- My vẫn ở đây -');
-    await say(`[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
+    await say(S.teaser ? `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Lần trước My hẹn kể về **${S.teaser}**. Bạn muốn nghe luôn, hay có điều gì mới muốn nói trước?` : `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
+    if (S.teaser) { S.teaser = null; save(); }
+    startClock();
     return converse();
   }
-  S.phase = 'intro'; stage.emo('binh_thuong');
+  S.phase = 'intro'; stage.emo('binh_thuong'); startClock();
   for (const line of INTRO) await say(line, 900, true);
   await collect();
 }
 
+function offerResume() {
+  $('#veil-actions').replaceChildren(
+    h('button', { className: 'btn primary', textContent: `Tiếp tục cùng ${S.profile.nickname}`, onclick: () => enter(true) }),
+    h('button', { className: 'btn', textContent: 'Bắt đầu lại', onclick: () => { try { localStorage.removeItem(STORE); } catch {} S = { profile: null, messages: [], phase: 'intro' }; location.reload(); } }));
+  if (S.restUntil && Date.now() < S.restUntil) restScreen();
+}
 const saved = load();
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {
-  try {
-    S = { ...saved, profile: normalizeProfile(saved.profile) };
-    $('#veil-actions').replaceChildren(
-      h('button', { className: 'btn primary', textContent: `Tiếp tục cùng ${S.profile.nickname}`, onclick: () => enter(true) }),
-      h('button', { className: 'btn', textContent: 'Bắt đầu lại', onclick: () => { try { localStorage.removeItem(STORE); } catch {} S = { profile: null, messages: [], phase: 'intro' }; location.reload(); } }));
-  } catch { $('#enter').onclick = () => enter(false); }
+  try { S = { ...saved, profile: normalizeProfile(saved.profile) }; offerResume(); } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);
