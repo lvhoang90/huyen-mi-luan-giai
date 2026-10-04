@@ -8,7 +8,7 @@ body:
       value: |
         Mã nguồn công khai để đọc. Mọi việc khác (chạy bản công khai, sao chép, chỉnh sửa, phân phối, thương mại, dùng nhân vật hoặc logo, dùng để huấn luyện mô hình) cần được tác giả **cho phép bằng văn bản trước khi làm**. Xem [LICENSE](../blob/HEAD/LICENSE).
 
-        **Issue này là công khai.** Đừng đăng số điện thoại, email riêng, giấy tờ hay thông tin nhạy cảm. Tác giả sẽ trả lời ngay tại đây và, nếu cần, hẹn một kênh riêng.
+        **Issue này là công khai.** Đừng đăng số điện thoại, email riêng, giấy tờ hay thông tin nhạy cảm. Tác giả sẽ trả lời ngay tại đây. Yêu cầu riêng tư (hợp đồng, thương mại, thông tin nhạy cảm) hãy gửi email tới **luongviethoang.hcm@gmail.com** thay vì đăng ở đây.
   - type: input
     id: who
     attributes:
