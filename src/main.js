@@ -1,26 +1,21 @@
 import './style.css';
-import { createStage } from './stage.js';
+import { createCharacter } from './character.js';
+import { createBackdrop } from './backdrop.js';
+import { parseTagged, stripTags } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { HANH } from './engine/bazi.js';
 
 const $ = (s) => document.querySelector(s);
 const STORE = 'huyenmy.v1';
-// 3D có thể không chạy được (không có WebGL) hoặc người dùng muốn tiết kiệm pin: lùi về bản 2D.
-const NOOP = { setSpeaking() {}, setMood() {}, cast() {}, setElement() {}, setActive() {} };
-let stage3d = null;
-try { stage3d = createStage($('#stage')); } catch (e) { console.warn('[huyenmy] không dựng được 3D, dùng bản 2D:', e.message); }
-let mode = (() => { try { return localStorage.getItem('huyenmy.mode'); } catch { return null; } })() || '3d';
-if (!stage3d) mode = '2d';
-const art2d = $('#art2d');
-function applyMode() {
-  const is3d = mode === '3d' && !!stage3d;
-  stage3d?.setActive(is3d); art2d.hidden = is3d; $('#btn-mode').textContent = is3d ? '3D' : '2D';
-  try { localStorage.setItem('huyenmy.mode', mode); } catch {}
-}
-const stage = new Proxy({}, { get: (_, k) => (k === 'setSpeaking' ? (v) => { stage3d?.setSpeaking(v); art2d.classList.toggle('speaking', !!v); } : (stage3d?.[k] ?? NOOP[k])) });
-$('#btn-mode').onclick = () => { if (!stage3d) return; mode = mode === '3d' ? '2d' : '3d'; applyMode(); };
-applyMode();
+const character = createCharacter($('#char'));
+const backdrop = createBackdrop($('#stage'), $('#wheel'));
+const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
+const stage = {
+  setMood: (m) => character.setMood(m), setSpeaking: (v) => character.setSpeaking(v), emo: (n) => character.setEmotion(n),
+  cast: (sec) => { character.cast(sec); backdrop.cast(sec); },
+  setElement: (name) => { const c = ELEMENT_COLOR[name]; if (c) { character.setElement(c); backdrop.setElement(name, c); } },
+};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------------- trạng thái ----------------
@@ -35,51 +30,42 @@ const md = (t) => esc(t).split(/\n{2,}/).map((p) => `<p>${p.replace(/\*\*(.+?)\*
 const log = $('#log');
 const scrollDown = () => { log.scrollTop = log.scrollHeight; };
 
-// ---------------- giọng nói (tùy chọn) ----------------
-let soundOn = false, ttsBusy = 0, typing = false;
-const syncSpeaking = () => stage.setSpeaking(typing || ttsBusy > 0);
-function speak(text) {
-  if (!soundOn || !('speechSynthesis' in window)) return;
-  const clean = text.replace(/\*/g, '').trim(); if (!clean) return;
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'vi-VN'; u.rate = 0.92; u.pitch = 1.05;
-  const v = speechSynthesis.getVoices().find((x) => x.lang?.toLowerCase().startsWith('vi')); if (v) u.voice = v;
-  ttsBusy++; syncSpeaking();
-  u.onend = u.onerror = () => { ttsBusy = Math.max(0, ttsBusy - 1); syncSpeaking(); };
-  speechSynthesis.speak(u);
-}
-$('#btn-sound').onclick = (e) => {
-  soundOn = !soundOn; e.currentTarget.setAttribute('aria-pressed', soundOn);
-  if (!soundOn) { speechSynthesis?.cancel(); ttsBusy = 0; syncSpeaking(); }
-};
+// Huyền My chỉ trò chuyện bằng chữ: miệng mấp máy theo từng chữ hiện ra, không dùng giọng đọc.
+let typing = false;
+const syncSpeaking = () => stage.setSpeaking(typing);
 
 // ---------------- bong bóng của Huyền My (gõ chữ dần) ----------------
 class Bubble {
   constructor(instant = false) {
     this.el = document.createElement('div'); this.el.className = 'msg my' + (instant ? '' : ' typing');
-    log.append(this.el); this.full = ''; this.shown = 0; this.ended = false; this.instant = instant;
+    log.append(this.el); this.raw = ''; this.shown = 0; this.fired = 0; this.ended = false; this.instant = instant; this.talking = false;
     this.done = new Promise((r) => (this.resolve = r));
-    if (instant) return;
-    typing = true; syncSpeaking();
-    this.timer = setInterval(() => this.tick(), 30);
+    if (!instant) this.timer = setInterval(() => this.tick(), 30);
   }
-  push(t) { this.full += t; if (this.instant) this.render(); }
+  get text() { return parseTagged(this.raw).text; }
+  push(t) {
+    this.raw += t;
+    if (this.instant) return this.render();
+    if (!this.talking) { this.talking = true; typing = true; syncSpeaking(); } // miệng chỉ động khi đã có chữ để nói
+  }
   tick() {
-    const backlog = this.full.length - this.shown;
+    const p = parseTagged(this.raw), backlog = p.text.length - this.shown;
     if (backlog > 0) {
-      this.shown += backlog > 160 ? 8 : backlog > 70 ? 4 : backlog > 24 ? 2 : 1;
-      this.render();
-    } else if (this.ended) this.finish();
+      const prev = this.shown;
+      this.shown = Math.min(p.text.length, this.shown + (backlog > 160 ? 8 : backlog > 70 ? 4 : backlog > 24 ? 2 : 1));
+      character.feed(p.text.slice(prev, this.shown)); this.fire(p); this.render(p);
+    } else if (this.ended) this.finish(p);
   }
-  render() {
-    let t = this.instant ? this.full : this.full.slice(0, this.shown);
-    if (this.shown < this.full.length && (t.match(/\*/g) ?? []).length % 2) t += '*'; // đóng tạm dấu nghiêng khi đang gõ dở
+  fire(p) { while (this.fired < p.events.length && p.events[this.fired].pos <= this.shown) stage.emo(p.events[this.fired++].emo); }
+  render(p = parseTagged(this.raw)) {
+    let t = this.instant ? p.text : p.text.slice(0, this.shown);
+    if (!this.instant && this.shown < p.text.length && (t.match(/\*/g) ?? []).length % 2) t += '*'; // đóng tạm dấu nghiêng khi đang gõ dở
     this.el.innerHTML = md(t); scrollDown();
   }
   end() { this.ended = true; if (this.instant) { this.render(); this.resolve(); } return this.done; }
-  finish() {
-    clearInterval(this.timer); this.el.classList.remove('typing'); this.render();
-    typing = false; syncSpeaking(); speak(this.full); this.resolve();
+  finish(p) {
+    clearInterval(this.timer); this.el.classList.remove('typing'); this.shown = p.text.length; this.fire(p); this.render(p);
+    if (this.talking) { typing = false; syncSpeaking(); } this.resolve();
   }
 }
 async function say(text, pause = 650) { const b = new Bubble(); b.push(text); await b.end(); await sleep(pause); }
@@ -159,55 +145,56 @@ async function streamChat(phase, onText) {
     }
   }
 }
+const DEFAULT_EMO = { listen: 'lang_nghe', reading: 'nghiem_tuc', companion: 'chia_se' };
 async function aiTurn(phase) {
-  stage.setMood('think');
-  const b = new Bubble(); let first = true, full = '';
+  stage.setMood('think'); // suy nghĩ trong lúc chờ
+  const b = new Bubble(); let first = true, raw = '';
   try {
-    await streamChat(phase, (t) => { if (first) { first = false; stage.setMood('idle'); } full += t; b.push(t); });
+    await streamChat(phase, (t) => { if (first) { first = false; stage.emo(DEFAULT_EMO[phase] ?? 'binh_thuong'); } raw += t; b.push(t); });
   } catch (e) {
-    if (!full) b.push(e.message || 'Đường truyền chập chờn, bạn thử lại giúp My nhé.');
+    stage.emo('tran_tro');
+    if (!raw) b.push(e.message || 'Đường truyền chập chờn, bạn thử lại giúp My nhé.');
     else b.push('\n\n*(đường truyền bị ngắt giữa chừng)*');
-    stage.setMood('idle');
     await b.end();
-    if (!full) { S.messages.pop(); save(); } // bỏ tin nhắn chưa được trả lời để người dùng gửi lại
+    if (!raw) { S.messages.pop(); save(); } // bỏ tin nhắn chưa được trả lời để người dùng gửi lại
     return false;
   }
   await b.end();
-  S.messages.push({ role: 'assistant', content: full }); save();
+  S.messages.push({ role: 'assistant', content: stripTags(raw) }); save();
   return true;
 }
 
 // ---------------- hành trình ----------------
 const INTRO = [
-  'Chào bạn — người lữ khách đã tìm đến đây.',
-  'Tôi là Huyền My. Tôi giữ lại những gì còn sót của một dòng truyền thừa xưa: thần số, tinh tượng, âm dương ngũ hành.',
-  'My không nói trước điều chưa đến, cũng không nói điều bạn chỉ muốn nghe. My chỉ soi lại tấm bản đồ mà trời đất khẽ đặt vào ngày bạn sinh ra, để bạn nhìn mình rõ hơn.',
+  '[[vui]]Chào bạn, người lữ khách đã tìm đến đây.',
+  '[[chiem_nghiem]]Tôi là Huyền My. Tôi giữ lại những gì còn sót của một dòng truyền thừa xưa: thần số, tinh tượng, âm dương ngũ hành.',
+  '[[nghiem_tuc]]My không nói trước điều chưa đến, cũng không nói điều bạn chỉ muốn nghe. [[chia_se]]My chỉ soi lại tấm bản đồ mà trời đất khẽ đặt vào ngày bạn sinh ra, để bạn nhìn mình rõ hơn.',
 ];
 
 async function collect() {
-  S.phase = 'collect'; save(); stage.setMood('listen');
-  await say('Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
+  S.phase = 'collect'; save();
+  await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
   const fullName = await ask({ placeholder: 'Họ và tên khai sinh', validate: (v) => v.length >= 2 && /\p{L}/u.test(v) });
-  await say(`Cảm ơn bạn. Còn khi trò chuyện, bạn muốn My gọi bạn là gì cho thân tình?`);
+  await say(`[[vui]]Cảm ơn bạn. Còn khi trò chuyện, bạn muốn My gọi bạn là gì cho thân tình?`);
   const last = fullName.trim().split(/\s+/).pop();
   const nickname = await ask({ placeholder: 'Tên gọi thân mật', chips: [last] });
-  await say(`${nickname} nhé. Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
+  await say(`[[e_then]]${nickname} nhé. [[lang_nghe]]Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
   const gender = await ask({ kind: 'choice', chips: [{ label: 'Nữ', value: 'nu' }, { label: 'Nam', value: 'nam' }, { label: 'Không muốn nói', value: 'khac' }] });
   let profile;
   for (;;) {
-    await say('Ngày tháng năm sinh dương lịch của bạn? Bạn không cần quy ra âm lịch — My sẽ tự đối chiếu theo tiết khí thật của trời đất.');
+    await say('[[chia_se]]Ngày tháng năm sinh dương lịch của bạn? Bạn không cần quy ra âm lịch, My sẽ tự đối chiếu theo tiết khí thật của trời đất.');
     const date = await ask({ kind: 'date' });
     const [y, m, d] = date.split('-').map(Number);
-    await say('Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao — My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
+    await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
     const time = await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] });
     let hour = null, minute = null; if (time) [hour, minute] = time.split(':').map(Number);
     let place = null;
     if (time) {
-      await say('Và nơi bạn chào đời? Giờ sinh chỉ có nghĩa khi gắn với một vùng trời.');
+      await say('[[chiem_nghiem]]Và nơi bạn chào đời? Giờ sinh chỉ có nghĩa khi gắn với một vùng trời.');
       place = (await ask({ kind: 'place', chips: [{ label: 'Không rõ / sinh ở nước ngoài', value: '' }] })) || null;
     }
     try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place }); break; }
-    catch (e) { await say(`Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
+    catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
   }
   S.profile = profile; save();
   await ritual();
@@ -215,17 +202,16 @@ async function collect() {
 
 async function ritual() {
   const p = S.profile;
-  clearComposer(); stage.setMood('think'); stage.cast(5.5);
-  await say('*My khép mắt, đặt hai lòng bàn tay lại gần nhau. Giữa lòng tay, một đốm sáng nhỏ bừng lên…*', 2200);
+  clearComposer(); stage.cast(5.5);
+  await say('[[an_ui]]*My khép mắt, đặt hai lòng bàn tay lại gần nhau. Giữa lòng tay, một đốm sáng nhỏ bừng lên…*', 2200);
   chart = buildChart(p);
   stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
-  stage.setMood('idle');
   const y = chart.bazi.pillars.year;
-  await say(`Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} — ${chart.bazi.napAmYear.image}. Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`);
-  await say('Nhưng My chưa vội luận. Một tấm bản đồ chỉ có nghĩa khi ta biết người cầm nó đang đi đâu.');
-  const opener = `Hãy kể cho My nghe: điều gì đã khiến bạn tìm đến đây hôm nay, ${p.nickname}? Cứ kể như đang nói với một người bạn tin, không cần sắp xếp. My ở đây, và My nghe.`;
+  await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`);
+  await say('[[nghiem_tuc]]Nhưng My chưa vội luận. Một tấm bản đồ chỉ có nghĩa khi ta biết người cầm nó đang đi đâu.');
+  const opener = `[[dong_cam]]Hãy kể cho My nghe: điều gì đã khiến bạn tìm đến đây hôm nay, ${p.nickname}? Cứ kể như đang nói với một người bạn tin, không cần sắp xếp. My ở đây, và My nghe.`;
   await say(opener, 200);
-  S.messages = [{ role: 'assistant', content: opener }]; S.phase = 'listen'; save();
+  S.messages = [{ role: 'assistant', content: stripTags(opener) }]; S.phase = 'listen'; save();
   await converse();
 }
 
@@ -269,12 +255,12 @@ function tabTuTru(c) {
   const b = c.bazi;
   const pill = (label, pl, dm) => pl
     ? `<div class="pillar ${dm ? 'dm' : ''}"><div class="lbl">${label}</div><div class="nm">${pl.name}</div><div class="el">${el(pl.hanhCan)} · ${el(pl.hanhChi)}</div></div>`
-    : `<div class="pillar"><div class="lbl">${label}</div><div class="nm">—</div><div class="el">không rõ giờ</div></div>`;
+    : `<div class="pillar"><div class="lbl">${label}</div><div class="nm"> - </div><div class="el">không rõ giờ</div></div>`;
   const max = Math.max(...Object.values(b.elements.counts), 1);
   const bars = HANH.map((k) => `<div class="bar"><span class="${k}">${k}</span><i><b style="width:${(b.elements.counts[k] / max) * 100}%;background:${ELC[k]}"></b></i><span>${b.elements.counts[k]}</span></div>`).join('');
   return `<h3>Tứ Trụ <small>theo tiết khí thật · tầng Tính toán</small></h3>
     <div class="pillars">${pill('Giờ', b.pillars.hour)}${pill('Ngày', b.pillars.day, true)}${pill('Tháng', b.pillars.month)}${pill('Năm', b.pillars.year)}</div>
-    <p class="sub" style="margin-top:10px">Nhật chủ <b>${b.dayMaster.can}</b> (${el(b.dayMaster.hanh)}, ${b.dayMaster.yang ? 'dương' : 'âm'}) · sinh tháng ${b.pillars.month.chi}, ${b.elements.inSeason ? 'đắc lệnh' : 'không đắc lệnh'} · thân ${b.elements.strength} <i>(tham khảo)</i><br>Nạp âm năm: <b>${b.napAmYear.name}</b> — ${b.napAmYear.image}${c.cungMenh ? ` · Cung mệnh: <b>${c.cungMenh.name}</b> (${el(c.cungMenh.hanh)}, ${c.cungMenh.nhom})` : ''}</p>
+    <p class="sub" style="margin-top:10px">Nhật chủ <b>${b.dayMaster.can}</b> (${el(b.dayMaster.hanh)}, ${b.dayMaster.yang ? 'dương' : 'âm'}) · sinh tháng ${b.pillars.month.chi}, ${b.elements.inSeason ? 'đắc lệnh' : 'không đắc lệnh'} · thân ${b.elements.strength} <i>(tham khảo)</i><br>Nạp âm năm: <b>${b.napAmYear.name}</b> - ${b.napAmYear.image}${c.cungMenh ? ` · Cung mệnh: <b>${c.cungMenh.name}</b> (${el(c.cungMenh.hanh)}, ${c.cungMenh.nhom})` : ''}</p>
     <h3>Ngũ hành <small>can + chi chính khí</small></h3><div class="bars">${bars}</div>
     <p class="sub" style="margin-top:8px">${b.elements.missing.length ? 'Vắng: ' + b.elements.missing.map(el).join(', ') + '. ' : 'Đủ cả năm hành. '}Trội: ${el(b.elements.dominant)}.${b.elements.balancing.length ? ' Hướng cân bằng gợi ý: ' + b.elements.balancing.map(el).join(' / ') + '.' : ''}</p>`;
 }
@@ -290,7 +276,7 @@ function tabTuVi(c) {
     const rest = [...p.phu].map((s) => `<span>${s}</span>`).join('') + p.sat.map((s) => `<span class="sat">${s}</span>`).join('');
     return `<div class="tv ${pos === t.menh ? 'menh' : ''}"><div class="tv-h"><i>${p.can} ${p.chi}</i><em>${p.name}${p.isThan ? ' · Thân' : ''}</em></div>
       <div class="tv-s">${stars || '<span class="dim">vô chính diệu</span>'}</div><div class="tv-o">${rest}</div>
-      <div class="tv-f">${p.hoa.map((h) => `<u class="${h.slice(5)}">${h}</u>`).join('')}<span>${p.truongSinh}</span>${p.daiHan ? `<span>${p.daiHan[0]}–${p.daiHan[1]}</span>` : ''}</div></div>`;
+      <div class="tv-f">${p.hoa.map((h) => `<u class="${h.slice(5)}">${h}</u>`).join('')}<span>${p.truongSinh}</span>${p.daiHan ? `<span>${p.daiHan[0]}-${p.daiHan[1]}</span>` : ''}</div></div>`;
   };
   const center = `<div class="tv-c"><h4>${esc(S.profile.nickname)}</h4><p>Âm lịch ${c.lunar.day}/${c.lunar.month}${c.lunar.leap ? ' nhuận' : ''}/${t.lunar.year}<br>${t.lunar.canChiYear}</p><p><b>${t.cuc.ten}</b><br>${t.amDuong}</p><p>Thân cư ${t.thanCu}</p></div>`;
   const grid = order.map((pos, i) => pos === null ? (i === 5 ? center : '') : cellHtml(pos)).join('');
@@ -300,12 +286,12 @@ function tabTuVi(c) {
 
 function tabAstro(c) {
   const a = c.astro;
-  const rows = a.planets.map((p) => `<tr><td>${p.name}</td><td>${p.sign}${p.uncertain ? ' ?' : ''}</td><td>${p.degree}°${p.retrograde ? ' ℞' : ''}</td><td>${p.house ? 'Nhà ' + p.house : '—'}</td></tr>`).join('');
+  const rows = a.planets.map((p) => `<tr><td>${p.name}</td><td>${p.sign}${p.uncertain ? ' ?' : ''}</td><td>${p.degree}°${p.retrograde ? ' ℞' : ''}</td><td>${p.house ? 'Nhà ' + p.house : '-'}</td></tr>`).join('');
   return `<h3>Chiêm tinh <small>tropical · astronomy-engine · nhà cung nguyên</small></h3>
     <div class="grid">
       ${cell('Mặt Trời', a.sun.name + (a.sunUncertain ? ' ?' : ''), `${a.sun.element} · ${a.sun.degree}°`)}
       ${cell('Mặt Trăng', a.moon.name + (a.moonUncertain ? ' ?' : ''), a.moonUncertain ? 'thiếu giờ sinh nên chưa chắc' : `${a.moon.element} · ${a.moon.degree}°`)}
-      ${cell('Cung mọc', a.asc ? a.asc.name : '—', a.asc ? `${a.asc.element} · ${a.asc.degree}°` : 'cần giờ và nơi sinh')}
+      ${cell('Cung mọc', a.asc ? a.asc.name : '-', a.asc ? `${a.asc.element} · ${a.asc.degree}°` : 'cần giờ và nơi sinh')}
     </div>
     <table class="tbl"><thead><tr><th>Thiên thể</th><th>Cung</th><th>Độ</th><th>Nhà</th></tr></thead><tbody>${rows}</tbody></table>
     ${a.aspects.length ? `<p class="sub" style="margin-top:10px">Góc chiếu chặt: ${a.aspects.slice(0, 6).map((x) => `${x.a} ${x.type.toLowerCase()} ${x.b}`).join(' · ')}.</p>` : ''}`;
@@ -329,7 +315,7 @@ function renderSheet() {
     <p class="sub">${esc(p.fullName)} · ${p.birth.d}/${p.birth.m}/${p.birth.y}${p.birth.hour !== null ? ` · ${String(p.birth.hour).padStart(2, '0')}:${String(p.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === sheetTab ? 'on' : ''}">${l}</button>`).join('')}</div>
     ${body}
-    <div class="src"><b>Minh chứng & giới hạn.</b> Các con số được <b>tính</b> bằng thuật toán thiên văn (astronomy-engine) và quy tắc cổ truyền, không do AI đoán; My nhận chúng làm dữ kiện. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b> — một lăng kính biểu tượng. Hiện chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận hay dự báo được sự kiện; giá trị của lá số là gợi những câu hỏi đáng hỏi, rồi My đối chiếu với câu chuyện thật của bạn và những khung <b>tâm lý học đã được kiểm chứng</b>.
+    <div class="src"><b>Minh chứng & giới hạn.</b> Các con số được <b>tính</b> bằng thuật toán thiên văn (astronomy-engine) và quy tắc cổ truyền, không do AI đoán; My nhận chúng làm dữ kiện. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b> - một lăng kính biểu tượng. Hiện chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận hay dự báo được sự kiện; giá trị của lá số là gợi những câu hỏi đáng hỏi, rồi My đối chiếu với câu chuyện thật của bạn và những khung <b>tâm lý học đã được kiểm chứng</b>.
     <ul>${c.caveats.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
   for (const btn of $('#sheet-body').querySelectorAll('[data-tab]')) btn.onclick = () => { sheetTab = btn.dataset.tab; renderSheet(); };
 }
@@ -349,16 +335,15 @@ fetch('/api/status').then((r) => r.json()).then((s) => { $('#demo-badge').hidden
 
 async function enter(resume) {
   $('#veil').classList.add('gone'); $('#dialog').hidden = false;
-  speechSynthesis?.getVoices?.();
   await sleep(900);
   if (resume) {
     chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
     for (const m of S.messages) { if (m.role === 'assistant') { const b = new Bubble(true); b.push(m.content); b.end(); } else showUser(m.content); }
-    note('— My vẫn ở đây —');
-    await say(`Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
+    note('- My vẫn ở đây -');
+    await say(`[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
     return converse();
   }
-  S.phase = 'intro'; stage.setMood('idle');
+  S.phase = 'intro'; stage.emo('binh_thuong');
   for (const line of INTRO) await say(line, 900);
   await collect();
 }

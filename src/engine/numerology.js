@@ -23,7 +23,7 @@ export function computeNumerology({ fullName, y, m, d }, now = new Date()) {
   const birthDay = d <= 31 ? (MASTER.has(d) ? d : reduce(d)) : reduce(d);
   const maturity = reduce(lifePath + expression);
   const personalYear = reduce(reduce(d) + reduce(m) + reduce(now.getFullYear()));
-  // Năng lực thiếu: chữ số 1–9 không xuất hiện trong tên.
+  // Năng lực thiếu: chữ số 1-9 không xuất hiện trong tên.
   const present = new Set([...name].filter((c) => MAP[c]).map((c) => MAP[c]));
   const missingDigits = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((n) => !present.has(n));
   return { lifePath, expression, soul, personality, birthDay, maturity, personalYear, missingDigits, normalizedName: name };

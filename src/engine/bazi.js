@@ -149,7 +149,7 @@ export function cungMenh(baziYear, gender) {
   return { so: n, ...QUAI[n] };
 }
 
-/** Trụ của một năm dương lịch (lưu niên) — dùng cho "năm nay". */
+/** Trụ của một năm dương lịch (lưu niên) - dùng cho "năm nay". */
 export function yearPillarOfYear(y) {
   return pillar(((y - 4) % 10 + 10) % 10, ((y - 4) % 12 + 12) % 12);
 }

@@ -1,4 +1,4 @@
-// Thiên văn học xấp xỉ (Meeus, độ chính xác thấp) — đủ để xác định cung hoàng đạo,
+// Thiên văn học xấp xỉ (Meeus, độ chính xác thấp) - đủ để xác định cung hoàng đạo,
 // tiết khí (cho Tứ Trụ) và cung mọc. Không cần dữ liệu ngoài.
 import * as Astronomy from 'astronomy-engine';
 
@@ -15,12 +15,12 @@ export function julianDay(y, m, d, hUT = 0) {
   return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5 + hUT / 24;
 }
 
-/** Số ngày Julian (nguyên) của ngày dương lịch — dùng cho Can Chi ngày. */
+/** Số ngày Julian (nguyên) của ngày dương lịch - dùng cho Can Chi ngày. */
 export function julianDayNumber(y, m, d) {
   return Math.round(julianDay(y, m, d, 12));
 }
 
-/** Kinh độ hoàng đạo thực (of date) — astronomy-engine (VSOP87 / ELP), sai số < 0,01°. */
+/** Kinh độ hoàng đạo thực (of date) - astronomy-engine (VSOP87 / ELP), sai số < 0,01°. */
 export function sunLongitude(jd) { return norm(Astronomy.SunPosition(timeOfJD(jd)).elon); }
 export function moonLongitude(jd) { return norm(Astronomy.Ecliptic(Astronomy.GeoVector('Moon', timeOfJD(jd), true)).elon); }
 
@@ -65,7 +65,7 @@ export const SIGNS = [
   { name: 'Song Ngư', en: 'Pisces', element: 'Nước', mode: 'Linh hoạt' },
 ];
 
-/** Khoảng cách (độ) tới ranh giới cung gần nhất — để cảnh báo khi sát ranh. */
+/** Khoảng cách (độ) tới ranh giới cung gần nhất - để cảnh báo khi sát ranh. */
 export function signEdgeDistance(lon) {
   const r = lon % 30;
   return Math.min(r, 30 - r);
@@ -105,7 +105,7 @@ const ASPECTS = [['Hợp', 0, 8], ['Đối', 180, 8], ['Tam hợp', 120, 6], ['V
 
 /**
  * Chiêm tinh tropical: Mặt Trời → Diêm Vương, nhà cung nguyên (whole sign), góc chiếu chính.
- * hour = null: dùng 12:00 UT+7 — Mặt Trăng/ cung mọc/ nhà không đáng tin, được đánh dấu.
+ * hour = null: dùng 12:00 UT+7 - Mặt Trăng/ cung mọc/ nhà không đáng tin, được đánh dấu.
  */
 export function natalAstro({ y, m, d, hour, minute }, placeKey) {
   const known = hour !== null && hour !== undefined;

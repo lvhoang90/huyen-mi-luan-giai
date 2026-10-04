@@ -8,12 +8,11 @@
     "dev": "node server/index.js",
     "build": "vite build",
     "start": "NODE_ENV=production node server/index.js",
-    "test": "node --test test/engine.test.js test/lunar-tuvi.test.js"
+    "test": "node --test test/engine.test.js test/lunar-tuvi.test.js test/emotion-tags.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
-    "astronomy-engine": "^2.1.19",
-    "three": "latest"
+    "astronomy-engine": "^2.1.19"
   },
   "devDependencies": {
     "vite": "latest"

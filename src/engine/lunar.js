@@ -1,5 +1,5 @@
 // Lịch âm Việt Nam tính trực tiếp từ thiên văn (trăng non + Đông chí/trung khí),
-// múi giờ UTC+8 trước 1968 và UTC+7 từ 1968 — đúng thông lệ lịch âm Việt Nam.
+// múi giờ UTC+8 trước 1968 và UTC+7 từ 1968 - đúng thông lệ lịch âm Việt Nam.
 import * as Astronomy from 'astronomy-engine';
 import { julianDayNumber } from './astro.js';
 

@@ -55,7 +55,7 @@ function cleanMessages(raw) {
 
 async function handleChat(req, res) {
   const ip = req.socket.remoteAddress ?? '?';
-  if (limited(ip)) return json(res, 429, { error: 'My cần thở một chút — bạn đợi một lát rồi nói tiếp nhé.' });
+  if (limited(ip)) return json(res, 429, { error: 'My cần thở một chút - bạn đợi một lát rồi nói tiếp nhé.' });
   let body;
   try { body = await readBody(req); } catch (e) { return json(res, 400, { error: e.message }); }
   let profile, messages, chart;
@@ -109,4 +109,4 @@ http.createServer(async (req, res) => {
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });
   if (vite) return vite.middlewares(req, res);
   serveStatic(req, res);
-}).listen(PORT, () => console.log(`Huyền My Luận Giải — http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'})`));
+}).listen(PORT, () => console.log(`Huyền My Luận Giải - http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'})`));

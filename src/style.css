@@ -125,12 +125,13 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; } }
 
 /* ---- chế độ 2D & avatar ---- */
-.icon.txt { font-size: 12px; letter-spacing: .04em; width: auto; min-width: 38px; padding: 0 10px; }
-#art2d { position: fixed; z-index: 1; left: calc((100% - var(--panel)) / 2); top: 50%; transform: translate(-50%, -50%); height: min(88vh, 760px); pointer-events: none; }
-#art2d img { height: 100%; width: auto; display: block; filter: drop-shadow(0 18px 40px rgba(138, 107, 255, .35)); animation: bob 6s ease-in-out infinite; }
-#art2d.speaking img { animation: talk .7s ease-in-out infinite; }
-@keyframes talk { 50% { transform: translateY(-6px) rotate(.6deg); } }
+#stage-area { position: fixed; z-index: 1; left: calc((100% - var(--panel)) / 2); top: 50%; transform: translate(-50%, -50%); height: min(92vh, 820px); aspect-ratio: 3 / 4; pointer-events: none; }
+#stage-area::before { content: ""; position: absolute; inset: 0 -34% 10% -34%; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--tint, #8a6bff) 38%, transparent) 0%, transparent 62%); opacity: .8; transition: opacity 1s; }
+.casting #stage-area::before { opacity: 1; animation: pulse 1s ease-in-out infinite; }
+#wheel { position: absolute; left: 50%; top: 42%; width: 170%; transform: translate(-50%, -50%); opacity: .34; animation: spin 180s linear infinite; }
+@keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+#char { position: relative; height: 100%; } #char svg { height: 100%; width: auto; display: block; margin: 0 auto; overflow: visible; filter: drop-shadow(0 18px 40px rgba(138, 107, 255, .3)); }
 .msg.my { position: relative; padding-left: 62px; }
 .msg.my::before { content: ""; position: absolute; left: 12px; top: 12px; width: 38px; height: 38px; border-radius: 50%; background: #1c1348 url(/art/huyenmy-avatar.svg) center / 150% no-repeat; border: 1px solid rgba(226, 194, 125, .55); }
 .msg.my + .msg.my::before { visibility: hidden; }
-@media (max-width: 899px) { .brand { font-size: 19px; } .badge { font-size: 10px; padding: 3px 8px; } #art2d { left: 50%; top: 27%; height: 44vh; } .msg.my { padding-left: 56px; } .msg.my::before { left: 10px; width: 34px; height: 34px; } }
+@media (max-width: 899px) { .brand { font-size: 19px; } .badge { font-size: 10px; padding: 3px 8px; } #stage-area { left: 50%; top: 27%; height: 44vh; } .msg.my { padding-left: 56px; } .msg.my::before { left: 10px; width: 34px; height: 34px; } }

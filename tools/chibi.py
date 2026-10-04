@@ -1,4 +1,4 @@
-# Bộ sinh ảnh vector Huyền My (v2: tóc đen tuyền, mái thẳng, nón vòm thanh, voan trùm nón, sao ngũ hành, sen cách điệu; có bản chuyển động). Chạy: python3 tools/chibi.py public/art
+# Bộ sinh ảnh vector Huyền My (bản đã chốt). Chạy: python3 tools/chibi.py art
 # Bộ sinh ảnh vector Huyền My (chibi). Chạy: python3 tools/chibi.py public/art
 import math, sys
 
@@ -270,7 +270,13 @@ def svg(bg=False, veil=False, anim=False):
              '@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style>')
     return head+css+character(veil,anim)+'\n</svg>\n'
 
-open(sys.argv[1]+'/huyenmy-v2.svg','w').write(svg(False,True))
-open(sys.argv[1]+'/huyenmy-v2-nen.svg','w').write(svg(True,True))
-open(sys.argv[1]+'/huyenmy-v2-dong.svg','w').write(svg(True,True,True))
+d=sys.argv[1]
+open(d+'/huyenmy-v2.svg','w').write(svg(False,True))
+open(d+'/huyenmy-v2-nen.svg','w').write(svg(True,True))
+open(d+'/huyenmy-v2-dong.svg','w').write(svg(True,True,True))
+trong=svg(False,True,True)
+open(d+'/huyenmy-v2-dong-trong.svg','w').write(trong)   # chuyển động, nền trong suốt: dùng trong ứng dụng
+# avatar: cắt vào khuôn mặt (nón + mặt + nơ), không chuyển động để nhẹ
+av=svg(False,True).replace('viewBox="0 0 600 800" width="600" height="800"','viewBox="150 150 300 300" width="300" height="300"')
+open(d+'/huyenmy-avatar.svg','w').write(av)
 print('ok')

@@ -44,10 +44,10 @@ export function buildChart(profile, now = new Date()) {
   if (birth.hour === null) caveats.push('Không rõ giờ sinh: bỏ Trụ Giờ và Cung Mọc; vị trí Mặt Trăng có thể lệch trong ngày.');
   if (birth.hour !== null && !profile.place) caveats.push('Không rõ nơi sinh: không tính được Cung Mọc.');
   if (bazi.monthBoundaryUncertain) caveats.push('Bạn sinh sát ranh giữa hai tiết khí: Trụ Tháng có thể đổi nếu giờ/phút sinh lệch vài giờ.');
-  if (bazi.lateRatHour) caveats.push('Sinh trong giờ Tý muộn (23:00–24:00): theo quy ước phổ biến, Trụ Ngày tính sang ngày kế.');
+  if (bazi.lateRatHour) caveats.push('Sinh trong giờ Tý muộn (23:00-24:00): theo quy ước phổ biến, Trụ Ngày tính sang ngày kế.');
   if (!tuvi) caveats.push(birth.hour === null ? 'Không rõ giờ sinh: không lập được lá số Tử Vi Đẩu Số (cần giờ sinh).' : 'Tử Vi Đẩu Số cần giới tính nam/nữ để xác định chiều đại hạn và vị trí Hỏa/Linh Tinh: chưa lập.');
-  if (tuvi) caveats.push('Tử Vi lập theo trường phái phổ biến ở Việt Nam; chưa có độ sáng (miếu/hãm) của sao, Tuần/Triệt, tiểu hạn. Giờ Tý (23h–1h) tính cùng ngày sinh dương.');
-  if (birth.y >= 1968 && birth.y <= 1975) caveats.push('Lịch âm giai đoạn 1968–1975 từng khác nhau giữa hai miền; My dùng múi giờ UTC+7.');
+  if (tuvi) caveats.push('Tử Vi lập theo trường phái phổ biến ở Việt Nam; chưa có độ sáng (miếu/hãm) của sao, Tuần/Triệt, tiểu hạn. Giờ Tý (23h-1h) tính cùng ngày sinh dương.');
+  if (birth.y >= 1968 && birth.y <= 1975) caveats.push('Lịch âm giai đoạn 1968-1975 từng khác nhau giữa hai miền; My dùng múi giờ UTC+7.');
   if (astro.moonUncertain) caveats.push('Mặt Trăng sát ranh cung và không rõ giờ sinh: cung Mặt Trăng chỉ mang tính tham khảo.');
   if (birth.y < 1976) caveats.push('Múi giờ Việt Nam từng thay đổi trước 1976; nếu giờ sinh ghi theo múi giờ khác (+8) thì kết quả có thể lệch.');
   caveats.push('Vị trí thiên thể và tiết khí tính bằng astronomy-engine (sai số dưới 0,01° với Mặt Trời); đủ cho mục đích chiêm nghiệm, không thay thế lịch vạn niên chuyên dụng.');
@@ -57,7 +57,7 @@ export function buildChart(profile, now = new Date()) {
 
 const P = (p) => (p ? `${p.name} (${p.hanhCan}/${p.hanhChi}${p.yang ? ', dương' : ', âm'})` : 'không rõ');
 
-/** Văn bản mô tả lá số — đưa vào system prompt (dữ kiện đã tính, AI không được tự bịa thêm). */
+/** Văn bản mô tả lá số - đưa vào system prompt (dữ kiện đã tính, AI không được tự bịa thêm). */
 export function describeChart(profile, chart) {
   const { bazi, numerology: n, astro, cungMenh: c, thisYear } = chart;
   const e = bazi.elements;
@@ -71,10 +71,10 @@ export function describeChart(profile, chart) {
   L.push(`- Năm hiện tại ${thisYear.year}: ${thisYear.pillar.name} (${thisYear.pillar.hanhCan}/${thisYear.pillar.hanhChi})`);
   L.push('');
   L.push('THẦN SỐ HỌC (Pythagoras):');
-  const k = (x) => `${x} — ${NUMBER_KEYWORDS[x]}`;
+  const k = (x) => `${x} - ${NUMBER_KEYWORDS[x]}`;
   L.push(`- Số chủ đạo (đường đời): ${k(n.lifePath)}`);
   L.push(`- Số biểu đạt (tên): ${k(n.expression)}; số linh hồn: ${k(n.soul)}; số nhân cách: ${k(n.personality)}`);
-  L.push(`- Số ngày sinh: ${n.birthDay}; số trưởng thành: ${n.maturity}; năm cá nhân ${thisYear.year}: ${n.personalYear} — ${PERSONAL_YEAR_THEME[n.personalYear]}`);
+  L.push(`- Số ngày sinh: ${n.birthDay}; số trưởng thành: ${n.maturity}; năm cá nhân ${thisYear.year}: ${n.personalYear} - ${PERSONAL_YEAR_THEME[n.personalYear]}`);
   L.push(`- Chữ số vắng trong tên: ${n.missingDigits.join(', ') || 'không'}`);
   L.push('');
   L.push('CHIÊM TINH (tropical):');
@@ -97,7 +97,7 @@ export function describeChart(profile, chart) {
     L.push(`- Tứ Hóa (can năm ${tv.lunar.canChiYear.split(' ')[0]}): ${Object.entries(tv.hoaAt).map(([h, v]) => `${h} → ${v.star} tại cung ${tv.palaces[v.pos].name}`).join('; ')}`);
     for (const p of tv.palaces) {
       const st = [...p.chinh, ...p.phu, ...p.sat].join(', ') || 'không có sao chính';
-      L.push(`- ${p.name} (${p.can} ${p.chi}${p.isThan ? ', Thân' : ''}${p.daiHan ? `; đại hạn ${p.daiHan[0]}–${p.daiHan[1]} tuổi` : ''}): ${st}${p.hoa.length ? ` [${p.hoa.join(', ')}]` : ''}`);
+      L.push(`- ${p.name} (${p.can} ${p.chi}${p.isThan ? ', Thân' : ''}${p.daiHan ? `; đại hạn ${p.daiHan[0]}-${p.daiHan[1]} tuổi` : ''}): ${st}${p.hoa.length ? ` [${p.hoa.join(', ')}]` : ''}`);
     }
   } else L.push('- Chưa lập được (thiếu giờ sinh hoặc giới tính).');
   L.push('');
