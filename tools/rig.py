@@ -62,53 +62,73 @@ def css():
     r.append('@media (prefers-reduced-motion:reduce){.hm *{animation:none!important}}')
     return '\n'.join(r)
 
-# ---------- cánh tay: đa giác thon dần theo đường cong vai - khuỷu - cổ tay ----------
-def arm(S, E, W, w0=26, w1=15, n=16):
-    left, right = [], []
-    for i in range(n + 1):
-        t = i / n
-        p = bez(S, E, W, t)
-        dx = 2 * (1 - t) * (E[0] - S[0]) + 2 * t * (W[0] - E[0]); dy = 2 * (1 - t) * (E[1] - S[1]) + 2 * t * (W[1] - E[1])
-        ln = math.hypot(dx, dy) or 1; nx, ny = -dy / ln, dx / ln; w = (w0 + (w1 - w0) * t) / 2
-        left.append((p[0] + nx * w, p[1] + ny * w)); right.append((p[0] - nx * w, p[1] - ny * w))
-    pts = left + right[::-1]
-    d = 'M ' + ' L '.join(f'{x:.1f} {y:.1f}' for x, y in pts) + ' Z'
-    cuff = f'M {left[-1][0]:.1f} {left[-1][1]:.1f} L {right[-1][0]:.1f} {right[-1][1]:.1f}'
-    return (f'<path d="{d}" fill="url(#adg2)" stroke="{OUT}" stroke-width="3.4" stroke-linejoin="round"/>'
-            f'<path d="{cuff}" stroke="#f6d77a" stroke-width="5" stroke-linecap="round"/>')
-def hand(x, y, rx=13, ry=12, rot=0, fist=False):
-    s = f'<g transform="translate({x} {y}) rotate({rot})"><ellipse rx="{rx}" ry="{ry}" fill="#ffdcc6" stroke="{OUT}" stroke-width="3"/>'
-    s += '<path d="M -6 -3 q 6 3 12 -1" stroke="#e8b59c" stroke-width="2" fill="none" stroke-linecap="round"/>' if not fist else '<path d="M -8 -2 h16 M -8 3 h16" stroke="#e8b59c" stroke-width="2" stroke-linecap="round"/>'
-    return s + '</g>'
+# ---------- tay: nét viền liền mạch (vai, khuỷu bo tròn), bàn tay có ngón ----------
+SK = '#ffdcc6'; SLEEVE = '#8b5fe0'; SHADE = '#e8b59c'
+def seg(P, Q, w):
+    """Một đoạn tay: nét viền tím đậm bên dưới, thân áo tím bên trên, đầu bo tròn nên nối khớp liền mạch."""
+    d = f'M {P[0]} {P[1]} L {Q[0]} {Q[1]}'
+    return d, (f'<path d="{d}" stroke="{OUT}" stroke-width="{w + 6.6}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>',
+               f'<path d="{d}" stroke="{SLEEVE}" stroke-width="{w}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+               f'<path d="{d}" stroke="#b49cf3" stroke-width="{w * 0.34:.1f}" stroke-linecap="round" fill="none" opacity=".55" transform="translate(-2.2 -1.6)"/>')
+def cuff(E, W, w):
+    dx, dy = W[0] - E[0], W[1] - E[1]; ln = math.hypot(dx, dy) or 1; nx, ny = -dy / ln, dx / ln; r = w / 2 + 1.5
+    return f'<path d="M {W[0] + nx * r:.1f} {W[1] + ny * r:.1f} L {W[0] - nx * r:.1f} {W[1] - ny * r:.1f}" stroke="#f6d77a" stroke-width="5" stroke-linecap="round"/>'
 
-HOLD_L = ((242, 478), (206, 548), (268, 578), (274, 574))
-HOLD_R = ((358, 478), (394, 548), (332, 578), (326, 574))
-def mir(a): return tuple((600 - p[0], p[1]) for p in a)
+def _fing(x, y, ang, ln, wd):
+    r = wd / 2
+    return f'<rect x="{-r}" y="{-ln}" width="{wd}" height="{ln + r}" rx="{r}" ry="{r}" transform="translate({x} {y}) rotate({ang})" fill="{SK}" stroke="{OUT}" stroke-width="2.3"/>'
+PALM = f'<path d="M -11 -2 C -12 -11 -10 -15 -9 -16 L 9 -16 C 10 -15 12 -11 11 -2 C 10 6 -10 6 -11 -2 Z" fill="{SK}" stroke="{OUT}" stroke-width="2.4" stroke-linejoin="round"/>'
+KNUCK = f'<path d="M -5 -15 v 3.5 M 0.2 -15.5 v 4 M 5.4 -15 v 3.5" stroke="{SHADE}" stroke-width="1.6" stroke-linecap="round" fill="none"/>'
+def hand(kind, x, y, rot=0, flip=False, sc=1.32):
+    """Bàn tay có ngón. Gốc cổ tay ở (0,0), ngón chỉ lên (-y); flip = tay còn lại."""
+    g = f'<g transform="translate({x} {y}) rotate({rot}) scale({-sc if flip else sc} {sc})">'
+    if kind == 'flat':      # các ngón khép
+        g += ''.join(_fing(fx, -12, 0, fl, 5.3) for fx, fl in [(-7.6, 12), (-2.6, 14.5), (2.7, 13.5), (7.8, 10.5)])
+        g += _fing(-11, -2, -40, 10.5, 6.4) + PALM + KNUCK
+    elif kind == 'spread':  # xòe năm ngón (reo, mở lòng bàn tay)
+        g += ''.join(_fing(fx, -13, an, fl, 5.3) for fx, an, fl in [(-8, -24, 11), (-3, -9, 14.5), (3, 7, 13.5), (8, 22, 10.5)])
+        g += _fing(-11, -2, -52, 10.5, 6.4) + PALM + KNUCK
+    elif kind == 'fist':    # nắm tay: bốn ngón cuộn, ngón cái vắt ngang
+        g += (f'<path d="M -11 -4 C -13 -14 -9 -21 0 -21 C 9 -21 13 -14 11 -4 C 10 4 -10 4 -11 -4 Z" fill="{SK}" stroke="{OUT}" stroke-width="2.4" stroke-linejoin="round"/>'
+              f'<path d="M -5.6 -19.5 v 10 M 0 -20.5 v 11 M 5.6 -19.5 v 10" stroke="{SHADE}" stroke-width="1.9" stroke-linecap="round" fill="none"/>'
+              f'<rect x="-12" y="-10" width="23" height="6.6" rx="3.3" transform="rotate(-8)" fill="{SK}" stroke="{OUT}" stroke-width="2.2"/>')
+    elif kind == 'point':   # chống cằm: ngón trỏ duỗi, ba ngón còn lại cuộn
+        g += _fing(-5.4, -17, -4, 14, 5.4) + (f'<path d="M -11 -4 C -13 -13 -9 -19 -2 -19 C 7 -19 13 -14 11 -4 C 10 4 -10 4 -11 -4 Z" fill="{SK}" stroke="{OUT}" stroke-width="2.4" stroke-linejoin="round"/>'
+              f'<path d="M 0 -18 v 9 M 5.8 -17 v 8" stroke="{SHADE}" stroke-width="1.8" stroke-linecap="round" fill="none"/>'
+              f'<rect x="-12" y="-9" width="22" height="6.4" rx="3.2" transform="rotate(-8)" fill="{SK}" stroke="{OUT}" stroke-width="2.2"/>')
+    return g + '</g>'
+
+def mir(P): return (600 - P[0], P[1])
+SH_L, SH_R = (244, 482), (356, 482)
+# mỗi tay: (khuỷu, cổ tay, kiểu bàn tay, góc xoay, lật?)
+def L_(E, W, kind, rot, flip=False): return (SH_L, E, W, kind, rot, flip)
+def R_(E, W, kind, rot, flip=True): return (SH_R, E, W, kind, rot, flip)
+HOLD_L = L_((212, 548), (268, 584), 'flat', 42, False)
+HOLD_R = R_((388, 548), (332, 584), 'flat', -42, True)
 POSE_SPECS = {
     'hold':   (HOLD_L, HOLD_R),
-    'heart':  (((242, 478), (204, 532), (278, 514), (284, 506)), ((358, 478), (398, 536), (312, 522), (316, 514))),
-    'clasp':  (((242, 478), (210, 542), (288, 530), (292, 524)), ((358, 478), (390, 542), (312, 530), (308, 524))),
-    'open':   (((242, 478), (200, 528), (186, 566), (182, 570)), ((358, 478), (400, 528), (414, 566), (418, 570))),
-    'chin':   (HOLD_L, ((358, 478), (406, 522), (352, 468), (346, 458))),
-    'cheer':  (((242, 478), (188, 504), (190, 428), (188, 418)), ((358, 478), (412, 504), (410, 428), (412, 418))),
-    'fist':   (HOLD_L, ((358, 478), (414, 502), (398, 436), (396, 426))),
-    'cheeks': (((242, 478), (204, 474), (240, 422), (240, 414)), ((358, 478), (396, 474), (360, 422), (360, 414))),
+    'heart':  (L_((212, 538), (280, 514), 'flat', 76, False), R_((390, 542), (318, 524), 'flat', -76, True)),
+    'clasp':  (L_((216, 546), (290, 534), 'flat', 80, False), R_((384, 546), (310, 534), 'flat', -80, True)),
+    'open':   (L_((204, 536), (176, 574), 'spread', -36, False), R_((396, 536), (424, 574), 'spread', 36, True)),
+    'chin':   (HOLD_L, R_((408, 520), (366, 464), 'point', -58, True)),
+    'cheer':  (L_((194, 502), (190, 434), 'spread', -8, False), R_((406, 502), (410, 434), 'spread', 8, True)),
+    'fist':   (HOLD_L, R_((414, 506), (398, 442), 'fist', 8, True)),
+    'cheeks': (L_((206, 476), (236, 430), 'flat', -14, False), R_((394, 476), (364, 430), 'flat', 14, True)),
 }
 def poses():
-    out = []
+    """Trả về (nhóm tay phía sau thân: vai + cánh tay trên, nhóm tay phía trước: cẳng tay + bàn tay)."""
+    back, front = [], []
     for name in POSES:
-        l, r = POSE_SPECS[name]
-        fist = name in ('fist', 'cheer')
-        g = f'<g class="pose pose-{name}">'
-        for a in (l, r):
-            S, E, W, H = a
-            g += arm(S, E, W)
-        if name == 'clasp': g += '<ellipse cx="300" cy="522" rx="27" ry="15" fill="#ffdcc6" stroke="#2a1a4d" stroke-width="3"/><path d="M 282 520 q 18 6 36 0 M 286 527 q 14 5 28 0" stroke="#e8b59c" stroke-width="2" fill="none" stroke-linecap="round"/>'
-        else:
-            for a, rot in ((l, -20), (r, 20)):
-                g += hand(a[3][0], a[3][1], 14 if not fist else 15, 12 if not fist else 14, rot, fist and name in ('fist', 'cheer'))
-        out.append(g + '</g>')
-    return '\n'.join(out)
+        gb, gf = f'<g class="pose pose-{name}">', f'<g class="pose pose-{name}">'
+        for (S, E, W, kind, rot, flip) in POSE_SPECS[name]:
+            _, (o1, f1) = seg(S, E, 29); gb += o1 + f1
+            _, (o2, f2) = seg(E, W, 22); gf += o2 + f2 + cuff(E, W, 22)
+        for (S, E, W, kind, rot, flip) in POSE_SPECS[name]:
+            gf += hand(kind, W[0], W[1], rot, flip)
+        if name == 'clasp':   # hai bàn tay đan vào nhau
+            gf += f'<ellipse cx="300" cy="535" rx="9" ry="6" fill="{SK}" stroke="{OUT}" stroke-width="2.2"/>'
+        back.append(gb + '</g>'); front.append(gf + '</g>')
+    return '\n'.join(back), '\n'.join(front)
 
 # ---------- mắt ----------
 def eye(sgn):
@@ -185,6 +205,7 @@ def world_fx():
     s.append('<g class="fx fx-shock" stroke="#ffd36b" stroke-width="5" stroke-linecap="round" fill="none"><path d="M 436 286 l 26 -12 M 442 318 l 30 0 M 436 350 l 26 12"/><path d="M 164 286 l -26 -12 M 158 318 l -30 0 M 164 350 l -26 12"/></g>')
     return '\n'.join(s)
 
+POSES_BACK, POSES_FRONT = poses()
 def build():
     S = []
     S.append(f'<svg xmlns="http://www.w3.org/2000/svg" class="hm" viewBox="0 0 600 800" data-eyes="open" data-brows="neutral" data-mouth="smile-closed" data-pose="hold" data-blush="n" data-fx="">')
@@ -207,11 +228,12 @@ def build():
     S.append('<g id="body">')
     S.append(f'<path d="M 186 292 C 150 380 154 520 186 596 C 208 640 244 624 254 580 L 346 580 C 356 624 392 640 414 596 C 446 520 450 380 414 292 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
     S.append('<path d="M 172 410 C 166 470 172 540 190 586" fill="none" stroke="#5a5a68" stroke-width="3.5" stroke-linecap="round" opacity=".45"/><path d="M 428 410 C 434 470 428 540 410 586" fill="none" stroke="#5a5a68" stroke-width="3.5" stroke-linecap="round" opacity=".45"/>')
+    S.append(f'<g id="arms-back">{POSES_BACK}</g>')
     S.append(f'<path d="M 246 632 L 296 632 L 292 742 L 226 742 Z" fill="#fff6e6" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/><path d="M 304 632 L 354 632 L 374 742 L 308 742 Z" fill="#fff6e6" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/>')
     for x in (258, 342):
         S.append(f'<path d="M {x-36} 746 C {x-36} 726 {x+30} 726 {x+36} 746 C {x+38} 760 {x-38} 760 {x-36} 746 Z" fill="#a357d9" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/><path d="M {x-24} 742 C {x-10} 734 {x+14} 734 {x+26} 742" fill="none" stroke="#f6d77a" stroke-width="3" stroke-linecap="round"/>')
-    S.append(f'<path d="M 268 548 L 232 548 C 224 610 200 664 180 708 C 220 724 262 728 296 718 L 300 548 Z" fill="url(#adg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/><path d="M 332 548 L 368 548 C 376 610 400 664 420 708 C 380 724 338 728 304 718 L 300 548 Z" fill="url(#adg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
-    S.append(f'<path d="M 252 470 C 236 484 246 520 258 560 L 342 560 C 354 520 364 484 348 470 C 336 462 320 458 300 458 C 280 458 264 462 252 470 Z" fill="url(#adg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
+    S.append(f'<path d="M 300 548 L 258 552 C 246 604 208 664 180 708 C 220 724 262 728 296 718 Z" fill="url(#adg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/><path d="M 300 548 L 342 552 C 354 604 392 664 420 708 C 380 724 338 728 304 718 Z" fill="url(#adg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
+    S.append(f'<path d="M 246 484 C 244 470 268 460 300 458 C 332 460 356 470 354 484 C 360 514 352 540 346 564 L 254 564 C 248 540 240 514 246 484 Z" fill="url(#adg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
     S.append(f'<path d="M 300 470 L 346 500 C 352 540 356 590 366 650 C 372 690 372 712 392 726 C 352 742 318 738 292 724 C 300 650 304 560 300 470 Z" fill="url(#adg2)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
     S.append('<path d="M 300 470 L 346 500 L 344 512" fill="none" stroke="#f6d77a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>')
     for (x, y) in [(318, 480), (334, 492), (344, 520), (346, 552), (350, 586)]:
@@ -245,6 +267,9 @@ def build():
     for sgn in (-1, 1):
         x = 300 + sgn * 124
         S.append(f'<path d="M {x} 300 C {x+sgn*14} 350 {x+sgn*8} 420 {x-sgn*14} 462 C {x-sgn*10} 410 {x-sgn*14} 350 {x-sgn*10} 306 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
+    for sgn in (-1, 1):
+        x = 300 + sgn * 125
+        S.append(f'<g class="earring"><path d="M {x} 392 L {x} 402" stroke="#d9b36a" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="{x}" cy="412" rx="6.5" ry="9.5" fill="#6ee0b4" stroke="{OUT}" stroke-width="2.4"/><ellipse cx="{x-2}" cy="408" rx="1.8" ry="3" fill="#fff" opacity=".9"/></g>')
     S.append('</g>')
     S.append(f'<g id="brows" opacity=".95">{brows()}</g>')
     S.append('<g transform="translate(0,-30)">' + hat() + '</g>')
@@ -259,7 +284,7 @@ def build():
     S.append('<g id="orb"><circle cx="300" cy="556" r="64" fill="url(#halo)"/><circle cx="300" cy="552" r="27" fill="url(#orbg)" stroke="#2a1a4d" stroke-width="3"/>'
              '<path d="M 288 548 a 13 13 0 1 0 14 -14 a 10 10 0 1 1 -14 14 Z" fill="#7a4fd0" opacity=".55"/><circle cx="290" cy="542" r="6" fill="#fff" opacity=".9"/>'
              '<circle cx="300" cy="552" r="38" fill="none" stroke="#f6d77a" stroke-width="2" stroke-dasharray="3 5" opacity=".9"/></g>')
-    S.append(f'<g id="arms">{poses()}</g>')
+    S.append(f'<g id="arms">{POSES_FRONT}</g>')
     S.append(veil_front(True))
     S.append(world_fx())
     S.append('</g>')  # all

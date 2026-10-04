@@ -39,7 +39,7 @@ addEventListener('pointermove', (e) => { pointer.x = (e.clientX / innerWidth) * 
 export function createCharacter(host, { follow = true, crop = false } = {}) {
   host.innerHTML = rigSvg;
   const svg = host.querySelector('svg.hm');
-  if (crop) svg.setAttribute('viewBox', '120 130 360 400');
+  if (crop) svg.setAttribute('viewBox', '110 150 380 470');
   const $ = (id) => svg.querySelector('#' + id);
   const all = $('all'), body = $('body'), head = $('head'), features = $('features'), brows = $('brows'), hairFront = $('hair-front'), arms = $('arms'), orb = $('orb'), shadow = $('shadow');
   let emo = 'binh_thuong', cfg = EMOTIONS[emo], speaking = false, castUntil = 0, tint = null;
