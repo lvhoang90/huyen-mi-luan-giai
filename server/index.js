@@ -1,4 +1,5 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,14 @@ const MODEL = process.env.HUYENMY_MODEL || 'claude-sonnet-5-5';
 const isProd = process.env.NODE_ENV === 'production';
 const hasKey = !!process.env.ANTHROPIC_API_KEY;
 const client = hasKey ? new Anthropic() : null;
+const ACCESS_CODE = (process.env.HUYENMY_ACCESS_CODE || '').trim();   // để trống = ai cũng vào được
+
+// ---- mã truy cập: so sánh hằng thời gian, đếm lần nhập sai theo IP ----
+const sha = (v) => crypto.createHash('sha256').update(String(v)).digest();
+const codeOk = (v) => !ACCESS_CODE || crypto.timingSafeEqual(sha(v ?? ''), sha(ACCESS_CODE));
+const fails = new Map();
+const lockedOut = (ip) => (fails.get(ip) ?? []).filter((t) => Date.now() - t < 10 * 60_000).length >= 8;
+const noteFail = (ip) => fails.set(ip, [...(fails.get(ip) ?? []).filter((t) => Date.now() - t < 10 * 60_000), Date.now()]);
 
 // ---- giới hạn tần suất đơn giản theo IP ----
 const hits = new Map();
@@ -53,8 +62,21 @@ function cleanMessages(raw) {
   return out;
 }
 
+function handleUnlock(req, res) {
+  const ip = req.socket.remoteAddress ?? '?';
+  if (lockedOut(ip)) return json(res, 429, { error: 'Bạn nhập sai nhiều lần. Hãy thử lại sau ít phút nhé.' });
+  return readBody(req, 1024).then((b) => {
+    if (codeOk(b.code)) return json(res, 200, { ok: true });
+    noteFail(ip); return json(res, 401, { error: 'Mã chưa đúng, bạn kiểm tra lại giúp My nhé.' });
+  }).catch((e) => json(res, 400, { error: e.message }));
+}
+
 async function handleChat(req, res) {
   const ip = req.socket.remoteAddress ?? '?';
+  if (ACCESS_CODE) {
+    if (lockedOut(ip)) return json(res, 429, { error: 'Bạn nhập sai nhiều lần. Hãy thử lại sau ít phút nhé.' });
+    if (!codeOk(req.headers['x-access-code'])) { noteFail(ip); return json(res, 401, { error: 'Cần mã truy cập để trò chuyện với My.', locked: true }); }
+  }
   if (limited(ip)) return json(res, 429, { error: 'My cần thở một chút - bạn đợi một lát rồi nói tiếp nhé.' });
   let body;
   try { body = await readBody(req); } catch (e) { return json(res, 400, { error: e.message }); }
@@ -105,8 +127,9 @@ function serveStatic(req, res) {
 
 http.createServer(async (req, res) => {
   const { pathname } = new URL(req.url, 'http://x');
-  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null });
+  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE });
+  if (pathname === '/api/unlock' && req.method === 'POST') return handleUnlock(req, res);
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });
   if (vite) return vite.middlewares(req, res);
   serveStatic(req, res);
-}).listen(PORT, () => console.log(`Huyền My Luận Giải - http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'})`));
+}).listen(PORT, () => console.log(`Huyền My Luận Giải - http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'}; mã truy cập: ${ACCESS_CODE ? 'BẬT' : 'tắt'})`));

@@ -25,7 +25,9 @@ npm test                 # kiểm tra lõi tính toán
 npm run build && npm start   # chạy bản production
 ```
 
-Chưa có khóa API thì ứng dụng chạy **chế độ demo** (có huy hiệu trên giao diện): toàn bộ hành trình, lá số và nhân vật cảm xúc hoạt động, chỉ phần trả lời của My là mẫu có cấu trúc, không phải AI. Biến môi trường: `ANTHROPIC_API_KEY`, `HUYENMY_MODEL` (mặc định `claude-sonnet-5-5`), `PORT`.
+Chưa có khóa API thì ứng dụng chạy **chế độ demo** (có huy hiệu trên giao diện): toàn bộ hành trình, lá số và nhân vật cảm xúc hoạt động, chỉ phần trả lời của My là mẫu có cấu trúc, không phải AI. Biến môi trường: `ANTHROPIC_API_KEY`, `HUYENMY_MODEL` (mặc định `claude-sonnet-5-5`), `PORT`, `HUYENMY_ACCESS_CODE`.
+
+**Mã truy cập (khi đưa lên mạng):** đặt `HUYENMY_ACCESS_CODE=<mã bạn chọn>` thì màn chào sẽ hỏi mã trước khi vào, và máy chủ từ chối `/api/chat` nếu thiếu hoặc sai mã, nên người lạ không dùng hết lượt gọi AI của bạn. Mã được so sánh hằng thời gian, nhập sai 8 lần trong 10 phút thì khóa tạm theo IP, và mã đúng được nhớ trên thiết bị. Để trống thì ai cũng vào được. Lưu ý: nếu chạy sau reverse proxy thì mọi người cùng một IP nên bộ đếm khóa tính chung.
 
 ## Kiến trúc
 

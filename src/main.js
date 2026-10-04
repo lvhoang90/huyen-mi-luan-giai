@@ -128,9 +128,12 @@ function askChat(chips = []) {
 }
 
 // ---------------- gọi AI (SSE) ----------------
+const CODE_KEY = 'huyenmy.code';
+const getCode = () => { try { return localStorage.getItem(CODE_KEY) || ''; } catch { return ''; } };
+const setCode = (v) => { try { v ? localStorage.setItem(CODE_KEY, v) : localStorage.removeItem(CODE_KEY); } catch {} };
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages }) });
-  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || 'Không kết nối được tới My.'); }
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages }) });
+  if (!res.ok) { const j = await res.json().catch(() => ({})); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {
     const { value, done } = await reader.read(); if (done) break;
@@ -331,9 +334,30 @@ $('#btn-reset').onclick = () => {
 };
 
 // ---------------- khởi động ----------------
-fetch('/api/status').then((r) => r.json()).then((s) => { $('#demo-badge').hidden = s.ai; }).catch(() => {});
+let LOCKED = false, OPEN = true;
+async function tryCode(code) {
+  const r = await fetch('/api/unlock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+  if (r.ok) { setCode(code); return null; }
+  return (await r.json().catch(() => ({}))).error || 'Chưa mở được, bạn thử lại nhé.';
+}
+// Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
+const ready = fetch('/api/status').then((r) => r.json()).then(async (s) => {
+  $('#demo-badge').hidden = s.ai;
+  LOCKED = !!s.locked; OPEN = !LOCKED || (!!getCode() && (await tryCode(getCode())) === null);
+}).catch(() => {});
+function askCode(then) {
+  if ($('.code-box')) return;
+  const input = h('input', { type: 'password', className: 'code-input', placeholder: 'Mã truy cập', autocomplete: 'off', ariaLabel: 'Mã truy cập' });
+  const msg = h('p', { className: 'code-msg', role: 'alert' });
+  const submit = async () => { const err = await tryCode(input.value.trim()); if (err) { msg.textContent = err; return; } OPEN = true; $('.code-box').remove(); then(); };
+  input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+  $('#veil-actions').before(h('div', { className: 'code-box' }, h('p', { className: 'code-hint', textContent: 'Phòng này cần mã truy cập.' }), input, h('button', { className: 'btn', textContent: 'Mở cửa', onclick: submit }), msg));
+  input.focus();
+}
 
 async function enter(resume) {
+  await ready;
+  if (!OPEN) return askCode(() => enter(resume));
   $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
