@@ -96,7 +96,7 @@ async function handleChat(req, res) {
   }
 
   const system = buildSystemPrompt(phase, profile, chart, messages);
-  const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 700, thinking: { type: 'between_tools' }, system, messages });
+  const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 1000, thinking: { type: 'between_tools' }, system, messages });
   res.on('close', () => { try { stream.abort(); } catch {} });
   stream.on('text', (t) => send({ t }));
   try { await stream.finalMessage(); send({ done: true }); }
