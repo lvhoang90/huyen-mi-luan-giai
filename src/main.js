@@ -3,7 +3,8 @@ import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
 import { parseTagged, stripTags } from './emotion-tags.js';
-import { normalizeProfile, buildChart, PLACES, findPlaces } from './engine/index.js';
+import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits } from './engine/index.js';
+import { famousFor } from './engine/famous.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { HANH } from './engine/bazi.js';
 
@@ -202,10 +203,8 @@ async function collect() {
   S.phase = 'collect'; save();
   await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
   const fullName = await ask({ placeholder: 'Họ và tên khai sinh', validate: (v) => v.length >= 2 && /\p{L}/u.test(v) });
-  await say(`[[vui]]Cảm ơn bạn. Còn khi trò chuyện, bạn muốn My gọi bạn là gì cho thân tình?`);
-  const last = fullName.trim().split(/\s+/).pop();
-  const nickname = await ask({ placeholder: 'Tên gọi thân mật', chips: [last] });
-  await say(`[[e_then]]${nickname} nhé. [[lang_nghe]]Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
+  const nickname = fullName.trim().split(/\s+/).pop(); // My gọi bằng tên cuối, đỡ một câu hỏi
+  await say(`[[e_then]]Rất vui được gặp ${nickname}. [[lang_nghe]]Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
   const gender = await ask({ kind: 'choice', chips: [{ label: 'Nữ', value: 'nu' }, { label: 'Nam', value: 'nam' }, { label: 'Không muốn nói', value: 'khac' }] });
   let profile;
   for (;;) {
@@ -229,6 +228,7 @@ async function collect() {
 
 /** My lùi về góc trái để chừa chỗ cho phần luận giải. */
 function dock() { document.body.classList.add('docked'); }
+let hookTrait = null;
 async function ritual() {
   const p = S.profile;
   clearComposer(); stage.cast(5.5);
@@ -238,8 +238,16 @@ async function ritual() {
   dock();
   const y = chart.bazi.pillars.year;
   await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`, 650, true);
-  await say('[[nghiem_tuc]]Nhưng My chưa vội luận. Một tấm bản đồ chỉ có nghĩa khi ta biết người cầm nó đang đi đâu.', 650, true);
-  const opener = `[[dong_cam]]Hãy kể cho My nghe: điều gì đã khiến bạn tìm đến đây hôm nay, ${p.nickname}? Cứ kể như đang nói với một người bạn tin, không cần sắp xếp. My ở đây, và My nghe.`;
+  // Điểm chung có thật để mở chuyện: người nổi tiếng cùng ngày sinh, rồi một nét hiếm trong chính lá số.
+  const { d, m } = p.birth;
+  const f = famousFor(m, d);
+  const list = (arr) => arr.map((e) => `**${e.name}** (${e.y}, ${e.desc})`).join('; ');
+  const near = f.near.map((e) => `**${e.name}** (${e.d}/${e.m}/${e.y}, ${e.desc})`).join('; ');
+  if (f.exact.length) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người đáng nể từng chào đời: ${list(f.exact)}.${near ? ` Và sát ngày bạn: ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
+  else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
+  hookTrait = distinctiveTraits(p, chart)[0] ?? null;
+  if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
+  const opener = `[[dong_cam]]Bạn muốn bắt đầu từ đâu, ${p.nickname}? Chạm một gợi ý bên dưới, hoặc cứ kể tự do. My ở đây, và My nghe.`;
   await say(opener, 200);
   S.messages = [{ role: 'assistant', content: stripTags(opener) }]; S.phase = 'listen'; save();
   await converse();
@@ -250,6 +258,12 @@ const READ_LENS = [
   { label: 'Luận theo Tử Vi', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tử Vi Đẩu Số giúp mình.', action: 'read' },
   { label: 'Luận theo Tứ Trụ', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tứ Trụ giúp mình.', action: 'read' },
   { label: 'Luận theo Chiêm tinh', value: 'Mình đã kể xong rồi. Mời My luận giải theo chiêm tinh phương Tây giúp mình.', action: 'read' },
+];
+const startChips = () => [
+  ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
+  { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
+  { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },
+  { label: 'Một chuyện đang làm mình rối', value: 'Dạo này có một chuyện đang làm mình rối.' },
 ];
 const FOLLOW_CHIPS = ['Về con đường sự nghiệp của mình', 'Về chuyện tình cảm', 'Năm nay của mình có gì đáng lưu tâm?', 'Điều đang làm mình rối nhất'];
 const LENS_CHIPS = [
@@ -264,7 +278,7 @@ async function converse() {
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
   for (;;) {
     stage.setMood('listen');
-    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : []) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
+    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : startChips()) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
     const { text, chip } = await askChat(chips);
     showUser(text); S.messages.push({ role: 'user', content: text }); userTurns++;
     const reading = S.phase === 'listen' && chip;
