@@ -264,6 +264,7 @@ def build():
     FACE_D = "M 180 318 C 180 244 238 212 300 212 C 362 212 420 244 420 318 C 420 392 366 452 300 452 C 234 452 180 392 180 318 Z"
     E = [ear_geom(-1), ear_geom(1)]
     wrap = lambda g, inner: f'<g transform="rotate({g["ang"]} {g["cx"]} {g["cy"]})">{inner}</g>'
+    S.append(f'<path d="M 266 430 L 334 430 L 338 478 C 318 490 282 490 262 478 Z" fill="#f3bfa6" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/>')   # cổ, nối cằm với cổ áo
     S.append('<g id="skin-mass">'      # mặt và hai tai là MỘT khối da: viền vẽ một lần cho cả khối, màu da cùng một dải chuyển sắc
              + f'<path d="{FACE_D}" fill="none" stroke="{OUT}" stroke-width="7" stroke-linejoin="round"/>'
              + ''.join(wrap(g, f'<path d="{g["fill"]}" fill="none" stroke="{OUT}" stroke-width="6.4" stroke-linejoin="round"/>') for g in E)
