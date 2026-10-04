@@ -94,9 +94,9 @@ async function handleChat(req, res) {
   res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   const t0 = Date.now(); let ttft = null, reply = '';
-  const lastUser = messages[messages.length - 1]?.content ?? '', prevReplies = messages.filter((m) => m.role === 'assistant').map((m) => m.content);
+  const lastUser = messages[messages.length - 1]?.content ?? '', prevReplies = messages.filter((m) => m.role === 'assistant').map((m) => m.content), userHistory = messages.filter((m) => m.role === 'user').map((m) => m.content).join(' ');
   const minute = Number.isFinite(+body.minute) ? Math.min(60, Math.max(0, +body.minute)) : null;
-  const record = (ok) => { try { api.recordTurn({ actor: who.actor, sid: body.sid, phase, minute, ms: Date.now() - t0, ttft, reply, userMsg: lastUser, prevReplies, ok }); } catch (e) { console.error('[turn]', e.message); } };
+  const record = (ok) => { try { api.recordTurn({ actor: who.actor, sid: body.sid, phase, minute, ms: Date.now() - t0, ttft, reply, userMsg: lastUser, userHistory, prevReplies, ok }); } catch (e) { console.error('[turn]', e.message); } };
 
   if (!client) {
     send({ demo: true });

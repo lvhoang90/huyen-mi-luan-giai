@@ -163,3 +163,26 @@ test('gửi điều thú vị vào email: cần đăng nhập, làm sạch nội
   assert.equal((await h.call('POST', '/api/account/hook', { lines: ['lại'] })).status, 429);
   h.close();
 });
+
+import { repeatedPhrases, stockHits, pickLinkers, wordsOf } from '../server/voice.js';
+import { voiceBlock } from '../server/persona.js';
+test('giọng người thật: bắt cụm lặp, khuôn sáo, và đổi cách nối mỗi lượt', () => {
+  const prev = ['Nhưng My muốn hỏi thẳng, bạn đã thử ngỏ lời với ai chưa?', 'Nhưng My muốn hỏi thẳng, điều gì làm bạn mệt nhất?', 'Ừ, chỗ đó nghe cũng buồn cười thật.'];
+  const rep = repeatedPhrases(prev);
+  assert.ok(rep.some((g) => g.includes('my muốn hỏi')), 'phải bắt được cụm lặp');
+  assert.ok(!rep.some((g) => g.includes('buồn cười')), 'cụm chỉ xuất hiện một lần thì không bị tính là lặp');
+  assert.deepEqual(stockHits('Mình làm bằng sự tử tế chứ không phải để dội nước lạnh.').sort(), ['doi_lap', 'hoi_thang']);
+  assert.deepEqual(stockHits('Hôm nay trời mát, bạn đi bộ một vòng thử xem.'), []);
+  assert.deepEqual(stockHits('Cảm ơn bạn đã chia sẻ, My nghe rồi.'), ['nghe_roi']);
+  assert.notDeepEqual(pickLinkers('lượt 1'), pickLinkers('lượt 2'));
+  assert.equal(new Set(pickLinkers('x', 3)).size, 3);
+  const msgs = [{ role: 'user', content: 'a' }, ...prev.slice(0, 2).flatMap((c) => [{ role: 'assistant', content: c }, { role: 'user', content: 'b' }])];
+  assert.match(voiceBlock(msgs), /TUYỆT ĐỐI KHÔNG dùng lại/);
+  assert.ok(wordsOf('[[vui]]Xin chào!').join(' ') === 'xin chào');
+});
+test('chấm chất lượng bắt khuôn sáo và lặp cụm', () => {
+  const a = assessTurn({ phase: 'companion', userMsg: 'công việc mệt mỏi', reply: 'Nhưng My muốn hỏi thẳng, bằng sự tử tế chứ không phải để dội nước lạnh: công việc làm bạn mệt thế nào?', prevReplies: ['Nhưng My muốn hỏi thẳng, bạn mệt vì điều gì?', 'Nhưng My muốn hỏi thẳng, bạn đã nói với ai chưa?'] });
+  assert.ok(a.flags.includes('cum_sao_ron') && a.flags.includes('lap_cum_tu'));
+  const b = assessTurn({ phase: 'companion', userMsg: 'công việc mệt mỏi', reply: 'Sáu năm một bàn làm việc, nghe là biết mệt rồi. Hôm nay có chuyện gì thêm không?', prevReplies: ['Ừ, chỗ đó My cũng thấy lạ.'] });
+  assert.ok(!b.flags.includes('cum_sao_ron') && !b.flags.includes('lap_cum_tu'));
+});

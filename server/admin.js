@@ -100,7 +100,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     latency: { p50: quantile(okTurns.map((t) => t.ms), 0.5), p95: quantile(okTurns.map((t) => t.ms), 0.95), ttftP50: quantile(okTurns.filter((t) => t.ttft != null).map((t) => t.ttft), 0.5) },
     meanQuestions: okTurns.length ? Math.round(mean(okTurns.map((t) => t.q)) * 100) / 100 : null,
     meanWords: okTurns.length ? Math.round(mean(okTurns.map((t) => t.words))) : null,
-    flags: Object.fromEntries(['qua_nhieu_cau_hoi', 'qua_dai', 'lap_lai', 'noi_chac_nich', 'doa_han_hoac_ban_cung', 'thieu_nhan_tang', 'thieu_canh_bao_gioi_han', 'khong_bam_loi_nguoi_dung'].map((f) => [f, pct(flagCount(f), okTurns.length)])),
+    flags: Object.fromEntries(['qua_nhieu_cau_hoi', 'qua_dai', 'lap_lai', 'noi_chac_nich', 'doa_han_hoac_ban_cung', 'thieu_nhan_tang', 'thieu_canh_bao_gioi_han', 'khong_bam_loi_nguoi_dung', 'cum_sao_ron', 'lap_cum_tu'].map((f) => [f, pct(flagCount(f), okTurns.length)])),
     crisis: { handled: cs, missed: cm, safety: cs + cm ? pct(cs, cs + cm) : null },
   };
 
@@ -172,6 +172,8 @@ export function insights(m) {
   if (q.errors.p > 0.03 && q.turns >= 20) add('loi', 'critical', 'Tỉ lệ lỗi gọi AI cao', `Lượt lỗi: ${pc(q.errors)}.`, 'Kiểm tra hạn mức API, thêm thử lại một lần có độ trễ, hiển thị thông báo thân thiện và lưu tin nhắn để gửi lại.', 5, q.turns, 2);
   if (q.latency.p95 > 25000) add('do-tre', 'warn', 'Độ trễ trả lời cao', `Trung vị ${Math.round(q.latency.p50 / 1000)} giây, phân vị 95 là ${Math.round(q.latency.p95 / 1000)} giây.`, 'Dùng model nhanh cho giai đoạn lắng nghe, giảm độ dài lời dặn hệ thống, hiển thị "My đang suy nghĩ" có hình động để người dùng đỡ sốt ruột.', 4, q.turns, 2);
   if (q.flags.lap_lai.p > 0.1) add('lap', 'warn', 'My còn lặp ý hoặc lặp lời mở đầu', `Tỉ lệ lượt lặp: ${pc(q.flags.lap_lai)}.`, 'Đưa thêm 5 lời mở đầu gần nhất vào lời dặn kèm yêu cầu khác biệt rõ rệt (đã có cơ chế, tăng số lượng) và theo dõi lại.', 3, q.turns, 1);
+  if (q.flags.cum_sao_ron.p > 0.15) add('sao-ron', 'warn', 'Lời My còn nhiều khuôn nghe như máy viết sẵn', `Tỉ lệ lượt có khuôn sáo ("không phải X mà là Y", "My nghe rồi", "hãy nhớ rằng"…): ${pc(q.flags.cum_sao_ron)}.`, 'Đây là điều người dùng phàn nàn: thêm cụm vừa bắt được vào danh sách cấm của lời dặn, đọc 20 lượt mẫu (khi được đồng ý) để tìm khuôn mới, và đo lại sau mỗi lần sửa.', 4, q.turns, 1);
+  if (q.flags.lap_cum_tu.p > 0.15) add('lap-cum', 'warn', 'My lặp lại cụm từ giữa các lượt', `Tỉ lệ lượt dùng lại cụm đã nói: ${pc(q.flags.lap_cum_tu)}.`, 'Máy chủ đã đưa danh sách cụm bị lặp vào lời dặn mỗi lượt; nếu vẫn cao, thử model mạnh hơn cho giai đoạn đồng hành hoặc giảm số lượt cố gắng dùng cùng hình ảnh.', 4, q.turns, 2);
   if (q.flags.qua_nhieu_cau_hoi.p > 0.15) add('hoi-nhieu', 'warn', 'My hỏi dồn quá nhiều', `Tỉ lệ lượt hỏi quá mức: ${pc(q.flags.qua_nhieu_cau_hoi)}.`, 'Đúng điều người dùng đã phàn nàn lúc đầu: ràng buộc mỗi lượt tối đa một câu hỏi và luôn tặng một nhận định có giá trị trước khi hỏi.', 4, q.turns, 1);
   if (q.flags.khong_bam_loi_nguoi_dung.p > 0.2) add('khong-bam', 'warn', 'My chưa bám vào chi tiết người dùng kể', `Tỉ lệ lượt không nhắc lại ý nào của người dùng: ${pc(q.flags.khong_bam_loi_nguoi_dung)}.`, 'Nhấn mạnh kỹ thuật phản chiếu: nhắc lại một cụm từ cụ thể của người dùng trong câu đầu.', 4, q.turns, 1);
   const r = m.satisfaction.resonance;
