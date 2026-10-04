@@ -150,3 +150,16 @@ test('số liệu quản trị: phễu, giữ chân, khuyến nghị, quyền tr
   const r = await h.call('GET', '/api/admin/metrics?days=14'); assert.equal(r.status, 200); assert.ok(r.body.funnel.length === 10);
   h.close();
 });
+
+test('gửi điều thú vị vào email: cần đăng nhập, làm sạch nội dung, giới hạn tần suất', async () => {
+  const h = await harness();
+  assert.equal((await h.call('POST', '/api/account/hook', { lines: ['x'] })).status, 401);
+  await h.call('POST', '/api/auth/request', { email: 'a@b.vn' });
+  await h.call('POST', '/api/auth/verify', { email: 'a@b.vn', code: codeOf(h.mails[0]) });
+  assert.equal((await h.call('POST', '/api/account/hook', { lines: [] })).status, 400);
+  const r = await h.call('POST', '/api/account/hook', { lines: ['Ngày 5/8 có Reid Hoffman <b>x</b>', 'Nét hiếm: Tụ 4 thiên thể'] });
+  assert.equal(r.status, 200);
+  const m = h.mails.at(-1); assert.equal(m.to, 'a@b.vn'); assert.ok(m.text.includes('Reid Hoffman') && !m.text.includes('<b>') && m.text.includes('không phải lời tiên đoán'));
+  assert.equal((await h.call('POST', '/api/account/hook', { lines: ['lại'] })).status, 429);
+  h.close();
+});

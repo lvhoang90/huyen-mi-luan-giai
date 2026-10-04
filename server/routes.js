@@ -1,6 +1,6 @@
 // API tài khoản, theo dõi hành trình, đồng bộ trạng thái và trang quản trị.
 import crypto from 'node:crypto';
-import { createAuth, parseCookies, cookie } from './auth.js';
+import { createAuth, parseCookies, cookie, sendMail } from './auth.js';
 import { ingest } from './events.js';
 import { computeMetrics } from './admin.js';
 import { assessTurn } from './quality.js';
@@ -15,6 +15,8 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
   const auth = createAuth({ db, pepper, adminEmails, mailer, now });
   const dataKey = env.HUYENMY_DATA_KEY ? crypto.createHash('sha256').update(env.HUYENMY_DATA_KEY).digest() : null;
   const dailyCap = +env.HUYENMY_DAILY_TURNS || 200;
+  const send = mailer ?? ((m) => sendMail(m, env));
+  const lastHookMail = new Map();
 
   const enc = (s) => { if (!dataKey) return 'p:' + s; const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', dataKey, iv); const b = Buffer.concat([c.update(s, 'utf8'), c.final()]); return 'e:' + Buffer.concat([iv, c.getAuthTag(), b]).toString('base64'); };
   const dec = (s) => { if (!s) return null; if (s.startsWith('p:')) return s.slice(2); if (!dataKey) return null; const b = Buffer.from(s.slice(2), 'base64'); const d = crypto.createDecipheriv('aes-256-gcm', dataKey, b.subarray(0, 12)); d.setAuthTag(b.subarray(12, 28)); return Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8'); };
@@ -118,6 +120,20 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
         if (b.state) db.prepare('UPDATE users SET state = ?, state_at = ? WHERE id = ?').run(enc(JSON.stringify(b.state)), now(), id.user.id);
         return json(res, 200, { ok: true }), true;
       }
+    }
+    if (pathname === '/api/account/hook' && method === 'POST') {
+      const id = identify(req, res);
+      if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      let b; try { b = await readBody(req, 8 * 1024); } catch (e) { return json(res, 400, { error: e.message }), true; }
+      const lines = (Array.isArray(b.lines) ? b.lines : []).slice(0, 6).map((l) => String(l ?? '').replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400)).filter(Boolean);
+      if (!lines.length) return json(res, 400, { error: 'Không có nội dung.' }), true;
+      const t = now();
+      if (t - (lastHookMail.get(id.user.id) ?? 0) < 10 * 60_000) return json(res, 429, { error: 'My vừa gửi rồi, bạn xem hộp thư nhé.' }), true;
+      lastHookMail.set(id.user.id, t);
+      const link = env.PUBLIC_URL ? `\n\nQuay lại gặp My: ${env.PUBLIC_URL}` : '';
+      try { await send({ to: id.user.email, subject: 'Điều thú vị My vừa kể với bạn', text: `${lines.join('\n\n')}\n\nĐây chỉ là điểm chung để bắt đầu câu chuyện, không phải lời tiên đoán hay số phận.${link}` }); }
+      catch (e) { console.error('[mail]', e.message); return json(res, 503, { error: 'My chưa gửi được email lúc này.' }), true; }
+      return json(res, 200, { ok: true }), true;
     }
     if (pathname === '/api/account/delete' && method === 'POST') {
       const id = identify(req, res);

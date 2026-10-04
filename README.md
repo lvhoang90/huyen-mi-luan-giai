@@ -22,6 +22,7 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 
 ## Tài khoản, theo dõi hành trình và trang quản trị
 
+- **Gắn email sớm:** ngay sau khi My kể điều thú vị đầu tiên (người nổi tiếng cùng ngày sinh và nét hiếm trong lá số), My đề nghị gửi chính những điều đó vào email. Không bắt buộc, có nút "Để sau". Nhập email xong, máy chủ gửi thư tóm tắt (`/api/account/hook`).
 - **Tài khoản chỉ bằng email:** sau buổi đầu 30 phút, người dùng nhập email, nhận mã 6 số (không mật khẩu). Máy chủ chặn `/api/chat` của người chưa đăng ký sau 32 phút. Có một ô đồng ý "cho My nhớ cuộc trò chuyện" (mặc định không chọn); chỉ khi đồng ý mới lưu cuộc trò chuyện lên máy chủ, mã hóa nếu đặt `HUYENMY_DATA_KEY`. Người dùng tự xóa tài khoản và dữ liệu trong hộp "Tài khoản" (☺).
 - **Gửi email:** đặt `RESEND_API_KEY` và `MAIL_FROM`. Khi chạy thử không có khóa, mã được in ra console máy chủ (không bao giờ trả về trình duyệt); ở `NODE_ENV=production` thiếu khóa thì báo lỗi rõ ràng.
 - **Theo dõi:** `src/track.js` chỉ gửi tên bước và vài giá trị ngắn, không gửi nội dung trò chuyện, tên hay ngày sinh. Máy chủ chấm chất lượng từng lượt trả lời bằng quy tắc (`server/quality.js`: hỏi dồn, lặp, nói chắc nịch, dọa hạn, thiếu hỗ trợ khi khủng hoảng, độ bám lời người dùng) và chỉ lưu chỉ số, không lưu nội dung.

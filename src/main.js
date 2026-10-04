@@ -307,6 +307,20 @@ function buildSignup(host, { title, done, canSkip = true }) {
   ok.onclick = verify; code.onkeydown = (e) => e.key === 'Enter' && verify(); email.onkeydown = (e) => e.key === 'Enter' && go.click();
   step1();
 }
+/** Gắn email sớm, ngay sau điều thú vị đầu tiên: My đề nghị gửi chính điều vừa kể vào hộp thư và nhớ bạn. Không bắt buộc. */
+async function earlySignup(lines) {
+  if (!ACCOUNT.accounts || ACCOUNT.user) return;
+  await say('[[chia_se]]Điều vừa rồi mới là phần mở đầu thôi. Bạn để lại email, My gửi chính những điều vừa kể vào hộp thư và nhớ bạn cho lần gặp sau nhé? Không cần mật khẩu, và bạn bỏ qua cũng không sao.', 300);
+  track('signup_view', { why: 'hook' });
+  await new Promise((resolve) => {
+    clearComposer();
+    const host = h('div', { className: 'signup' }); composer.append(host);
+    buildSignup(host, {
+      title: 'Nhận điều thú vị này qua email',
+      done: async (created) => { clearComposer(); if (created) { apiJson('/api/account/hook', 'POST', { lines }).then((r) => note(r.ok ? 'My đã gửi vào email của bạn.' : 'My chưa gửi được email, bạn xem lại sau nhé.')); } resolve(created); },
+    });
+  });
+}
 /** Cổng đăng ký sau buổi đầu 30 phút, hoặc khi máy chủ yêu cầu. Trả về promise khi xong hoặc bỏ qua. */
 function signupGate(why) {
   if (!ACCOUNT.accounts || ACCOUNT.user) return Promise.resolve(!!ACCOUNT.user);
@@ -419,15 +433,20 @@ async function ritual() {
   const pick = pickFamous(p);
   const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
   const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
+  const plain = (t) => stripTags(t).replace(/\*/g, '');
+  const hookLines = [];
   if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
   else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
+  if (same) hookLines.push(plain(`Ngày ${d}/${m} có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''}`)); else if (near) hookLines.push(plain(`Sát ngày ${d}/${m} có: ${near}.`));
   track('hook_shown', { same: pick.sameDay.length, near: pick.nearDay.length, field: !!pick.sameField, year: pick.sameYear.length > 0 });
   const extra = [];
   if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
   if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
-  if (extra.length) await say(`[[chia_se]]${extra.join(' ')}`, 650, true);
+  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); hookLines.push(plain(extra.join(' '))); }
   hookTrait = distinctiveTraits(p, chart)[0] ?? null;
   if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
+  if (hookTrait) hookLines.push(`Nét hiếm trong lá số của bạn: ${hookTrait}.`);
+  await earlySignup(hookLines);
   const opener = `[[dong_cam]]Bạn muốn bắt đầu từ đâu, ${p.nickname}? Chạm một gợi ý bên dưới, hoặc cứ kể tự do. My ở đây, và My nghe.`;
   await say(opener, 200);
   S.messages = [{ role: 'assistant', content: stripTags(opener) }]; S.phase = 'listen'; save();
