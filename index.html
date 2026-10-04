@@ -7,6 +7,8 @@
   <meta name="description" content="Huyền My Luận Giải - soi mình qua thần số học, chiêm tinh và ngũ hành, cùng một người đồng hành biết lắng nghe." />
   <title>Huyền My Luận Giải</title>
   <link rel="icon" type="image/svg+xml" href="/art/huyenmy-avatar.svg" />
+  <meta name="author" content="Lương Việt Hoàng" />
+  <meta name="copyright" content="© 2026 Lương Việt Hoàng. Mọi sử dụng cần có sự cho phép của tác giả." />
   <meta property="og:title" content="Huyền My Luận Giải" />
   <meta property="og:description" content="Soi mình qua thần số, tinh tượng và ngũ hành cùng Huyền My." />
   <meta property="og:image" content="/art/huyenmy-og.png" />
@@ -23,15 +25,16 @@
   <div id="veil" role="dialog" aria-label="Chào mừng">
     <div class="veil-inner">
       <img class="hero-art" src="/art/huyenmy-v2-dong-trong.svg" alt="Huyền My, nhân vật chibi mặc áo dài tím, đội nón lá phủ voan" width="260" height="347" />
-      <h1>Huyền My <span>Luận Giải</span></h1>
+      <h1 id="veil-logo"></h1>
       <p class="tag">Soi mình qua thần số, tinh tượng và ngũ hành - <br>cùng một người biết lắng nghe.</p>
       <div id="veil-actions"><button id="enter" class="btn primary">Bước vào</button></div>
-      <p class="fine">Cuộc trò chuyện được gửi tới trí tuệ nhân tạo để My trả lời. My không lưu hồ sơ của bạn trên máy chủ.</p>
+      <p class="fine">Cuộc trò chuyện được gửi tới trí tuệ nhân tạo để My trả lời. My chỉ lưu hồ sơ của bạn khi bạn đăng ký và đồng ý.</p>
+      <p class="copy">© 2026 <b>Lương Việt Hoàng</b>. Bản quyền mở: mọi sử dụng cần có sự cho phép của tác giả. <a href="https://github.com/lvhoang90/huyen-mi-luan-giai/blob/HEAD/LICENSE" target="_blank" rel="noopener">Điều khoản</a></p>
     </div>
   </div>
 
   <header class="topbar">
-    <div class="brand" aria-label="Huyền My Luận Giải 1.0"><span class="b1">Huyền My</span><span class="b2">Luận Giải <em>1.0</em></span></div>
+    <div class="brand" id="brand"></div>
     <div class="tools">
       <span id="demo-badge" class="badge" hidden title="Chưa có ANTHROPIC_API_KEY trên máy chủ">demo</span>
       <span id="clock" class="badge" hidden title="Thời gian còn lại của buổi này"></span>

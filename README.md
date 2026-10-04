@@ -82,6 +82,10 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 - **Nhân vật 2D** vẽ bằng mã nên nét gọn, kiểu sticker, chưa có độ tinh xảo của tranh họa sĩ vẽ tay. Quay đầu chỉ mô phỏng bằng cách dịch chuyển nét mặt so với tóc và da, không phải góc nhìn 3/4 thật. Muốn nhân vật đẹp hơn, nên nhờ họa sĩ vẽ lại theo cùng cấu trúc bộ phận (xem `tools/rig.py`).
 - Không dùng giọng nói: My chỉ trò chuyện bằng chữ. Không còn thư viện 3D nên ứng dụng gọn nhẹ.
 
+## Bản quyền
+
+© 2026 **Lương Việt Hoàng**. Mã nguồn công khai để đọc, nhưng **mọi sử dụng (sao chép, chạy bản công khai, chỉnh sửa, phân phối, thương mại, huấn luyện mô hình) cần có sự cho phép bằng văn bản của tác giả**. Đây là giấy phép "source-available", không phải giấy phép nguồn mở theo định nghĩa của OSI. Xem [LICENSE](LICENSE) (song ngữ) và [NOTICE](NOTICE) (thành phần bên thứ ba). Xin phép qua issue "Xin phép sử dụng" của kho mã này. Bản quyền tự phát sinh khi sáng tác (Việt Nam là thành viên Công ước Berne), đăng ký tại Cục Bản quyền tác giả là tùy chọn nhưng giúp chứng minh khi có tranh chấp; đây không phải tư vấn pháp lý.
+
 ## Chất liệu mở và giấy phép
 
 - `astronomy-engine` (MIT), `@anthropic-ai/sdk` (MIT).

@@ -1,0 +1,13 @@
+Huyền My Luận Giải
+Copyright © 2026 Lương Việt Hoàng. All rights reserved.
+Bản quyền mở, mọi sử dụng cần có sự cho phép của tác giả. See / Xem: LICENSE
+
+Thành phần của bên thứ ba / Third-party components (giữ giấy phép riêng / keep their own licences)
+- astronomy-engine (Don Cross), MIT License, dùng cho thiên văn. https://github.com/cosinekitty/astronomy
+- @anthropic-ai/sdk (Anthropic), MIT License.
+- Vite, MIT License (công cụ build).
+- Phông chữ qua Google Fonts, SIL Open Font License 1.1: Cormorant Garamond, Be Vietnam Pro, Literata.
+- Chỉ dùng khi kiểm thử (không nằm trong sản phẩm): tuvi-neo, lunar-javascript.
+
+Nhân vật "Huyền My", logo và hình ảnh trong thư mục art/ và public/art/ do tác giả tự thiết kế (xem LICENSE, mục 5).
+Dữ liệu người nổi tiếng do tác giả biên soạn từ thông tin phổ thông; tên và ngày sinh là dữ kiện, không có bản quyền, nhưng cách sắp xếp là của tác giả.

@@ -29,6 +29,7 @@ export async function makeCard({ nickname, element, trait, famous, url }) {
   g.fillStyle = 'rgba(236,231,251,.75)'; g.font = '300 30px "Be Vietnam Pro", system-ui, sans-serif';
   g.fillText('Lăng kính biểu tượng để soi mình, không phải lời tiên đoán', W / 2, H - 150);
   g.fillStyle = '#e2c27d'; g.font = '500 34px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(url.replace(/^https?:\/\//, ''), W / 2, H - 90);
+  g.fillStyle = 'rgba(236,231,251,.55)'; g.font = '300 24px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('© 2026 Lương Việt Hoàng', W / 2, H - 56);
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
 

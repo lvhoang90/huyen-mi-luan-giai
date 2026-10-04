@@ -4,6 +4,7 @@ import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
 import { shareCard } from './share.js';
+import { mountLogo } from './logo.js';
 import { parseTagged, stripTags } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
@@ -14,6 +15,8 @@ const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
 createLanterns($('#lanterns'));
+mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
+console.info('%cHuyền My Luận Giải 1.0%c © 2026 Lương Việt Hoàng. Bản quyền mở, mọi sử dụng cần có sự cho phép của tác giả.', 'color:#e2c27d;font-weight:700', 'color:inherit');
 const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const stage = {
   setMood: (m) => character.setMood(m), setSpeaking: (v) => character.setSpeaking(v), emo: (n) => character.setEmotion(n),

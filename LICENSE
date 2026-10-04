@@ -1,0 +1,91 @@
+SPDX-License-Identifier: LicenseRef-HuyenMy-Source-Available-1.0
+
+HUYỀN MY LUẬN GIẢI
+Copyright © 2026 Lương Việt Hoàng. All rights reserved. / Bản quyền © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền.
+
+SOURCE-AVAILABLE, NOT OPEN SOURCE. / MÃ NGUỒN CÔNG KHAI ĐỂ ĐỌC, KHÔNG PHẢI PHẦN MỀM NGUỒN MỞ.
+This is not an open-source license as defined by the Open Source Initiative.
+Đây không phải giấy phép nguồn mở theo định nghĩa của Open Source Initiative.
+
+------------------------------------------------------------------------------
+ENGLISH
+------------------------------------------------------------------------------
+
+1. Scope. "The Work" means the Huyền My Luận Giải software, source code, text, data
+   sets compiled by the author, character artwork ("Huyền My"), logo, design and
+   documentation in this repository, in source or any other form.
+
+2. What you may do without asking. You may (a) read, view and study the Work;
+   (b) quote short excerpts with clear attribution to the author, to the extent
+   permitted by applicable law (for example criticism, review, teaching, research).
+
+3. Everything else needs written permission. Any other use requires the prior,
+   written permission of the author. This includes, without limitation: copying,
+   running a public or hosted instance, modifying, creating derivative works,
+   redistributing, sublicensing, selling, offering as a service, commercial use,
+   and using the Work or its outputs (including the character, text and data) to
+   train or fine-tune machine-learning models. Permission is not implied by the
+   public availability of the Work, by a "fork" or by any other act.
+
+4. Conditions of any permission. Unless the written permission says otherwise,
+   you must keep this notice and the copyright line intact, credit "Lương Việt Hoàng"
+   as the author, and not suggest that the author endorses your use.
+
+5. Character, name and logo. The character "Huyền My", the name "Huyền My Luận Giải",
+   the logo and the artwork are the author's. No right in them is granted.
+
+6. Third-party components. Third-party software and fonts are used under their own
+   licences, listed in the file NOTICE. This licence does not change them.
+
+7. No warranty. THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. The Work
+   offers symbolic reflection, not predictions, and is not medical, legal, financial
+   or psychological advice. The author is not liable for any claim arising from it,
+   to the extent permitted by law.
+
+8. Termination. Any use outside this licence is unauthorised and may infringe
+   the author's copyright.
+
+9. How to ask. Request permission through the repository:
+   https://github.com/lvhoang90/huyen-mi-luan-giai (open an issue titled
+   "Permission request", state who you are, what you will do, where and for how long).
+
+------------------------------------------------------------------------------
+TIẾNG VIỆT
+------------------------------------------------------------------------------
+
+1. Phạm vi. "Tác phẩm" gồm phần mềm Huyền My Luận Giải, mã nguồn, văn bản, bộ dữ liệu do
+   tác giả biên soạn, hình nhân vật "Huyền My", logo, thiết kế và tài liệu trong kho
+   mã này, dưới dạng mã nguồn hay bất kỳ dạng nào khác.
+
+2. Không cần xin phép khi: (a) đọc, xem, nghiên cứu Tác phẩm; (b) trích dẫn ngắn có ghi rõ
+   tên tác giả, trong phạm vi pháp luật cho phép (ví dụ phê bình, đánh giá, giảng dạy,
+   nghiên cứu).
+
+3. Mọi việc khác cần có sự cho phép bằng văn bản của tác giả, trước khi thực hiện. Gồm:
+   sao chép, chạy bản công khai hoặc bản lưu trữ trực tuyến, chỉnh sửa, tạo tác phẩm
+   phái sinh, phân phối lại, cấp phép lại, bán, cung cấp như dịch vụ, sử dụng thương mại,
+   và dùng Tác phẩm hay sản phẩm của nó (kể cả nhân vật, văn bản, dữ liệu) để huấn luyện
+   hoặc tinh chỉnh mô hình học máy. Việc Tác phẩm được công khai, được "fork" hay bất
+   kỳ hành vi nào khác không được hiểu là đã cho phép.
+
+4. Điều kiện của sự cho phép. Trừ khi văn bản cho phép nêu khác, bạn phải giữ nguyên thông
+   báo này và dòng bản quyền, ghi nhận "Lương Việt Hoàng" là tác giả, và không gợi ý rằng
+   tác giả bảo trợ cho việc sử dụng của bạn.
+
+5. Nhân vật, tên và logo. Nhân vật "Huyền My", tên "Huyền My Luận Giải", logo và hình ảnh
+   thuộc về tác giả. Không có quyền nào trong số đó được chuyển giao.
+
+6. Thành phần của bên thứ ba. Phần mềm và phông chữ của bên thứ ba dùng theo giấy phép
+   riêng, liệt kê trong tệp NOTICE. Giấy phép này không thay đổi chúng.
+
+7. Không bảo đảm. TÁC PHẨM ĐƯỢC CUNG CẤP "NGUYÊN TRẠNG", KHÔNG KÈM BẢO ĐẢM NÀO. Tác phẩm là một
+   lăng kính biểu tượng để soi mình, không phải tiên đoán, và không phải tư vấn y tế, pháp
+   lý, tài chính hay tâm lý. Tác giả không chịu trách nhiệm về mọi khiếu nại phát sinh,
+   trong phạm vi pháp luật cho phép.
+
+8. Chấm dứt. Mọi hành vi sử dụng ngoài giấy phép này là chưa được phép và có thể xâm phạm
+   quyền tác giả.
+
+9. Cách xin phép. Gửi yêu cầu qua kho mã: https://github.com/lvhoang90/huyen-mi-luan-giai
+   (mở một issue với tiêu đề "Xin phép sử dụng", nêu bạn là ai, sẽ làm gì, ở đâu và trong
+   bao lâu).
