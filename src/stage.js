@@ -192,7 +192,7 @@ export function createStage(canvas) {
   const animate = () => {
     const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
     pointer.lerp(tPointer, 1 - Math.exp(-4 * dt));
-    camera.position.set(pointer.x * 0.4, target.y + 0.75 + pointer.y * 0.15, camera.userData.dist);
+    camera.position.set(pointer.x * 0.4, target.y + 0.5 + pointer.y * 0.15, camera.userData.dist);
     camera.lookAt(target);
     hm.update(t, dt, pointer);
     backdrop.material.uniforms.uTime.value = t;

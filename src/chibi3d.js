@@ -78,17 +78,17 @@ const hatTex = () => canvasTex(1024, 1024, (g) => {
   g.fillStyle = gr; g.fillRect(0, 0, 1024, 1024);
   for (let i = 0; i < 5; i++) { // năm cánh màu quanh đỉnh, mỗi cánh đối diện một đỉnh sao
     const a0 = (-90 + 72 * i - 36) * Math.PI / 180, a1 = (-90 + 72 * i + 36) * Math.PI / 180;
-    g.fillStyle = ELEM[i][1] + '47'; g.beginPath(); g.moveTo(C, C); g.arc(C, C, R, a0, a1); g.closePath(); g.fill();
+    g.fillStyle = ELEM[i][1] + '66'; g.beginPath(); g.moveTo(C, C); g.arc(C, C, R, a0, a1); g.closePath(); g.fill();
   }
   g.strokeStyle = 'rgba(160,115,45,.45)'; g.lineWidth = 3;
   for (let i = 0; i < 96; i++) { const a = (i / 96) * Math.PI * 2; g.beginPath(); g.moveTo(C, C); g.lineTo(C + Math.cos(a) * R, C + Math.sin(a) * R); g.stroke(); }
   g.lineWidth = 4; for (let r = 60; r < R; r += 52) { g.beginPath(); g.arc(C, C, r, 0, Math.PI * 2); g.stroke(); }
-  const rr = 330, P = [...Array(5)].map((_, k) => [C + rr * Math.cos((-90 + 72 * k) * Math.PI / 180), C + rr * Math.sin((-90 + 72 * k) * Math.PI / 180)]);
-  g.setLineDash([6, 16]); g.strokeStyle = 'rgba(120,80,25,.7)'; g.lineWidth = 5; g.beginPath(); g.arc(C, C, rr + 40, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
-  g.fillStyle = 'rgba(255,247,214,.4)'; g.strokeStyle = '#9b6b1f'; g.lineWidth = 13; g.lineJoin = 'round'; g.beginPath();
+  const rr = 400, P = [...Array(5)].map((_, k) => [C + rr * Math.cos((-90 + 72 * k) * Math.PI / 180), C + rr * Math.sin((-90 + 72 * k) * Math.PI / 180)]);
+  g.setLineDash([6, 16]); g.strokeStyle = 'rgba(120,80,25,.7)'; g.lineWidth = 5; g.beginPath(); g.arc(C, C, rr + 48, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+  g.fillStyle = 'rgba(255,247,214,.4)'; g.strokeStyle = '#6e4510'; g.lineWidth = 20; g.lineJoin = 'round'; g.beginPath();
   for (let k = 0; k < 5; k++) { const p = P[(2 * k) % 5]; k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); } g.closePath(); g.fill(); g.stroke();
   g.strokeStyle = 'rgba(201,151,47,.85)'; g.lineWidth = 6; g.beginPath(); P.forEach((p, k) => (k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]))); g.closePath(); g.stroke();
-  P.forEach((p, k) => { g.fillStyle = ELEM[k][1]; g.strokeStyle = '#6b4414'; g.lineWidth = 9; g.beginPath(); g.arc(p[0], p[1], 34, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.85)'; circ(g, p[0] - 10, p[1] - 10, 10); });
+  P.forEach((p, k) => { g.fillStyle = ELEM[k][1]; g.strokeStyle = '#6b4414'; g.lineWidth = 9; g.beginPath(); g.arc(p[0], p[1], 46, 0, Math.PI * 2); g.fill(); g.stroke(); g.fillStyle = 'rgba(255,255,255,.85)'; circ(g, p[0] - 13, p[1] - 13, 13); });
   g.fillStyle = '#fff3b0'; g.strokeStyle = '#9b6b1f'; g.lineWidth = 7; g.beginPath(); g.arc(C, C, 26, 0, Math.PI * 2); g.fill(); g.stroke();
 });
 
@@ -127,8 +127,8 @@ function makeVeil() {
   for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) {
     const th = (i / NU) * Math.PI * 2, y = sp[j].y, k = j * (NU + 1) + i, v = j / NV;
     const a = Math.atan2(Math.sin(th), Math.cos(th)); // 0 = chính diện
-    let alpha = 0.3 + 0.08 * (0.5 + 0.5 * Math.sin(14 * th));
-    if (y > 3.06) alpha = 0.34; // phủ nón
+    let alpha = 0.22 + 0.07 * (0.5 + 0.5 * Math.sin(14 * th));
+    if (y > 3.06) alpha = 0.16; // phủ nón
     const front = smooth(1.15, 0.5, Math.abs(a)) * smooth(1.4, 1.75, y) * smooth(3.1, 2.8, y); // mỏng ngay trên mặt
     alpha = alpha * (1 - 0.62 * front);
     const mix = v, fld = 0.05 * Math.sin(14 * th); col.set([0.88 + 0.06 * mix + fld, 1.0 - 0.1 * mix + fld, 0.96 + 0.04 * mix + fld, alpha], k * 4);
@@ -231,8 +231,8 @@ export function makeChibi() {
   for (const s of [-1, 1]) { const l = new THREE.Group(); l.position.set(s * 0.93, -0.12, 0.3); const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.9, 6, 16), hairM); m.position.y = -0.52; m.scale.z = 0.8; l.add(m); head.add(l); locks.push(l); }
 
   // ----- nón lá + viền lông + quai thao -----
-  const hat = new THREE.Group(); hat.position.y = 0.66; hat.rotation.x = -0.26; head.add(hat);
-  const HRAD = 1.78, HH = 0.9, hp = [];
+  const hat = new THREE.Group(); hat.position.y = 0.66; hat.rotation.x = -0.13; head.add(hat);
+  const HRAD = 1.78, HH = 1.08, hp = [];
   for (let i = 0; i <= 28; i++) { const t = i / 28; hp.push(new THREE.Vector2(HRAD * t, HH * Math.pow(1 - t, 1.12))); }
   const hg = new THREE.LatheGeometry(hp, 96); const hu = hg.attributes.uv, hpos = hg.attributes.position;
   for (let i = 0; i < hu.count; i++) hu.setXY(i, hpos.getX(i) / (2 * HRAD) + 0.5, hpos.getZ(i) / (2 * HRAD) + 0.5);
