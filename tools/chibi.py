@@ -1,15 +1,15 @@
-# Bộ sinh ảnh vector Huyền My (bản v2: voan trùm nón, sao ngũ hành, sen cách điệu; có bản chuyển động). Chạy: python3 tools/chibi.py public/art
+# Bộ sinh ảnh vector Huyền My (v2: nón vòm thanh, voan trùm nón, sao ngũ hành, sen cách điệu; có bản chuyển động). Chạy: python3 tools/chibi.py public/art
 # Bộ sinh ảnh vector Huyền My (chibi). Chạy: python3 tools/chibi.py public/art
 import math, sys
 
 OUT = '#2a1a4d'   # nét viền tím than đậm
 def bez(L, C, R, t): return ((1-t)**2*L[0]+2*(1-t)*t*C[0]+t*t*R[0], (1-t)**2*L[1]+2*(1-t)*t*C[1]+t*t*R[1])
 
-A=(300,66); L=(82,256); R=(518,256); C=(300,300)   # nón lá
+A=(300,112); L=(82,256); R=(518,256); C=(300,300)   # nón lá
 ELEM=[('Mộc','#52d68f'),('Hỏa','#ff6a4d'),('Thổ','#f0bd4a'),('Kim','#f6f1e2'),('Thủy','#5aa9ff')]
 def hat():
     s=[]
-    d=f"M {A[0]} {A[1]} C {A[0]-34} {A[1]+42} {L[0]+96} {L[1]-76} {L[0]} {L[1]} Q {C[0]} {C[1]} {R[0]} {R[1]} C {R[0]-96} {R[1]-76} {A[0]+34} {A[1]+42} {A[0]} {A[1]} Z"
+    d=f"M {A[0]} {A[1]} C {A[0]-72} {A[1]+8} {L[0]+84} {L[1]-46} {L[0]} {L[1]} Q {C[0]} {C[1]} {R[0]} {R[1]} C {R[0]-84} {R[1]-46} {A[0]+72} {A[1]+8} {A[0]} {A[1]} Z"
     s.append(f'<clipPath id="hatclip"><path d="{d}"/></clipPath>')
     s.append('<linearGradient id="hatg" x1="0" y1="0" x2="1" y2="0.2"><stop offset="0" stop-color="#fbebbd"/><stop offset=".45" stop-color="#f0d38d"/><stop offset="1" stop-color="#d5ac5e"/></linearGradient>')
     s.append('<radialGradient id="furg" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#f6f2ff"/><stop offset="1" stop-color="#ddd3f5"/></radialGradient>')
@@ -26,35 +26,32 @@ def hat():
     for k in range(1,9):
         f=k/9; l=(A[0]+f*(L[0]-A[0]),A[1]+f*(L[1]-A[1])); c=(A[0]+f*(C[0]-A[0]),A[1]+f*(C[1]-A[1])); r=(A[0]+f*(R[0]-A[0]),A[1]+f*(R[1]-A[1]))
         s.append(f'<path d="M {l[0]:.1f} {l[1]:.1f} Q {c[0]:.1f} {c[1]:.1f} {r[0]:.1f} {r[1]:.1f}" stroke-width="1.8" opacity=".42"/>')
-    cx,cy,rr=300,178,84
+    cx,cy,rr=300,196,64
     P=[(cx+rr*math.cos(math.radians(-90+72*k)), cy+rr*math.sin(math.radians(-90+72*k))) for k in range(5)]
     s.append(f'<circle cx="{cx}" cy="{cy}" r="{rr+8}" fill="none" stroke="#9b6b1f" stroke-width="1.8" stroke-dasharray="2 5" opacity=".7"/>')
     star=' '.join(f'{P[(2*k)%5][0]:.1f},{P[(2*k)%5][1]:.1f}' for k in range(5))
-    s.append(f'<polygon points="{star}" fill="#fff7d6" fill-opacity=".35" stroke="#9b6b1f" stroke-width="3.2" stroke-linejoin="round"/>')
+    s.append(f'<polygon points="{star}" fill="#fff7d6" fill-opacity=".35" stroke="#9b6b1f" stroke-width="2.8" stroke-linejoin="round"/>')
     pent=' '.join(f'{x:.1f},{y:.1f}' for x,y in P)
     s.append(f'<polygon points="{pent}" fill="none" stroke="#c9972f" stroke-width="1.6" opacity=".8"/>')
     names=['Hỏa','Thổ','Kim','Thủy','Mộc']; colmap=dict(ELEM)
     for (x,y),nm in zip(P,names):
         c=colmap[nm]
-        s.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="10.5" fill="{c}" stroke="#6b4414" stroke-width="2.4"/><circle cx="{x-3:.1f}" cy="{y-3:.1f}" r="3.2" fill="#fff" opacity=".85"/>')
-    s.append(f'<circle cx="{cx}" cy="{cy}" r="9" fill="#fff3b0" stroke="#9b6b1f" stroke-width="2"/>')
+        s.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="8.5" fill="{c}" stroke="#6b4414" stroke-width="2.2"/><circle cx="{x-2.5:.1f}" cy="{y-2.5:.1f}" r="2.6" fill="#fff" opacity=".85"/>')
+    s.append(f'<circle cx="{cx}" cy="{cy}" r="7" fill="#fff3b0" stroke="#9b6b1f" stroke-width="1.8"/>')
     s.append('</g>')
     s.append(f'<path d="M 300 {A[1]+12} C 268 {A[1]+50} 210 {A[1]+104} 160 {A[1]+158} C 196 {A[1]+110} 250 {A[1]+54} 300 {A[1]+12} Z" fill="#fffbe8" opacity=".5"/>')
     s.append(f'<path d="{d}" fill="none" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
     import random
-    rnd=random.Random(7)
+    rnd=random.Random(11)
     puffs=[]
-    N=40
+    N=30
     for i in range(N+1):
         t=i/N; x,y=bez(L,C,R,t)
-        rad=11+rnd.random()*4+(3 if i%3==0 else 0)
-        puffs.append((x+rnd.uniform(-2,2), y+4+rnd.uniform(-2,3), rad))
-    for (x,y,r) in puffs: s.append(f'<circle cx="{x:.1f}" cy="{y+3:.1f}" r="{r:.1f}" fill="#cdbff0" opacity=".55"/>')
-    for (x,y,r) in puffs: s.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="url(#furg)" stroke="#d9cff3" stroke-width="1"/>')
-    for (x,y,r) in puffs[::2]:
-        s.append(f'<path d="M {x-r*0.5:.1f} {y-r*0.2:.1f} q {r*0.4:.1f} {-r*0.6:.1f} {r*0.9:.1f} {-r*0.1:.1f}" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>')
-    s.append(f'<path d="M 300 {A[1]} C 288 {A[1]-8} 280 {A[1]+4} 292 {A[1]+10} C 296 {A[1]+4} 298 {A[1]+2} 300 {A[1]} C 302 {A[1]+2} 304 {A[1]+4} 308 {A[1]+10} C 320 {A[1]+4} 312 {A[1]-8} 300 {A[1]} Z" fill="#9a6ae8" stroke="#2a1a4d" stroke-width="2.5" stroke-linejoin="round"/>')
-    s.append(f'<circle cx="300" cy="{A[1]+3}" r="4.5" fill="#f6d77a" stroke="#2a1a4d" stroke-width="1.8"/>')
+        rad=7.6+rnd.random()*2.0
+        puffs.append((x+rnd.uniform(-1,1), y+2.5+rnd.uniform(-1,1.5), rad))
+    for (x,y,r) in puffs: s.append(f'<circle cx="{x:.1f}" cy="{y+2:.1f}" r="{r:.1f}" fill="#d8cdf3" opacity=".5"/>')
+    for (x,y,r) in puffs: s.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{r:.1f}" fill="url(#furg)" stroke="#e1d8f6" stroke-width=".9"/>')
+    s.append(f'<g transform="translate(300 {A[1]}) scale(.7) translate(-300 {-A[1]})"><path d="M 300 {A[1]} C 288 {A[1]-8} 280 {A[1]+4} 292 {A[1]+10} C 296 {A[1]+4} 298 {A[1]+2} 300 {A[1]} C 302 {A[1]+2} 304 {A[1]+4} 308 {A[1]+10} C 320 {A[1]+4} 312 {A[1]-8} 300 {A[1]} Z" fill="#9a6ae8" stroke="#2a1a4d" stroke-width="2.5" stroke-linejoin="round"/><circle cx="300" cy="{A[1]+3}" r="4.5" fill="#f6d77a" stroke="#2a1a4d" stroke-width="1.8"/></g>')
     s.append('</g>')
     return '\n'.join(s)
 
@@ -111,9 +108,9 @@ def veil_back(anim=False):
     out.append('</g>'); return ''.join(out)
 
 def veil_outline(phase):
-    return ('M 300 30 C 352 36 480 150 546 246 C 584 304 528 410 552 496 C 574 566 612 604 590 676'
+    return ('M 300 76 C 372 78 480 156 546 246 C 584 304 528 410 552 496 C 574 566 612 604 590 676'
             +wave(590,676,38,704,5,34,phase)+
-            ' C 62 650 -4 600 30 520 C 58 440 0 346 56 246 C 122 150 248 36 300 30 Z')
+            ' C 62 650 -4 600 30 520 C 58 440 0 346 56 246 C 120 156 228 78 300 76 Z')
 
 def veil_front(anim=False):
     out=['<g id="voan-truoc" mask="url(#vmask)">']
@@ -124,10 +121,10 @@ def veil_front(anim=False):
     else:
         out.append(f'<path d="{d0}" fill="url(#voanF)" stroke="#f8f4ff" stroke-opacity=".85" stroke-width="2.4" stroke-linejoin="round"/>')
     for i in range(1,10):
-        bx,by=bez(L,C,R,i/10); by-=22
-        out.append(f'<path d="M 300 36 Q {300+(bx-300)*0.55:.0f} {36+(by-36)*0.45+6:.0f} {bx+(bx-300)*0.1:.0f} {by+6:.0f}" fill="none" stroke="#fff" stroke-opacity="{0.30 if i%2 else 0.16}" stroke-width="1.8" stroke-linecap="round"/>')
+        bx,by=bez(L,C,R,i/10); by-=30
+        out.append(f'<path d="M 300 82 Q {300+(bx-300)*0.55:.0f} {82+(by-82)*0.45+6:.0f} {bx+(bx-300)*0.1:.0f} {by+6:.0f}" fill="none" stroke="#fff" stroke-opacity="{0.30 if i%2 else 0.16}" stroke-width="1.8" stroke-linecap="round"/>')
     for i in range(1,11):
-        f=i/11; bx,by=bez(L,C,R,f); by-=22
+        f=i/11; bx,by=bez(L,C,R,f); by-=30
         hx=38+(590-38)*f
         sw=30*math.sin(i*1.25)
         out.append(f'<path d="M {bx:.0f} {by+8:.0f} C {bx+sw:.0f} 360 {hx-sw*1.3:.0f} 540 {hx:.0f} {690+14*math.sin(i*1.9):.0f}" fill="none" stroke="#fff" stroke-opacity="{0.36 if i%2 else 0.16}" stroke-width="2.2" stroke-linecap="round"/>')
@@ -149,7 +146,7 @@ def character(with_veil=False, anim=False):
     S.append('<ellipse cx="300" cy="768" rx="150" ry="16" fill="#1c1040" opacity=".28"/>')
     if with_veil: S.append(veil_defs()); S.append(veil_back(anim))
     # tóc sau
-    S.append('<linearGradient id="hairg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3a2f66"/><stop offset=".5" stop-color="#1a1330"/><stop offset="1" stop-color="#0d0a1c"/></linearGradient>')
+    S.append('<linearGradient id="hairg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b4aa4"/><stop offset=".5" stop-color="#352a6e"/><stop offset="1" stop-color="#1f1745"/></linearGradient><linearGradient id="hairg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4c3f86"/><stop offset=".5" stop-color="#271d52"/><stop offset="1" stop-color="#140f2c"/></linearGradient>')
     S.append(f'<path id="hair-back" d="M 186 292 C 150 380 154 520 186 596 C 208 640 244 624 254 580 L 346 580 C 356 624 392 640 414 596 C 446 520 450 380 414 292 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3.5" stroke-linejoin="round"/>')
     S.append('<path d="M 172 410 C 166 470 172 540 190 586" fill="none" stroke="#7a68c0" stroke-width="3.5" stroke-linecap="round" opacity=".45"/><path d="M 428 410 C 434 470 428 540 410 586" fill="none" stroke="#7a68c0" stroke-width="3.5" stroke-linecap="round" opacity=".45"/>')
     # quần lụa + hài
@@ -213,18 +210,21 @@ def character(with_veil=False, anim=False):
     S.append('<path d="M 297 396 Q 300 400 303 396" fill="none" stroke="#d99a86" stroke-width="2.6" stroke-linecap="round"/>')
     S.append(f'<g id="mouth"><path d="M 282 410 Q 300 442 318 410 Q 300 418 282 410 Z" fill="#d6527a" stroke="{OUT}" stroke-width="2.8" stroke-linejoin="round"/><path d="M 290 422 Q 300 434 310 422 Q 300 426 290 422 Z" fill="#ff9db8"/><path d="M 286 412 Q 300 418 314 412" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".9"/></g>')
     # mái + tóc hai bên mặt
-    S.append(f'<path id="bangs" d="M 352 250 L 352 289 C 312 292 252 298 206 324 C 194 330 184 338 178 350 C 172 330 172 306 178 290 C 190 258 230 236 300 232 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/>')
-    S.append(f'<path d="M 352 250 C 396 252 426 284 424 326 C 424 340 422 350 420 360 C 412 340 404 318 392 306 C 380 296 366 291 352 289 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/>')
-    S.append('<g fill="none" stroke="#9c8ae0" stroke-width="3" stroke-linecap="round" opacity=".55"><path d="M 340 292 C 296 296 248 306 214 326"/><path d="M 338 280 C 292 284 244 292 204 312"/><path d="M 360 262 C 394 266 414 288 418 318"/></g>')
+    # tóc mái vén ngang: lọn dày, nền tóc sáng, vuốt chéo sang trái rồi gài sau tai
+    S.append(f'<path id="bangs" d="M 354 226 L 356 296 C 318 300 262 304 216 326 C 200 334 188 346 178 362 C 168 336 168 306 176 282 C 190 244 238 224 300 222 Z" fill="url(#hairg2)" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/>')
+    S.append(f'<path d="M 354 226 C 402 228 430 262 428 314 C 428 336 426 352 420 368 C 412 346 404 324 392 310 C 382 298 370 294 356 292 Z" fill="url(#hairg2)" stroke="{OUT}" stroke-width="3.2" stroke-linejoin="round"/>')
+    S.append('<path d="M 350 250 C 316 262 262 276 220 300 C 204 310 192 326 186 342 C 196 316 214 296 244 282 C 280 266 318 256 350 250 Z" fill="#c5b5ff" opacity=".42"/>')
+    S.append('<g fill="none" stroke="#e3d9ff" stroke-linecap="round"><path d="M 346 272 C 304 282 256 296 214 320" stroke-width="3.6" opacity=".85"/><path d="M 344 258 C 300 268 250 284 204 310" stroke-width="2.6" opacity=".7"/><path d="M 346 284 C 306 292 262 302 224 322" stroke-width="2.2" opacity=".6"/><path d="M 372 246 C 404 252 420 276 424 312" stroke-width="3" opacity=".75"/></g>')
+    S.append('<g fill="none" stroke="#2a2060" stroke-width="2" stroke-linecap="round" opacity=".55"><path d="M 350 292 C 306 298 256 308 218 330"/><path d="M 352 280 C 308 286 258 296 214 318"/></g>')
     for sgn in (-1,1):
         x=300+sgn*124
         S.append(f'<path d="M {x} 300 C {x+sgn*14} 350 {x+sgn*8} 420 {x-sgn*14} 462 C {x-sgn*10} 410 {x-sgn*14} 350 {x-sgn*10} 306 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
     S.append('<path d="M 214 262 C 236 246 262 240 284 244" fill="none" stroke="#8f7cd8" stroke-width="4" stroke-linecap="round" opacity=".55"/>')
     # ===== nón lá =====
-    S.append('<g transform="translate(0,-22)">'+hat()+'</g>')
+    S.append('<g transform="translate(0,-30)">'+hat()+'</g>')
     # dây quai tím + nơ dưới cằm
     for sgn in (-1,1):
-        bx,by=bez(L,C,R,0.5+sgn*0.36); by-=22
+        bx,by=bez(L,C,R,0.5+sgn*0.36); by-=30
         S.append(f'<path d="M {bx:.0f} {by:.0f} C {bx+sgn*(-6):.0f} {by+90:.0f} {300+sgn*86} 440 {300+sgn*14} 458" fill="none" stroke="{OUT}" stroke-width="9" stroke-linecap="round"/>')
         S.append(f'<path d="M {bx:.0f} {by:.0f} C {bx+sgn*(-6):.0f} {by+90:.0f} {300+sgn*86} 440 {300+sgn*14} 458" fill="none" stroke="#a97bf0" stroke-width="5" stroke-linecap="round"/>')
     S.append(f'<path d="M 300 462 C 270 440 258 478 280 484 C 292 486 298 474 300 462 C 302 474 308 486 320 484 C 342 478 330 440 300 462 Z" fill="#a97bf0" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
