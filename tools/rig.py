@@ -205,6 +205,17 @@ def world_fx():
     s.append('<g class="fx fx-shock" stroke="#ffd36b" stroke-width="5" stroke-linecap="round" fill="none"><path d="M 436 286 l 26 -12 M 442 318 l 30 0 M 436 350 l 26 12"/><path d="M 164 286 l -26 -12 M 158 318 l -30 0 M 164 350 l -26 12"/></g>')
     return '\n'.join(s)
 
+def ear_geom(sgn):
+    """Hình học tai (vẽ theo tai phải rồi lật). fill: vùng da của tai (chân tai thụt vào trong má); outer: đường viền ngoài; rim: gờ vành tai."""
+    X = lambda x: 300 + sgn * (x - 300)
+    ang = sgn * 10; cx, cy = X(414), 358
+    outer = f'M {X(418)} 334 C {X(433)} 327 {X(440)} 344 {X(435)} 361 C {X(431)} 374 {X(421)} 385 {X(410)} 381'
+    fill = outer + f' L {X(402)} 380 L {X(410)} 330 Z'
+    rim = f'M {X(422)} 340 C {X(431)} 339 {X(434)} 349 {X(431)} 358 C {X(429)} 365 {X(424)} 368 {X(421)} 366'
+    t = math.radians(ang); px, py = X(411), 381; dx, dy = px - cx, py - cy
+    lobe = (cx + dx * math.cos(t) - dy * math.sin(t), cy + dx * math.sin(t) + dy * math.cos(t))
+    return dict(fill=fill, outer=outer, rim=rim, ang=ang, cx=cx, cy=cy, lobe=lobe)
+
 POSES_BACK, POSES_FRONT = poses()
 def build():
     S = []
@@ -216,7 +227,7 @@ def build():
              + '<linearGradient id="hairg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#26262c"/><stop offset=".5" stop-color="#0d0d10"/><stop offset="1" stop-color="#000"/></linearGradient>'
              + '<linearGradient id="adg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a69ea"/><stop offset=".55" stop-color="#7344c8"/><stop offset="1" stop-color="#4e2a97"/></linearGradient>'
              + '<linearGradient id="adg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a98af0"/><stop offset="1" stop-color="#6a3dc0"/></linearGradient>'
-             + '<radialGradient id="skin" cx=".5" cy=".42" r=".65"><stop offset="0" stop-color="#fff0e4"/><stop offset=".7" stop-color="#ffdcc6"/><stop offset="1" stop-color="#f3bfa6"/></radialGradient>'
+             + '<radialGradient id="skin" gradientUnits="userSpaceOnUse" cx="300" cy="313" r="156"><stop offset="0" stop-color="#fff0e4"/><stop offset=".7" stop-color="#ffdcc6"/><stop offset="1" stop-color="#f3bfa6"/></radialGradient>'
              + '<radialGradient id="blush"><stop offset="0" stop-color="#ff7fa0" stop-opacity=".7"/><stop offset="1" stop-color="#ff7fa0" stop-opacity="0"/></radialGradient>'
              + '<radialGradient id="iris" cx=".5" cy=".38" r=".7"><stop offset="0" stop-color="#9d7bf0"/><stop offset=".45" stop-color="#4b2f93"/><stop offset="1" stop-color="#1b0f3c"/></radialGradient>'
              + '<radialGradient id="orbg" cx=".38" cy=".34" r=".75"><stop offset="0" stop-color="#fff"/><stop offset=".35" stop-color="#ffe9a8"/><stop offset=".75" stop-color="#b48cf5"/><stop offset="1" stop-color="#6b3fc4"/></radialGradient>'
@@ -249,7 +260,14 @@ def build():
     S.append('</g>')  # body
     # ----- đầu -----
     S.append('<g id="head">')
-    S.append(f'<path d="M 180 318 C 180 244 238 212 300 212 C 362 212 420 244 420 318 C 420 392 366 452 300 452 C 234 452 180 392 180 318 Z" fill="url(#skin)" stroke="{OUT}" stroke-width="3.5"/>')
+    FACE_D = "M 180 318 C 180 244 238 212 300 212 C 362 212 420 244 420 318 C 420 392 366 452 300 452 C 234 452 180 392 180 318 Z"
+    E = [ear_geom(-1), ear_geom(1)]
+    wrap = lambda g, inner: f'<g transform="rotate({g["ang"]} {g["cx"]} {g["cy"]})">{inner}</g>'
+    S.append('<g id="skin-mass">'      # mặt và hai tai là MỘT khối da: viền vẽ một lần cho cả khối, màu da cùng một dải chuyển sắc
+             + f'<path d="{FACE_D}" fill="none" stroke="{OUT}" stroke-width="7" stroke-linejoin="round"/>'
+             + ''.join(wrap(g, f'<path d="{g["fill"]}" fill="none" stroke="{OUT}" stroke-width="6.4" stroke-linejoin="round"/>') for g in E)
+             + f'<path d="{FACE_D}" fill="url(#skin)"/>'
+             + ''.join(wrap(g, f'<path d="{g["fill"]}" fill="url(#skin)"/>') for g in E) + '</g>')
     S.append('<g id="features">')
     S.append('<g class="blush"><ellipse cx="226" cy="396" rx="30" ry="17" fill="url(#blush)"/></g><g class="blush"><ellipse cx="374" cy="396" rx="30" ry="17" fill="url(#blush)"/></g>')
     S.append('<g stroke="#ff6f95" stroke-width="2.2" stroke-linecap="round" opacity=".6"><path d="M 212 392 l 5 8 M 222 391 l 5 8 M 232 392 l 5 8"/><path d="M 362 392 l 5 8 M 372 391 l 5 8 M 382 392 l 5 8"/></g>')
@@ -273,20 +291,12 @@ def build():
         S.append(f'<path d="{d}" fill="none" stroke="{OUT}" stroke-width="9" stroke-linecap="round"/><path d="{d}" fill="none" stroke="#a97bf0" stroke-width="5" stroke-linecap="round"/>')
     S.append(f'<path d="M 300 462 C 270 440 258 478 280 484 C 292 486 298 474 300 462 C 302 474 308 486 320 484 C 342 478 330 440 300 462 Z" fill="#a97bf0" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
     S.append(f'<path d="M 296 474 C 286 500 276 520 268 538 L 282 534 L 292 500 Z M 304 474 C 314 500 324 520 332 538 L 318 534 L 308 500 Z" fill="#8a57de" stroke="{OUT}" stroke-width="2.6" stroke-linejoin="round"/><circle cx="300" cy="466" r="7" fill="#8a57de" stroke="{OUT}" stroke-width="2.6"/>')
-    for sgn in (-1, 1):   # tai áp sát hai bên mặt, hơi nghiêng; chân tai liền với má, bông tai buông thẳng từ đáy dái tai
-        X = lambda x: 300 + sgn * (x - 300)          # vẽ theo tai phải rồi lật cho tai trái
-        ang = sgn * 10; cx, cy = X(414), 358
-        def rot(px, py):
-            dx, dy = px - cx, py - cy; t = math.radians(ang)
-            return cx + dx * math.cos(t) - dy * math.sin(t), cy + dx * math.sin(t) + dy * math.cos(t)
-        outer = (f'M {X(418)} 334 C {X(433)} 327 {X(440)} 344 {X(435)} 361 C {X(431)} 374 {X(421)} 385 {X(410)} 381')
-        fill = outer + f' L {X(405)} 380 L {X(412)} 330 Z'      # chân tai thụt vào trong má để che đường viền mặt
-        rim = f'M {X(422)} 340 C {X(431)} 339 {X(434)} 349 {X(431)} 358 C {X(429)} 365 {X(424)} 368 {X(421)} 366'
-        lx, ly = rot(X(411), 381)                             # đáy dái tai sau khi nghiêng
-        S.append(f'<g class="ear"><g transform="rotate({ang} {cx} {cy})"><path d="{fill}" fill="#ffdcc6"/>'
-                 f'<path d="{outer}" fill="none" stroke="{OUT}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
-                 f'<path d="{rim}" fill="none" stroke="#e8b59c" stroke-width="2.2" stroke-linecap="round"/></g>'
-                 f'<circle cx="{lx:.1f}" cy="{ly + 2:.1f}" r="3" fill="#f6d77a" stroke="{OUT}" stroke-width="1.8"/>'
+    for g in E:   # vẽ lại tai ở lớp trên (che dây quai) bằng đúng gradient da và đúng hình khối, nên vẫn liền với má
+        lx, ly = g['lobe']
+        S.append('<g class="ear">' + wrap(g, f'<path d="{g["fill"]}" fill="url(#skin)"/>'
+                 f'<path d="{g["outer"]}" fill="none" stroke="{OUT}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>'
+                 f'<path d="{g["rim"]}" fill="none" stroke="#e8b59c" stroke-width="2.2" stroke-linecap="round"/>')
+                 + f'<circle cx="{lx:.1f}" cy="{ly + 2:.1f}" r="3" fill="#f6d77a" stroke="{OUT}" stroke-width="1.8"/>'
                  f'<path d="M {lx:.1f} {ly + 5:.1f} L {lx:.1f} {ly + 12:.1f}" stroke="#d9b36a" stroke-width="2.4" stroke-linecap="round"/>'
                  f'<ellipse cx="{lx:.1f}" cy="{ly + 23:.1f}" rx="6" ry="9.5" fill="#6ee0b4" stroke="{OUT}" stroke-width="2.4"/><ellipse cx="{lx - 2:.1f}" cy="{ly + 19:.1f}" rx="1.8" ry="3" fill="#fff" opacity=".9"/></g>')
     S.append('</g>')  # head
