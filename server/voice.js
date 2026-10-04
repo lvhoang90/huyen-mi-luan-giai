@@ -24,10 +24,11 @@ export function repeatedPhrases(prevReplies, { last = 8, limit = 10, ignoreText 
 /** Các khuôn câu và cụm từ nghe như máy viết sẵn. */
 export const STOCK = [
   ['doi_lap', /không (chỉ )?phải\b[^.?!\n]{1,60}\b(mà|mà là|chứ)\b|\bchứ không phải\b|không chỉ\b[^.?!\n]{1,50}\bmà còn\b/i],
-  ['hoi_thang', /(my|mình)? ?muốn hỏi thẳng|nói thật lòng|nói thẳng với bạn|bằng sự tử tế|dội nước lạnh|tát nước/i],
+  ['hoi_thang', /(my|mình)? ?muốn hỏi thẳng|nói thật lòng|(my|mình) (muốn )?nói thật|nói thẳng với bạn|bằng sự tử tế|dội nước lạnh|tát nước/i],
   ['nghe_roi', /(my|mình) nghe rồi|cảm ơn bạn đã (chia sẻ|kể|tin tưởng|mở lòng)|cảm ơn vì đã (chia sẻ|kể|tin)/i],
   ['sao_rong', /hoàn toàn bình thường|bạn không (hề )?đơn độc|điều đó không (hề )?(nhẹ|dễ)|hãy nhớ rằng|thật (sự )?nặng nề|my hiểu cảm giác/i],
   ['ghep_la_so', /\b(mệnh|kim|mộc|thủy|thổ|hỏa)\b[^.?!\n,]{0,14}\bcho\b[^.?!\n]{0,60},\s*(mệnh|kim|mộc|thủy|thổ|hỏa)\b[^.?!\n,]{0,14}\bcho\b|\bchính là nền (để|cho)\b/i],
+  ['vien_dan', /theo (tâm lý học|khoa học)|nghiên cứu (cho thấy|chỉ ra)|khoa học (cho thấy|tâm lý)|tâm lý học (cho|chỉ|nói)|tái khung|tư duy phát triển|ở tầng /i],
   ['an_du_thien_nhien', /như (một )?(cơn gió|dòng nước|làn gió|mặt hồ|ngọn gió|ánh trăng|cơn mưa)/i],
 ];
 export const stockHits = (text) => STOCK.filter(([, re]) => re.test(String(text))).map(([id]) => id);

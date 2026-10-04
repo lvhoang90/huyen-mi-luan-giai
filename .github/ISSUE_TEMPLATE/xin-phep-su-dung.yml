@@ -1,0 +1,54 @@
+name: Xin phép sử dụng / Permission request
+description: Xin phép tác giả trước khi sao chép, chạy, chỉnh sửa hoặc dùng Huyền My Luận Giải
+title: "Xin phép sử dụng: "
+labels: ["xin-phep"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Mã nguồn công khai để đọc. Mọi việc khác (chạy bản công khai, sao chép, chỉnh sửa, phân phối, thương mại, dùng nhân vật hoặc logo, dùng để huấn luyện mô hình) cần được tác giả **cho phép bằng văn bản trước khi làm**. Xem [LICENSE](../blob/HEAD/LICENSE).
+
+        **Issue này là công khai.** Đừng đăng số điện thoại, email riêng, giấy tờ hay thông tin nhạy cảm. Tác giả sẽ trả lời ngay tại đây và, nếu cần, hẹn một kênh riêng.
+  - type: input
+    id: who
+    attributes:
+      label: Bạn hoặc tổ chức của bạn là ai?
+      description: Tên hoặc tên tổ chức, kèm đường dẫn công khai (website, GitHub, LinkedIn) để tác giả biết bạn là ai.
+    validations:
+      required: true
+  - type: checkboxes
+    id: use
+    attributes:
+      label: Bạn muốn làm gì?
+      options:
+        - label: Chạy thử cá nhân, không công khai
+        - label: Chạy một bản công khai hoặc lưu trữ trực tuyến
+        - label: Chỉnh sửa hoặc tạo bản phái sinh
+        - label: Phân phối lại
+        - label: Dùng thương mại hoặc cung cấp như một dịch vụ
+        - label: Dùng nhân vật Huyền My, tên hoặc logo
+        - label: Dùng nội dung hoặc dữ liệu để huấn luyện mô hình
+        - label: Khác (mô tả bên dưới)
+  - type: textarea
+    id: purpose
+    attributes:
+      label: Mục đích và phạm vi
+      description: Làm ở đâu, cho ai, dự kiến bao nhiêu người dùng, có thu phí không.
+    validations:
+      required: true
+  - type: input
+    id: duration
+    attributes:
+      label: Thời gian dự kiến
+      placeholder: "Ví dụ: 3 tháng, một học kỳ, lâu dài"
+  - type: textarea
+    id: changes
+    attributes:
+      label: Bạn dự kiến thay đổi gì (nếu có)?
+  - type: checkboxes
+    id: agree
+    attributes:
+      label: Xác nhận
+      options:
+        - label: Tôi đã đọc LICENSE và hiểu rằng chưa có phản hồi đồng ý bằng văn bản của tác giả thì tôi chưa được thực hiện việc trên.
+          required: true
