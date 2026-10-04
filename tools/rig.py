@@ -264,13 +264,6 @@ def build():
     for sgn in (-1, 1):
         x = 300 + sgn * 124
         S.append(f'<path d="M {x} 300 C {x+sgn*14} 350 {x+sgn*8} 420 {x-sgn*14} 462 C {x-sgn*10} 410 {x-sgn*14} 350 {x-sgn*10} 306 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
-    for sgn in (-1, 1):   # tai nằm trước tóc (như tóc vén sau tai); bông tai treo ngay từ dái tai
-        x = 300 + sgn * 120
-        S.append(f'<g class="ear"><path d="M {x - sgn*6} 338 C {x + sgn*10} 336 {x + sgn*14} 352 {x + sgn*9} 366 C {x + sgn*6} 372 {x - sgn*2} 372 {x - sgn*6} 366 Z" fill="#ffdcc6" stroke="{OUT}" stroke-width="2.8" stroke-linejoin="round"/>'
-                 f'<path d="M {x - sgn*1} 346 C {x + sgn*5} 346 {x + sgn*7} 354 {x + sgn*4} 361" fill="none" stroke="#e8b59c" stroke-width="2" stroke-linecap="round"/>'
-                 f'<circle cx="{x + sgn*1}" cy="368" r="2.6" fill="#f6d77a" stroke="{OUT}" stroke-width="1.6"/>'
-                 f'<path d="M {x + sgn*1} 371 L {x + sgn*1} 377" stroke="#d9b36a" stroke-width="2.2" stroke-linecap="round"/>'
-                 f'<ellipse cx="{x + sgn*1}" cy="386" rx="5.5" ry="8.5" fill="#6ee0b4" stroke="{OUT}" stroke-width="2.4"/><ellipse cx="{x + sgn*1 - 1.8}" cy="382.5" rx="1.7" ry="2.8" fill="#fff" opacity=".9"/></g>')
     S.append('</g>')
     S.append(f'<g id="brows" opacity=".95">{brows()}</g>')
     S.append('<g transform="translate(0,-30)">' + hat() + '</g>')
@@ -280,6 +273,17 @@ def build():
         S.append(f'<path d="{d}" fill="none" stroke="{OUT}" stroke-width="9" stroke-linecap="round"/><path d="{d}" fill="none" stroke="#a97bf0" stroke-width="5" stroke-linecap="round"/>')
     S.append(f'<path d="M 300 462 C 270 440 258 478 280 484 C 292 486 298 474 300 462 C 302 474 308 486 320 484 C 342 478 330 440 300 462 Z" fill="#a97bf0" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
     S.append(f'<path d="M 296 474 C 286 500 276 520 268 538 L 282 534 L 292 500 Z M 304 474 C 314 500 324 520 332 538 L 318 534 L 308 500 Z" fill="#8a57de" stroke="{OUT}" stroke-width="2.6" stroke-linejoin="round"/><circle cx="300" cy="466" r="7" fill="#8a57de" stroke="{OUT}" stroke-width="2.6"/>')
+    for sgn in (-1, 1):   # tai: nằm trên cùng, nhô hẳn ra ngoài mép má, không bị tóc hay quai che
+        x0 = 300 + sgn * 117            # gốc tai sát mép má
+        ear = (f'M {x0 - sgn*2} 330 C {x0 + sgn*14} 324 {x0 + sgn*27} 340 {x0 + sgn*23} 360 '
+               f'C {x0 + sgn*21} 372 {x0 + sgn*13} 382 {x0 + sgn*4} 378 C {x0 + sgn*1} 372 {x0 - sgn*2} 366 {x0 - sgn*2} 360 Z')
+        lx = x0 + sgn * 10              # tâm dái tai
+        S.append(f'<g class="ear"><path d="{ear}" fill="#ffdcc6" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>'
+                 f'<path d="M {x0 + sgn*3} 340 C {x0 + sgn*12} 338 {x0 + sgn*17} 348 {x0 + sgn*14} 358 C {x0 + sgn*12} 364 {x0 + sgn*8} 366 {x0 + sgn*5} 364" fill="none" stroke="#e8b59c" stroke-width="2.2" stroke-linecap="round"/>'
+                 # bông tai đính vào đáy dái tai
+                 f'<circle cx="{lx}" cy="381" r="3" fill="#f6d77a" stroke="{OUT}" stroke-width="1.8"/>'
+                 f'<path d="M {lx} 384 L {lx} 391" stroke="#d9b36a" stroke-width="2.4" stroke-linecap="round"/>'
+                 f'<ellipse cx="{lx}" cy="402" rx="6" ry="9.5" fill="#6ee0b4" stroke="{OUT}" stroke-width="2.4"/><ellipse cx="{lx - 2}" cy="398" rx="1.8" ry="3" fill="#fff" opacity=".9"/></g>')
     S.append('</g>')  # head
     # ----- quả cầu + tay -----
     S.append('<g id="orb"><circle cx="300" cy="556" r="64" fill="url(#halo)"/><circle cx="300" cy="552" r="27" fill="url(#orbg)" stroke="#2a1a4d" stroke-width="3"/>'
