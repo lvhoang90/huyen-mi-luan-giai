@@ -30,7 +30,7 @@ export function createBackdrop(canvas, wheelSvg) {
   const ctx = canvas.getContext('2d');
   let W = 0, H = 0, dpr = 1, tint = '#ffdf9a', castUntil = 0, sprites = { gold: glowSprite('#ffdf9a'), tint: glowSprite('#ffdf9a') };
   const stars = Array.from({ length: 150 }, () => ({ x: Math.random(), y: Math.random() * 0.9, r: rand(0.3, 1.5), p: rand(0, 6.28), s: rand(0.5, 2.2) }));
-  const mkFly = (init) => ({ x: Math.random(), y: init ? Math.random() : 1.05, v: rand(0.012, 0.04), p: rand(0, 6.28), s: rand(8, 26), tinted: Math.random() < 0.45 });
+  const mkFly = (init) => ({ x: Math.random(), y: init ? Math.random() : 1.05, v: rand(0.012, 0.04), p: rand(0, 6.28), s: rand(5, 16), tinted: Math.random() < 0.45 });
   const mkPetal = (init) => ({ x: Math.random(), y: init ? Math.random() : -0.05, v: rand(0.02, 0.05), p: rand(0, 6.28), s: rand(5, 11), rot: rand(0, 6.28) });
   const flies = Array.from({ length: REDUCED ? 14 : 44 }, () => mkFly(true)), petals = Array.from({ length: REDUCED ? 6 : 20 }, () => mkPetal(true));
   const glyphs = buildWheel(wheelSvg);
