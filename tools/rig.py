@@ -291,6 +291,10 @@ def build():
         S.append(f'<path d="{d}" fill="none" stroke="{OUT}" stroke-width="9" stroke-linecap="round"/><path d="{d}" fill="none" stroke="#a97bf0" stroke-width="5" stroke-linecap="round"/>')
     S.append(f'<path d="M 300 462 C 270 440 258 478 280 484 C 292 486 298 474 300 462 C 302 474 308 486 320 484 C 342 478 330 440 300 462 Z" fill="#a97bf0" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
     S.append(f'<path d="M 296 474 C 286 500 276 520 268 538 L 282 534 L 292 500 Z M 304 474 C 314 500 324 520 332 538 L 318 534 L 308 500 Z" fill="#8a57de" stroke="{OUT}" stroke-width="2.6" stroke-linejoin="round"/><circle cx="300" cy="466" r="7" fill="#8a57de" stroke="{OUT}" stroke-width="2.6"/>')
+    for sgn in (-1, 1):   # miếng da nối chân tai lên má, lấp khe tối giữa lọn tóc và tai
+        X = lambda x: 300 + sgn * (x - 300)
+        S.append(f'<path d="M {X(398)} 300 L {X(413)} 301 C {X(414)} 316 {X(418)} 328 {X(421)} 336 L {X(402)} 384 L {X(396)} 330 Z" fill="url(#skin)"/>'
+                 f'<path d="M {X(413)} 301 C {X(414)} 316 {X(418)} 328 {X(421)} 336" fill="none" stroke="{OUT}" stroke-width="3" stroke-linecap="round"/>')
     for g in E:   # vẽ lại tai ở lớp trên (che dây quai) bằng đúng gradient da và đúng hình khối, nên vẫn liền với má
         lx, ly = g['lobe']
         S.append('<g class="ear">' + wrap(g, f'<path d="{g["fill"]}" fill="url(#skin)"/>'
