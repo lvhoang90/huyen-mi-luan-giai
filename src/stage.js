@@ -171,13 +171,13 @@ export function createStage(canvas) {
     const stageW = w - panelW;
     const stageH = desktop ? h : h * 0.5;
     const fov = camera.fov * Math.PI / 180;
-    const needH = desktop ? 4.7 : 4.3, needW = desktop ? 5.0 : 4.8; // vùng thế giới cần thấy
+    const needH = desktop ? 4.7 : 5.4, needW = desktop ? 5.0 : 5.6; // vùng thế giới cần thấy
     const dH = needH / 2 / Math.tan(fov / 2) * (h / stageH);
     const dW = needW / 2 / Math.tan(fov / 2) / (stageW / h);
     const dist = Math.max(dH, dW);
     camera.userData.dist = dist;
     layout.shiftX = desktop ? panelW / 2 : 0;
-    layout.shiftY = desktop ? 0 : h * 0.17;
+    layout.shiftY = desktop ? 0 : h * 0.12;
     camera.setViewOffset(w, h, layout.shiftX, layout.shiftY, w, h);
     camera.updateProjectionMatrix();
     backdrop.material.uniforms.uRes.value.set(w, h);

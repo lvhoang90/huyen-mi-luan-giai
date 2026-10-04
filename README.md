@@ -13,7 +13,7 @@ Nền tảng luận giải huyền học Đông–Tây với nhân vật 3D **Hu
 | **Cá nhân hóa** | Cùng một khuôn cho mọi người | Mỗi lá số có danh sách **"nét riêng"** xếp theo độ hiếm; My neo vào chi tiết trong lời kể của người dùng, thử "câu này nói với ai cũng được không?", đổi cách vào chuyện theo từng lượt và không lặp lại lời mở đầu cũ |
 | **Thứ tự** | Hỏi ngày sinh rồi phun kết quả | Tự giới thiệu → xin thông tin → **lắng nghe trước** → mời luận giải → đồng hành. My chỉ luận khi người dùng mời |
 | **Đạo đức** | Dọa "hạn", bán giải hạn | Không nói lời tổn thương, không nói sai sự thật, không nịnh (chống hiệu ứng Barnum), không bán cúng bái, không tiên đoán bệnh/chết/đầu tư, có quy trình khi gặp khủng hoảng |
-| **Cảm xúc** | Giao diện chat phẳng | Không gian 3D sống: nhân vật thở, chớp mắt, nhép môi, nhìn theo con trỏ; quả cầu sáng giữa hai tay bừng lên khi "gieo quẻ"; bầu trời và đom đóm đổi màu theo **hành chủ** của người dùng |
+| **Cảm xúc** | Giao diện chat phẳng | Nhân vật chibi **Huyền My** (áo dài tím thêu sen, nón lá viền lông có ngôi sao ngũ hành, voan bay) sống trong không gian 3D: thở, chớp mắt, nhép môi, nhìn theo con trỏ; quả cầu sáng bừng lên khi "gieo quẻ"; bầu trời và đom đóm đổi màu theo **hành chủ** của người dùng. Có chế độ **2D** (nút 3D/2D) cho máy yếu hoặc không có WebGL |
 
 ## Chạy
 
@@ -37,8 +37,10 @@ src/engine/   Lõi tính toán thuần JS, dùng chung cho trình duyệt và m�
   bazi.js       Tứ Trụ, nạp âm, cân bằng ngũ hành, cung mệnh Bát Trạch
   numerology.js Thần số học Pythagoras cho họ tên tiếng Việt
   index.js      Chuẩn hóa hồ sơ, dựng lá số, mô tả cho AI, "nét riêng" của lá số
-src/stage.js      Cảnh three.js: bầu trời shader, vòng bát quái/ngũ hành, hạt, nhân vật dự phòng
-src/vrmAvatar.js  Nhân vật VRM 1.0: biểu cảm, nhép môi theo âm vị, nhìn theo con trỏ, spring bone, áo dài/tóc dài
+src/stage.js      Cảnh three.js: bầu trời shader, vòng bát quái/ngũ hành, hạt, khung máy ảnh
+src/chibi3d.js    Nhân vật chibi 3D dựng bằng mã: tóc, nón lá (texture sao ngũ hành), áo dài, voan chuyển động tính theo từng điểm
+art/              Ảnh gốc 2D (SVG + PNG); public/art/ chỉ giữ tệp ứng dụng dùng
+tools/chibi.py    Bộ sinh ảnh vector Huyền My: python3 tools/chibi.py art
 src/main.js       Hành trình hội thoại, streaming SSE, bảng lá số theo thẻ
 server/           Máy chủ Node: /api/chat (SSE → Claude), persona.js, demo.js
 ```
@@ -57,12 +59,12 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 
 - Tử Vi chưa có độ sáng của sao (miếu/hãm), Tuần/Triệt, tiểu hạn, lưu niên; các phái khác nhau (ví dụ Tứ Hóa năm Canh) có thể cho kết quả khác.
 - Tứ Trụ chỉ xét can chi chính khí, chưa xét tàng can, hợp xung, đại vận. "Thân vượng/nhược" chỉ tham khảo.
-- **Nhân vật**: là bản lai giữa mô hình VRM mẫu (mặt, da, biểu cảm, tóc mái) và áo dài + tóc dài dựng bằng mã. Nhìn ổn nhưng chưa phải nghệ thuật chuyên nghiệp: tóc sau là khối đơn giản, áo không có hoa văn. Để đẹp hơn rõ rệt, nên thay `public/models/huyenmy.vrm` bằng một nhân vật áo dài dựng bằng VRoid Studio (không cần sửa mã; nếu mô hình đã có áo dài thì xóa `buildOutfit`). Nếu không tải được mô hình, ứng dụng dùng nhân vật dựng bằng mã.
-- Gói JS khoảng 235 KB (gzip) và mô hình 10,8 MB; lần tải đầu trên mạng chậm sẽ thấy nhân vật dự phòng trước.
+- **Nhân vật 3D** dựng hoàn toàn bằng hình khối và texture vẽ bằng mã (không dùng tệp mô hình), nên nhẹ nhưng chưa có độ tinh xảo của mô hình dựng bằng phần mềm 3D chuyên dụng. Kiểu hoạt hình dùng ba mức sáng tối và viền đậm. Nếu muốn nâng cấp, thay `makeChibi()` bằng mô hình glTF/VRM dựng sẵn; phần còn lại của ứng dụng không phải sửa.
+- Gói JS khoảng 186 KB (gzip), không còn tệp mô hình nặng.
 - Giọng nói dùng Web Speech API của trình duyệt; có thể thay bằng TTS tiếng Việt chất lượng cao để nhép môi theo âm thanh thật.
 
 ## Chất liệu mở và giấy phép
 
-- Mô hình `public/models/huyenmy.vrm`: mẫu của pixiv Inc. (xem `public/models/CREDITS.md`), giấy phép VRM 1.0 cho phép dùng, sửa và phát hành lại, không bắt buộc ghi công.
-- `@pixiv/three-vrm` (MIT), `three` (MIT), `astronomy-engine` (MIT), `@anthropic-ai/sdk` (MIT).
+- `three` (MIT), `astronomy-engine` (MIT), `@anthropic-ai/sdk` (MIT).
+- Nhân vật 2D/3D do dự án tự vẽ bằng mã (`tools/chibi.py`, `src/chibi3d.js`); không dùng mô hình hay hình ảnh của bên thứ ba.
 - `tuvi-neo` và `lunar-javascript` chỉ dùng để đối chiếu khi kiểm thử, không nằm trong sản phẩm.
