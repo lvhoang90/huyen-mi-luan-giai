@@ -250,9 +250,6 @@ def build():
     # ----- đầu -----
     S.append('<g id="head">')
     S.append(f'<path d="M 180 318 C 180 244 238 212 300 212 C 362 212 420 244 420 318 C 420 392 366 452 300 452 C 234 452 180 392 180 318 Z" fill="url(#skin)" stroke="{OUT}" stroke-width="3.5"/>')
-    for sgn in (-1, 1):
-        x = 300 + sgn * 121
-        S.append(f'<ellipse cx="{x}" cy="352" rx="11" ry="16" fill="#ffdcc6" stroke="{OUT}" stroke-width="3"/><line x1="{x}" y1="366" x2="{x}" y2="378" stroke="#d9b36a" stroke-width="2.4"/><ellipse cx="{x}" cy="388" rx="5.5" ry="8" fill="#6ee0b4" stroke="{OUT}" stroke-width="2.2"/><ellipse cx="{x-1.5}" cy="385" rx="1.6" ry="2.6" fill="#fff" opacity=".85"/>')
     S.append('<g id="features">')
     S.append('<g class="blush"><ellipse cx="226" cy="396" rx="30" ry="17" fill="url(#blush)"/></g><g class="blush"><ellipse cx="374" cy="396" rx="30" ry="17" fill="url(#blush)"/></g>')
     S.append('<g stroke="#ff6f95" stroke-width="2.2" stroke-linecap="round" opacity=".6"><path d="M 212 392 l 5 8 M 222 391 l 5 8 M 232 392 l 5 8"/><path d="M 362 392 l 5 8 M 372 391 l 5 8 M 382 392 l 5 8"/></g>')
@@ -267,9 +264,13 @@ def build():
     for sgn in (-1, 1):
         x = 300 + sgn * 124
         S.append(f'<path d="M {x} 300 C {x+sgn*14} 350 {x+sgn*8} 420 {x-sgn*14} 462 C {x-sgn*10} 410 {x-sgn*14} 350 {x-sgn*10} 306 Z" fill="url(#hairg)" stroke="{OUT}" stroke-width="3" stroke-linejoin="round"/>')
-    for sgn in (-1, 1):
-        x = 300 + sgn * 125
-        S.append(f'<g class="earring"><path d="M {x} 392 L {x} 402" stroke="#d9b36a" stroke-width="2.4" stroke-linecap="round"/><ellipse cx="{x}" cy="412" rx="6.5" ry="9.5" fill="#6ee0b4" stroke="{OUT}" stroke-width="2.4"/><ellipse cx="{x-2}" cy="408" rx="1.8" ry="3" fill="#fff" opacity=".9"/></g>')
+    for sgn in (-1, 1):   # tai nằm trước tóc (như tóc vén sau tai); bông tai treo ngay từ dái tai
+        x = 300 + sgn * 120
+        S.append(f'<g class="ear"><path d="M {x - sgn*6} 338 C {x + sgn*10} 336 {x + sgn*14} 352 {x + sgn*9} 366 C {x + sgn*6} 372 {x - sgn*2} 372 {x - sgn*6} 366 Z" fill="#ffdcc6" stroke="{OUT}" stroke-width="2.8" stroke-linejoin="round"/>'
+                 f'<path d="M {x - sgn*1} 346 C {x + sgn*5} 346 {x + sgn*7} 354 {x + sgn*4} 361" fill="none" stroke="#e8b59c" stroke-width="2" stroke-linecap="round"/>'
+                 f'<circle cx="{x + sgn*1}" cy="368" r="2.6" fill="#f6d77a" stroke="{OUT}" stroke-width="1.6"/>'
+                 f'<path d="M {x + sgn*1} 371 L {x + sgn*1} 377" stroke="#d9b36a" stroke-width="2.2" stroke-linecap="round"/>'
+                 f'<ellipse cx="{x + sgn*1}" cy="386" rx="5.5" ry="8.5" fill="#6ee0b4" stroke="{OUT}" stroke-width="2.4"/><ellipse cx="{x + sgn*1 - 1.8}" cy="382.5" rx="1.7" ry="2.8" fill="#fff" opacity=".9"/></g>')
     S.append('</g>')
     S.append(f'<g id="brows" opacity=".95">{brows()}</g>')
     S.append('<g transform="translate(0,-30)">' + hat() + '</g>')
