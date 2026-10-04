@@ -12,11 +12,13 @@
   <meta property="og:image" content="/art/huyenmy-og.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Be+Vietnam+Pro:wght@300;400;500&display=swap&subset=vietnamese" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Literata:ital,wght@0,400;0,500;0,600;1,400&family=Be+Vietnam+Pro:wght@300;400;500&display=swap&subset=vietnamese" rel="stylesheet" />
 </head>
 <body>
   <canvas id="stage" aria-hidden="true"></canvas>
   <div id="stage-area"><svg id="wheel"></svg><div id="char" role="img" aria-label="Huyền My"></div></div>
+
+  <div id="lanterns" class="lanterns"></div>
 
   <div id="veil" role="dialog" aria-label="Chào mừng">
     <div class="veil-inner">
@@ -29,9 +31,10 @@
   </div>
 
   <header class="topbar">
-    <div class="brand">Huyền My</div>
+    <div class="brand" aria-label="Huyền My Luận Giải 1.0"><span class="b1">Huyền My</span><span class="b2">Luận Giải <em>1.0</em></span></div>
     <div class="tools">
       <span id="demo-badge" class="badge" hidden title="Chưa có ANTHROPIC_API_KEY trên máy chủ">demo</span>
+      <button id="btn-pace" class="icon" aria-label="Nhịp đọc" title="Nhịp đọc">›</button>
       <button id="btn-chart" class="icon" hidden aria-label="Xem lá số" title="Lá số của bạn">☯</button>
       <button id="btn-reset" class="icon" aria-label="Bắt đầu lại" title="Bắt đầu lại">↺</button>
     </div>

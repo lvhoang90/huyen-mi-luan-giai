@@ -1,8 +1,9 @@
 import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
+import { createLanterns } from './lanterns.js';
 import { parseTagged, stripTags } from './emotion-tags.js';
-import { normalizeProfile, buildChart, PLACES } from './engine/index.js';
+import { normalizeProfile, buildChart, PLACES, findPlaces } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { HANH } from './engine/bazi.js';
 
@@ -10,6 +11,7 @@ const $ = (s) => document.querySelector(s);
 const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
+createLanterns($('#lanterns'));
 const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const stage = {
   setMood: (m) => character.setMood(m), setSpeaking: (v) => character.setSpeaking(v), emo: (n) => character.setEmotion(n),
@@ -35,14 +37,17 @@ let typing = false;
 const syncSpeaking = () => stage.setSpeaking(typing);
 
 // ---------------- bong bóng của Huyền My (gõ chữ dần) ----------------
+let current = null; // bong bóng đang gõ dở: chạm vào để hiện hết
 class Bubble {
   constructor(instant = false) {
     this.el = document.createElement('div'); this.el.className = 'msg my' + (instant ? '' : ' typing');
-    log.append(this.el); this.raw = ''; this.shown = 0; this.fired = 0; this.ended = false; this.instant = instant; this.talking = false;
+    log.append(this.el); this.raw = ''; this.shown = 0; this.fired = 0; this.ended = false; this.instant = instant; this.talking = false; this.rush = false; this.finished = false;
     this.done = new Promise((r) => (this.resolve = r));
-    if (!instant) this.timer = setInterval(() => this.tick(), 30);
+    if (!instant) this.timer = setInterval(() => this.tick(), 38);
+    if (!instant) current = this;
   }
   get text() { return parseTagged(this.raw).text; }
+  skip() { this.rush = true; }
   push(t) {
     this.raw += t;
     if (this.instant) return this.render();
@@ -52,7 +57,7 @@ class Bubble {
     const p = parseTagged(this.raw), backlog = p.text.length - this.shown;
     if (backlog > 0) {
       const prev = this.shown;
-      this.shown = Math.min(p.text.length, this.shown + (backlog > 160 ? 8 : backlog > 70 ? 4 : backlog > 24 ? 2 : 1));
+      this.shown = this.rush ? p.text.length : Math.min(p.text.length, this.shown + (backlog > 300 ? 6 : backlog > 140 ? 3 : backlog > 60 ? 2 : 1));
       character.feed(p.text.slice(prev, this.shown)); this.fire(p); this.render(p);
     } else if (this.ended) this.finish(p);
   }
@@ -64,11 +69,34 @@ class Bubble {
   }
   end() { this.ended = true; if (this.instant) { this.render(); this.resolve(); } return this.done; }
   finish(p) {
-    clearInterval(this.timer); this.el.classList.remove('typing'); this.shown = p.text.length; this.fire(p); this.render(p);
+    clearInterval(this.timer); this.finished = true; if (current === this) current = null; this.el.classList.remove('typing'); this.shown = p.text.length; this.fire(p); this.render(p);
     if (this.talking) { typing = false; syncSpeaking(); } this.resolve();
   }
 }
-async function say(text, pause = 650) { const b = new Bubble(); b.push(text); await b.end(); await sleep(pause); }
+// Nhịp đọc: 'tap' = chạm "Tiếp" để sang câu sau (mặc định), 'auto' = tự sang sau một lúc theo độ dài câu (cho người đọc nhanh).
+const PACE_KEY = 'huyenmy.pace';
+let pace = 'tap'; try { if (localStorage.getItem(PACE_KEY) === 'auto') pace = 'auto'; } catch {}
+const autoDelay = (text) => Math.min(8000, Math.max(1500, stripTags(text).length * 55));
+/** gate: true khi sau câu này chưa có ô nhập (lời kể liên tiếp), nên cho người đọc quyết định nhịp. */
+async function say(text, pause = 650, gate = false) {
+  const b = new Bubble(); b.push(text);
+  let btn = null;
+  if (gate && pace === 'tap') {
+    clearComposer();
+    btn = h('button', { className: 'chip next', textContent: 'Hiện hết', onclick: () => b.skip() });
+    composer.append(h('div', { className: 'chips' }, btn));
+  }
+  await b.end();
+  if (btn) {
+    await new Promise((res) => { btn.textContent = 'Tiếp ›'; btn.onclick = res; btn.focus({ preventScroll: true }); });
+    clearComposer(); await sleep(250);
+  } else await sleep(gate ? autoDelay(text) : pause);
+}
+log.addEventListener('click', () => current?.skip());
+const paceBtn = $('#btn-pace');
+const showPace = () => { paceBtn.textContent = pace === 'auto' ? '»' : '›'; paceBtn.title = pace === 'auto' ? 'Nhịp: tự động (bấm để chuyển sang chạm Tiếp)' : 'Nhịp: chạm Tiếp (bấm để chuyển sang tự động)'; paceBtn.setAttribute('aria-label', paceBtn.title); };
+showPace();
+paceBtn.onclick = () => { pace = pace === 'auto' ? 'tap' : 'auto'; try { localStorage.setItem(PACE_KEY, pace); } catch {} showPace(); note(pace === 'auto' ? 'Nhịp tự động: My sẽ tự nói tiếp sau mỗi câu.' : 'Nhịp chạm: bạn bấm "Tiếp" khi đã đọc xong.'); };
 function showUser(text) { const d = document.createElement('div'); d.className = 'msg me'; d.textContent = text; log.append(d); scrollDown(); }
 function note(text) { const d = document.createElement('div'); d.className = 'msg note'; d.textContent = text; log.append(d); scrollDown(); }
 
@@ -84,7 +112,7 @@ function chipsRow(items, onPick) {
   for (const it of items) row.append(h('button', { className: 'chip', textContent: it.label ?? it, onclick: () => onPick(it) }));
   return row;
 }
-/** Hỏi một giá trị. kind: text | date | time | place | choice */
+/** Hỏi một giá trị. kind: text | date | time | choice */
 function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate }) {
   return new Promise((resolve) => {
     clearComposer();
@@ -92,17 +120,13 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
     if (hint) composer.append(h('div', { className: 'hint', textContent: hint }));
     if (chips.length) composer.append(chipsRow(chips, (c) => done(c.value ?? c, c.label ?? c)));
     if (kind === 'choice') return;
-    let input;
-    if (kind === 'place') {
-      input = h('select', { className: 'field' }, h('option', { value: '', textContent: 'Chọn nơi sinh…' }),
-        ...Object.entries(PLACES).map(([k, p]) => h('option', { value: k, textContent: p.name })));
-    } else input = h('input', { className: 'field', type: kind === 'date' ? 'date' : kind === 'time' ? 'time' : 'text', placeholder, maxLength: 80, autocomplete: 'off' });
+    const input = h('input', { className: 'field', type: kind === 'date' ? 'date' : kind === 'time' ? 'time' : 'text', placeholder, maxLength: 80, autocomplete: 'off' });
     if (kind === 'date') { input.max = new Date().toISOString().slice(0, 10); input.min = '1900-01-01'; }
     const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
     const submit = () => {
       const v = input.value.trim(); if (!v) return;
       if (validate && !validate(v)) { input.style.borderColor = '#ff8a8a'; return; }
-      const label = kind === 'place' ? PLACES[v].name : kind === 'date' ? v.split('-').reverse().join('/') : kind === 'time' ? `${v}` : v;
+      const label = kind === 'date' ? v.split('-').reverse().join('/') : kind === 'time' ? `${v}` : v;
       done(v, label);
     };
     go.onclick = submit; input.onkeydown = (e) => e.key === 'Enter' && submit();
@@ -194,7 +218,7 @@ async function collect() {
     let place = null;
     if (time) {
       await say('[[chiem_nghiem]]Và nơi bạn chào đời? Giờ sinh chỉ có nghĩa khi gắn với một vùng trời.');
-      place = (await ask({ kind: 'place', chips: [{ label: 'Không rõ / sinh ở nước ngoài', value: '' }] })) || null;
+      place = await askPlace();
     }
     try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place }); break; }
     catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
@@ -203,15 +227,18 @@ async function collect() {
   await ritual();
 }
 
+/** My lùi về góc trái để chừa chỗ cho phần luận giải. */
+function dock() { document.body.classList.add('docked'); }
 async function ritual() {
   const p = S.profile;
   clearComposer(); stage.cast(5.5);
   await say('[[an_ui]]*My khép mắt, đặt hai lòng bàn tay lại gần nhau. Giữa lòng tay, một đốm sáng nhỏ bừng lên…*', 2200);
   chart = buildChart(p);
   stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
+  dock();
   const y = chart.bazi.pillars.year;
-  await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`);
-  await say('[[nghiem_tuc]]Nhưng My chưa vội luận. Một tấm bản đồ chỉ có nghĩa khi ta biết người cầm nó đang đi đâu.');
+  await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`, 650, true);
+  await say('[[nghiem_tuc]]Nhưng My chưa vội luận. Một tấm bản đồ chỉ có nghĩa khi ta biết người cầm nó đang đi đâu.', 650, true);
   const opener = `[[dong_cam]]Hãy kể cho My nghe: điều gì đã khiến bạn tìm đến đây hôm nay, ${p.nickname}? Cứ kể như đang nói với một người bạn tin, không cần sắp xếp. My ở đây, và My nghe.`;
   await say(opener, 200);
   S.messages = [{ role: 'assistant', content: stripTags(opener) }]; S.phase = 'listen'; save();
@@ -355,20 +382,45 @@ function askCode(then) {
   input.focus();
 }
 
+/** Nơi sinh: người dùng tự gõ, My đối chiếu với dữ liệu có sẵn rồi hỏi lại cho chắc. Trả về khóa PLACES hoặc null. */
+async function askPlace() {
+  const unknown = { label: 'Không rõ / sinh ở nước ngoài', value: '' };
+  for (;;) {
+    const typed = await ask({ placeholder: 'Gõ nơi sinh (xã, huyện, tỉnh hoặc thành phố)', chips: [unknown] });
+    if (typed === '') return null;
+    const found = findPlaces(typed);
+    if (found.length === 1) {
+      const name = PLACES[found[0]].name;
+      await say(`[[lang_nghe]]Có phải bạn sinh ra ở khu vực **${name}** không? My dùng vị trí trung tâm của nơi này để tính Cung Mọc, sai lệch nhỏ không đáng kể.`);
+      const yes = await ask({ kind: 'choice', chips: [{ label: 'Đúng rồi', value: 'yes' }, { label: 'Không phải, nhập lại', value: 'no' }, unknown] });
+      if (yes === 'yes') return found[0];
+      if (yes === '') return null;
+      continue;
+    }
+    if (found.length > 1) {
+      await say('[[suy_nghi]]Trong dữ liệu của My có mấy nơi gần với chữ bạn gõ. Ý bạn là nơi nào?');
+      const pick = await ask({ kind: 'choice', chips: [...found.map((k) => ({ label: PLACES[k].name, value: k })), { label: 'Nơi khác, nhập lại', value: 'no' }, unknown] });
+      if (pick === 'no') continue;
+      return pick || null;
+    }
+    await say('[[an_ui]]My chưa có nơi này trong dữ liệu. Bạn gõ giúp My tên tỉnh hoặc thành phố (hay thị xã lớn) gần nơi bạn sinh nhất nhé, vị trí chỉ cần xấp xỉ.');
+  }
+}
+
 async function enter(resume) {
   await ready;
   if (!OPEN) return askCode(() => enter(resume));
   $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
-    chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
+    chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false; dock();
     for (const m of S.messages) { if (m.role === 'assistant') { const b = new Bubble(true); b.push(m.content); b.end(); } else showUser(m.content); }
     note('- My vẫn ở đây -');
     await say(`[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`, 300);
     return converse();
   }
   S.phase = 'intro'; stage.emo('binh_thuong');
-  for (const line of INTRO) await say(line, 900);
+  for (const line of INTRO) await say(line, 900, true);
   await collect();
 }
 

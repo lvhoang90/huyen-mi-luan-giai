@@ -6,6 +6,7 @@ import { computeNumerology, NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './numer
 import { CUNG_TEN } from './tuvi.js';
 
 export { PLACES };
+export { findPlaces } from './places.js';
 
 /** Kiểm tra & chuẩn hóa hồ sơ người dùng. Ném Error nếu sai. */
 export function normalizeProfile(p) {
