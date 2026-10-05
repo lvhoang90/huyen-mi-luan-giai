@@ -149,7 +149,7 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
       const label = kind === 'date' ? v.split('-').reverse().join('/') : kind === 'time' ? `${v}` : v;
       done(v, label);
     };
-    go.onclick = submit; input.onkeydown = (e) => e.key === 'Enter' && submit();
+    go.onclick = submit; input.onkeydown = (e) => { if (e.key === 'Enter') submit(); }; // không để trả về false: sẽ chặn mọi phím gõ
     composer.append(h('div', { className: 'row' }, input, go));
     if (matchMedia('(pointer:fine)').matches) input.focus();
   });
@@ -315,7 +315,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
     if (wantsMemory) { ACCOUNT.user.consentMemory = true; scheduleSync(); }
     done(true);
   };
-  ok.onclick = verify; code.onkeydown = (e) => e.key === 'Enter' && verify(); email.onkeydown = (e) => e.key === 'Enter' && go.click();
+  ok.onclick = verify; code.onkeydown = (e) => { if (e.key === 'Enter') verify(); }; email.onkeydown = (e) => { if (e.key === 'Enter') go.click(); };
   step1();
 }
 /** Gắn email sớm, ngay sau điều thú vị đầu tiên: My đề nghị gửi chính điều vừa kể vào hộp thư và nhớ bạn. Không bắt buộc. */
