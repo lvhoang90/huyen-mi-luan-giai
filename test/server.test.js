@@ -53,11 +53,20 @@ test('mã hết hạn sau 10 phút', async () => {
   h.close();
 });
 
+test('người vắng mặt rồi quay lại không bị tính là đã hết buổi đầu', async () => {
+  const h = await harness();
+  assert.equal((await h.call('POST', '/__gate')).text, 'ok');
+  h.tick(6 * 3600_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok');
+  h.tick(2 * 24 * 3600_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok');
+  h.close();
+});
+
 test('người ẩn danh chỉ chat được ~30 phút, đăng ký xong thì tiếp tục', async () => {
   const h = await harness();
   assert.equal((await h.call('POST', '/__gate')).text, 'ok');
-  h.tick(20 * 60_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok');
-  h.tick(13 * 60_000); const blocked = await h.call('POST', '/__gate'); assert.equal(blocked.status, 401); assert.equal(blocked.body.needAuth, true);
+  for (let i = 0; i < 7; i++) { h.tick(4 * 60_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok'); } // trò chuyện liên tục tới phút 28
+  h.tick(4 * 60_000); h.tick(1); await h.call('POST', '/__gate'); h.tick(4 * 60_000);
+  const blocked = await h.call('POST', '/__gate'); assert.equal(blocked.status, 401); assert.equal(blocked.body.needAuth, true);
   await h.call('POST', '/api/auth/request', { email: 'a@b.vn' });
   await h.call('POST', '/api/auth/verify', { email: 'a@b.vn', code: codeOf(h.mails[0]) });
   assert.equal((await h.call('POST', '/__gate')).text, 'ok');

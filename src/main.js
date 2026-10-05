@@ -220,19 +220,33 @@ async function aiTurnInner(phase) {
 }
 
 // ---------------- giới hạn phiên: mỗi buổi tối đa 30 phút, rồi My nghỉ và hẹn lần sau ----------------
-const SESSION_MIN = 30, WARN_MIN = 25, COOLDOWN_MIN = 180;
+const SESSION_MIN = 30, WARN_MIN = 25, COOLDOWN_MIN = 45, AWAY_MIN = 20; // vắng quá AWAY_MIN phút thì buổi cũ coi như đã khép, lần quay lại là một buổi mới trọn vẹn
 let clockTimer = 0, limitHit = false, closed = false, busy = false;
-const elapsedMin = () => (S.sessionStart ? (Date.now() - S.sessionStart) / 60000 : 0);
+// Chỉ tính thời gian My và bạn thật sự trò chuyện (tab đang mở và có thao tác gần đây), không tính lúc bạn rời đi.
+const elapsedMin = () => (S.sessionStart ? (S.activeMs ?? 0) / 60000 : 0);
+let lastInput = Date.now(), lastTick = Date.now();
+for (const ev of ['pointerdown', 'keydown', 'touchstart', 'input']) addEventListener(ev, () => { lastInput = Date.now(); }, { passive: true, capture: true });
+function accrue() {
+  const n = Date.now(), dt = Math.min(n - lastTick, 10_000); lastTick = n;
+  if (document.hidden || !S.sessionStart) return;
+  if (busy || n - lastInput < 120_000) { S.activeMs = (S.activeMs ?? 0) + dt; S.lastActive = n; }
+}
 const hhmm = (t) => new Date(t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 function startClock() {
-  if (!S.sessionStart) { S.sessionStart = Date.now(); S.sessions = (S.sessions ?? 0) + 1; save(); }
+  // Quay lại sau khi vắng lâu: buổi cũ đã khép, mở buổi mới. Quay lại sớm hơn: tiếp tục buổi cũ với phần thời gian còn lại.
+  if (S.sessionStart && S.lastActive && (Date.now() - S.lastActive) / 60000 > AWAY_MIN) S.sessionStart = null;
+  if (!S.sessionStart) { S.sessionStart = Date.now(); S.activeMs = 0; S.sessions = (S.sessions ?? 0) + 1; }
+  S.lastActive = Date.now(); lastTick = lastInput = Date.now(); save();
   closed = limitHit = false; clearInterval(clockTimer);
-  const pill = $('#clock'), tick = () => {
+  const pill = $('#clock'); let n = 0;
+  const tick = () => {
+    accrue();
     const left = Math.ceil(SESSION_MIN - elapsedMin());
     if (left <= SESSION_MIN - WARN_MIN) { if (pill.hidden) track('warn_shown'); pill.hidden = false; pill.textContent = `Còn ${Math.max(left, 0)}′`; }
     if (left <= 0) { limitHit = true; if (!busy) closeSession(); }
+    if (++n % 6 === 0) { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} } // lưu cục bộ mỗi 30 giây, không đồng bộ lên máy chủ
   };
-  tick(); clockTimer = setInterval(tick, 15000);
+  tick(); clockTimer = setInterval(tick, 5000);
 }
 /** Những điều My thật sự chưa kể, lấy từ lá số đã tính: mỗi buổi dành một điều cho lần sau. */
 function teasers() {
@@ -256,14 +270,25 @@ async function closeSession() {
   await askNps();
   await signupGate('close');
   await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
-  clearComposer(); composer.append(h('div', { className: 'rest' }, h('span', { textContent: `My nghỉ đến ${hhmm(S.restUntil)}` })));
+  clearComposer(); watchRest(composer, async () => { S.restUntil = null; save(); startClock(); await say(`[[vui]]Chào ${S.profile.nickname}, My nghỉ xong rồi. ${S.teaser ? `Hôm nay My kể về **${S.teaser}** nhé, hay bạn có điều gì muốn nói trước?` : 'Bạn muốn kể gì với My?'}`, 300); S.teaser = null; save(); converse(); });
+}
+/** Hiển thị thời gian nghỉ còn lại và tự mở lối quay lại ngay khi hết giờ: không bắt người dùng phải làm mới trang để biết đã được nói tiếp. */
+function watchRest(host, onBack) {
+  const label = h('span', { className: 'rest-label' }), btn = h('button', { className: 'btn primary', textContent: 'Gặp lại My', hidden: true });
+  const upd = () => {
+    const left = Math.ceil((S.restUntil - Date.now()) / 60000);
+    if (left > 0) { label.textContent = `My nghỉ thêm khoảng ${left} phút nữa (đến ${hhmm(S.restUntil)}). Bạn cứ để trang đó, hết giờ nút gặp lại sẽ hiện.`; return; }
+    clearInterval(timer); label.textContent = 'My nghỉ xong rồi.'; btn.hidden = false; track('rest_over');
+  };
+  btn.onclick = () => { clearInterval(timer); onBack(); };
+  const timer = setInterval(upd, 20000); host.replaceChildren(h('div', { className: 'rest' }, label, btn)); upd();
 }
 function restScreen() {
   track('rest_view');
   $('#veil').classList.remove('gone'); $('#dialog').hidden = true; intro.showStatic();
-  $('#veil-actions').replaceChildren(
-    h('p', { className: 'tag', textContent: `My đang nghỉ. Hẹn gặp lại lúc ${hhmm(S.restUntil)}.` }),
-    ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
+  const box = h('div');
+  $('#veil-actions').replaceChildren(box, ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
+  watchRest(box, () => enter(true));
 }
 
 // ---------------- tài khoản (email), đánh giá, chia sẻ ----------------
@@ -491,6 +516,7 @@ function contextChips(userTurns, justRead) {
 }
 
 async function converse() {
+  if (!S.sessionStart) startClock(); // người mới: đồng hồ chỉ chạy từ lúc bắt đầu trò chuyện, không tính thời gian điền hồ sơ
   let justRead = false;
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
   for (;;) {
@@ -680,7 +706,7 @@ async function enter(resume) {
     startClock();
     return converse();
   }
-  S.phase = 'intro'; stage.emo('binh_thuong'); startClock();
+  S.phase = 'intro'; stage.emo('binh_thuong');
   for (const line of INTRO) await say(line, 900, true);
   await collect();
 }

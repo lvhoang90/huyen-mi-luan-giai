@@ -54,10 +54,12 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
   function chatGate(req, res) {
     const id = identify(req, res), t = now();
     if (accountsOn && !id.user) {
-      const row = db.prepare('SELECT first_chat FROM anon WHERE id = ?').get(id.anon);
+      const row = db.prepare('SELECT first_chat, active_ms, last_chat FROM anon WHERE id = ?').get(id.anon);
       if (!row) db.prepare('INSERT OR IGNORE INTO anon(id, first_seen) VALUES (?,?)').run(id.anon, t);
-      if (!row?.first_chat) db.prepare('UPDATE anon SET first_chat = ? WHERE id = ?').run(t, id.anon);
-      else if (t - row.first_chat > ANON_LIMIT_MS) { json(res, 401, { error: 'Buổi đầu của bạn đã trọn 30 phút. Tạo tài khoản bằng email để My nhớ bạn và hẹn lần sau nhé.', needAuth: true }); return null; }
+      // Chỉ cộng thời gian trò chuyện thực: khoảng cách giữa hai lượt tối đa 5 phút, nên người rời đi rồi quay lại sau vài giờ không bị tính là đã dùng hết buổi.
+      const active = (row?.active_ms ?? 0) + (row?.last_chat ? Math.min(Math.max(t - row.last_chat, 0), 5 * 60_000) : 0);
+      if (row?.first_chat && active > ANON_LIMIT_MS) { json(res, 401, { error: 'Buổi đầu của bạn đã trọn 30 phút. Tạo tài khoản bằng email để My nhớ bạn và hẹn lần sau nhé.', needAuth: true }); return null; }
+      db.prepare('UPDATE anon SET first_chat = COALESCE(first_chat, ?), active_ms = ?, last_chat = ? WHERE id = ?').run(t, active, t, id.anon);
     }
     const today = db.prepare('SELECT COUNT(*) c FROM turns WHERE actor = ? AND ts >= ?').get(id.actor, t - DAY).c;
     if (today >= dailyCap) { json(res, 429, { error: 'Hôm nay My đã trò chuyện khá nhiều với bạn, hẹn bạn ngày mai nhé.' }); return null; }

@@ -26,5 +26,9 @@ export function openDb(file) {
     );
     CREATE INDEX IF NOT EXISTS tr_ts ON turns(ts);
   `);
+  // di chuyển dữ liệu cũ: thời gian trò chuyện thực (không tính lúc người dùng vắng mặt)
+  const cols = db.prepare('PRAGMA table_info(anon)').all().map((c) => c.name);
+  if (!cols.includes('active_ms')) db.exec('ALTER TABLE anon ADD COLUMN active_ms INTEGER NOT NULL DEFAULT 0');
+  if (!cols.includes('last_chat')) db.exec('ALTER TABLE anon ADD COLUMN last_chat INTEGER');
   return db;
 }
