@@ -92,14 +92,15 @@ function quality(q) {
     <div class="scroll" style="margin-top:12px"><table><thead><tr><th>Dấu hiệu cần xem lại</th><th class="num">Tỉ lệ lượt</th><th>Độ chắc chắn</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="note">Mỗi lượt được chấm bằng quy tắc minh bạch ngay trên máy chủ. Hệ thống không lưu nội dung trò chuyện, chỉ lưu chỉ số: số từ, số câu hỏi, độ lặp, số chi tiết người dùng được nhắc lại và các cờ an toàn. Trung bình ${q.meanQuestions ?? '–'} câu hỏi và ${q.meanWords ?? '–'} từ mỗi lượt.</p>`;
 }
-function satisfaction(s) {
+function satisfaction(s, intro) {
   const r = s.resonance, tot = r.n || 1, cols = ['var(--seq1)', 'var(--seq2)', 'var(--seq4)'], names = ['Chưa đúng lắm', 'Gần đúng', 'Rất đúng'];
   const bar = r.dist.map((v, i) => `<span style="flex:${v};background:${cols[i]}" title="${names[i]}: ${v}"></span>`).join('');
   const key = r.dist.map((v, i) => `<span><i style="background:${cols[i]}"></i>${names[i]} ${Math.round((v / tot) * 100)}% (${v})</span>`).join('');
   const nps = s.nps;
   return `<div class="kpis"><div class="kpi"><div class="v">${pct(r.good)}</div><div class="l">Cho rằng My nói đúng (gần đúng trở lên)</div><div class="n">${ci(r.good)}</div></div>
     <div class="kpi"><div class="v">${pct(r.strong)}</div><div class="l">Cho rằng "rất đúng"</div><div class="n">${ci(r.strong)}</div></div>
-    <div class="kpi"><div class="v">${nps.score ?? '–'}</div><div class="l">NPS (muốn giới thiệu bạn bè)</div><div class="n">n=${nps.n}: ${nps.promoters} ủng hộ, ${nps.passives} trung lập, ${nps.detractors} chưa hài lòng</div></div></div>
+    <div class="kpi"><div class="v">${nps.score ?? '–'}</div><div class="l">NPS (muốn giới thiệu bạn bè)</div><div class="n">n=${nps.n}: ${nps.promoters} ủng hộ, ${nps.passives} trung lập, ${nps.detractors} chưa hài lòng</div></div>
+    <div class="kpi"><div class="v">${pct(intro?.skipFirstVisit)}</div><div class="l">Bỏ qua màn mở đầu (lần đầu)</div><div class="n">${ci(intro?.skipFirstVisit) || 'Chưa có dữ liệu'}. Trên 40% thì nên rút ngắn.</div></div></div>
     <div class="stack" role="img" aria-label="Phân bố đánh giá độ đúng">${bar}</div><div class="stackkey">${key}</div>
     <p class="note">Lưu ý hiệu ứng Barnum: người dùng dễ thấy lời nói chung chung là "đúng với mình". Đừng dùng điểm này một mình để kết luận My chính xác; hãy đọc cùng tỉ lệ "bám lời người dùng" và phản hồi tự do.</p>`;
 }
@@ -131,7 +132,7 @@ function render() {
     <section class="panel"><h2>Hành trình khách hàng</h2><p class="sub">Số người duy nhất đi tới từng bước. "Từ bước trước" là tỉ lệ chuyển đổi, kèm khoảng tin cậy ở bảng bên dưới.</p>${funnel(m.funnel)}</section>
     <section class="panel"><h2>Theo ngày</h2><p class="sub">Người mở trang, người bắt đầu trò chuyện và người đăng ký xong mỗi ngày.</p>${lineChart(m.series)}</section>
     <div class="grid2"><section class="panel"><h2>Giữ chân</h2><p class="sub">Tỉ lệ người mới quay lại đúng ngày thứ 1, 3, 7 sau lần đầu.</p>${cohorts(m.retention)}</section>
-      <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>${satisfaction(m.satisfaction)}</section></div>
+      <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>${satisfaction(m.satisfaction, m.intro)}</section></div>
     <section class="panel" style="margin-top:16px"><h2>Chất lượng tư vấn</h2><p class="sub">An toàn, độ bám người dùng, độ lặp và tốc độ của từng lượt trả lời.</p>${quality(m.quality)}</section>
     <div class="grid2">${segTable('Theo nhóm tuổi', m.segments.age)}${segTable('Theo lĩnh vực làm việc', m.segments.field)}</div>
     <div class="grid2" style="margin-top:16px"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${listTable(m.startChoices, 'name', 'n')}</section><section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}).</p>${listTable(m.growth.referrals, 'ref', 'n')}</section></div>

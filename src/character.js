@@ -47,7 +47,7 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
   const cur = { tilt: 0, yaw: 0, gx: 0, gy: 0, droop: 0, lean: 0, ox: 0, oy: 0, os: 1, cast: 0 };
   const sac = { x: 0, y: 0, next: 1.5 };
   const mouth = { o: 0.3, w: 1, to: 0.3, tw: 1, fedAt: -9 };
-  let blinkAt = 2, blinkEnd = 0, raf = 0, last = performance.now(), t = 0;
+  let pokeUntil = 0, blinkAt = 2, blinkEnd = 0, raf = 0, last = performance.now(), t = 0;
 
   function setEmotion(name) {
     const e = EMOTIONS[name]; if (!e) return;
@@ -57,7 +57,7 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
   }
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.05); last = now; t += dt;
-    const k = REDUCED ? 0.3 : 1, f = follow ? cfg.follow : 0;
+    const k = REDUCED ? 0.3 : 1, f = follow ? (t < pokeUntil ? Math.max(cfg.follow, 0.95) : cfg.follow) : 0;
     // ánh mắt thoáng đảo nhẹ cho có hồn
     sac.next -= dt; if (sac.next <= 0) { sac.x = (Math.random() - 0.5) * 0.5; sac.y = (Math.random() - 0.5) * 0.35; sac.next = 1.3 + Math.random() * 2.6; }
     const gx = clamp(cfg.gaze[0] + pointer.x * 0.95 * f + sac.x * (1 - f * 0.5)), gy = clamp(cfg.gaze[1] + pointer.y * 0.8 * f + sac.y * (1 - f * 0.5));
@@ -107,6 +107,11 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
       else if (ch === 'o') { o = 0.85; w = 0.78; } else if (ch === 'u') { o = 0.55; w = 0.7; }
       else if (ch === ' ' || ch === '\n') { o = 0.16; } else if (/[.,;:!?…]/.test(ch)) { o = 0.05; }
       mouth.to = o * (0.85 + Math.random() * 0.3); mouth.tw = w; mouth.fedAt = t;
+    },
+    /** Chạm vào nhân vật hoặc quả cầu: chớp mắt, nhìn theo ngón tay, quả cầu loé lên. */
+    poke(cx, cy) {
+      pointer.x = (cx / innerWidth) * 2 - 1; pointer.y = (cy / innerHeight) * 2 - 1;
+      pokeUntil = t + 1.6; blinkAt = t + 0.05; castUntil = performance.now() + 900;
     },
     setSpeaking(v) { speaking = !!v; svg.classList.toggle('speaking', speaking); },
     cast(seconds = 3) { castUntil = performance.now() + seconds * 1000; },
