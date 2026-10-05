@@ -2,7 +2,9 @@
 // Bản quyền © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền. Xem LICENSE.
 const KEY = 'huyenmy.perf';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const weak = (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
+// Trình duyệt nhúng trong Zalo, Facebook, Instagram bị giới hạn bộ nhớ chặt: dùng mức hiệu ứng nhẹ để tránh bị hệ thống nạp lại trang.
+const inApp = /Zalo|FBAN|FBAV|FB_IAB|Instagram|Line\//i.test(navigator.userAgent);
+const weak = inApp || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
 let saved = ''; try { saved = localStorage.getItem(KEY) || ''; } catch {}
 const subs = new Set();
 export const perf = {
