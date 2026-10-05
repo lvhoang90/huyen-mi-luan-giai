@@ -45,6 +45,8 @@ function scheduleSync() {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(pushState, 8000);
 }
+// Cờ báo: vừa đăng nhập lại và nạp xong bản đã lưu, nên vào thẳng cuộc trò chuyện, không bắt bấm "Tiếp tục".
+const AUTORESUME = 'huyenmy.autoresume';
 const pushState = () => { if (ACCOUNT.user?.consentMemory && S.profile) fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: S }), keepalive: true }).catch(() => {}); };
 // Đóng tab hoặc chuyển ứng dụng trong lúc còn chờ 8 giây: đẩy ngay để thiết bị khác không thấy bản cũ.
 addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && syncTimer) { clearTimeout(syncTimer); syncTimer = 0; pushState(); } });
@@ -331,7 +333,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
       h('p', { className: 'su-title', textContent: title }),
       h('p', { className: 'su-sub', textContent: 'Không cần mật khẩu. My chỉ gửi một mã 6 số để xác nhận email của bạn.' }),
       h('div', { className: 'row' }, email),
-      h('label', { className: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
+      h('label', { className: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình: lần sau chỉ cần nhập email là My đưa bạn về đúng chỗ đang dở, kể cả trên máy khác, không hỏi lại từ đầu (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
       h('label', { className: 'su-consent' }, remind, h('span', { textContent: 'Gửi cho mình một email nhắc nhẹ khi đến lúc kể tiếp (tối đa một thư mỗi tuần, hủy được bất cứ lúc nào). Không chọn thì My không gửi gì ngoài mã đăng nhập.' })),
       h('p', { className: 'su-legal' }, 'Khi tiếp tục, bạn đồng ý với ', h('a', { href: '/terms.html', target: '_blank', rel: 'noopener', textContent: 'Điều khoản' }), ' và ', h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener', textContent: 'Chính sách quyền riêng tư' }), '.'),
       msg, h('div', { className: 'su-actions' }, go, ...(canSkip ? [skip] : [])));
@@ -361,7 +363,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
     if (!r.ok) { msg.textContent = r.error || 'Chưa xác nhận được.'; return; }
     ACCOUNT.user = r.user; showAdmin(); track('signup_verified', { isNew: !!r.isNew });
     // Tài khoản cũ đăng nhập trên thiết bị mới: nạp lại hồ sơ và cuộc trò chuyện đã lưu, không hỏi lại từ đầu. Phải xong trước khi máy này kịp ghi đè bản đã lưu.
-    if (!r.isNew && r.user.consentMemory && await restoreFromServer()) { msg.textContent = 'My nhận ra bạn rồi, đang lấy lại cuộc trò chuyện…'; setTimeout(() => location.reload(), 600); return; }
+    if (!r.isNew && r.user.consentMemory && await restoreFromServer()) { msg.textContent = 'My nhận ra bạn rồi, đang đưa bạn về đúng chỗ đang dở…'; try { sessionStorage.setItem(AUTORESUME, '1'); } catch {} setTimeout(() => location.reload(), 500); return; }
     if (wantsMemory) { ACCOUNT.user.consentMemory = true; scheduleSync(); }
     done(true);
   };
@@ -735,7 +737,7 @@ const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => 
   $('#btn-account').hidden = !ACCOUNT.accounts; showAdmin();
   $('#veil-login').hidden = !ACCOUNT.accounts || !!ACCOUNT.user;
   // Đăng nhập trên thiết bị mới: lấy lại cuộc trò chuyện đã lưu nếu người dùng đã đồng ý.
-  if (ACCOUNT.user?.consentMemory && await restoreFromServer()) offerResume();
+  if (ACCOUNT.user?.consentMemory && await restoreFromServer()) { offerResume(); enter(true); } // thiết bị mới đã đăng nhập sẵn: vào thẳng đúng phiên (không await: enter chờ chính promise này)
 }).catch(() => {});
 const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async (s) => {
   $('#demo-badge').hidden = s.ai;
@@ -818,3 +820,4 @@ const saved = load();
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {
   try { S = { ...saved, profile: normalizeProfile(saved.profile) }; offerResume(); } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);
+try { if (sessionStorage.getItem(AUTORESUME)) { sessionStorage.removeItem(AUTORESUME); if (S.profile && S.messages?.length) enter(true); } } catch {}
