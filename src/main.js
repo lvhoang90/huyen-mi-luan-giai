@@ -289,6 +289,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
       h('p', { className: 'su-sub', textContent: 'Không cần mật khẩu. My chỉ gửi một mã 6 số để xác nhận email của bạn.' }),
       h('div', { className: 'row' }, email),
       h('label', { className: 'su-consent', htmlFor: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
+      h('p', { className: 'su-legal' }, 'Khi tiếp tục, bạn đồng ý với ', h('a', { href: '/terms.html', target: '_blank', rel: 'noopener', textContent: 'Điều khoản' }), ' và ', h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener', textContent: 'Chính sách quyền riêng tư' }), '.'),
       msg, h('div', { className: 'su-actions' }, go, ...(canSkip ? [skip] : [])));
     email.focus();
   };

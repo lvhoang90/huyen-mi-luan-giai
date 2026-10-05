@@ -93,3 +93,5 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 - `tuvi-neo` và `lunar-javascript` chỉ dùng để đối chiếu khi kiểm thử, không nằm trong sản phẩm.
 
 Hướng dẫn đưa lên web: [docs/TRIEN-KHAI.md](docs/TRIEN-KHAI.md).
+
+Trang pháp lý (Điều khoản, Quyền riêng tư, Bản quyền) soạn ở `docs/legal/*.md` và `LICENSE`, dựng thành `public/*.html` bằng `node tools/build-legal.mjs`.
