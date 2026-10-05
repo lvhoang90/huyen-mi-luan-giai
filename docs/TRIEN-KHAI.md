@@ -2,6 +2,18 @@
 
 Huyền My là một ứng dụng Node.js chạy liên tục (phát chữ trực tiếp qua SSE, lưu SQLite). Vì vậy cần **máy chủ riêng ảo (VPS/Cloud Server) chạy Linux**, không dùng hosting PHP/cPanel thông thường.
 
+## Cách nhanh (khuyên dùng): dùng script
+Sau khi có máy Ubuntu 24.04 và SSH được bằng root:
+```bash
+apt update && apt install -y git
+ssh-keygen -t ed25519 -N "" -f ~/.ssh/huyenmy_deploy && cat ~/.ssh/huyenmy_deploy.pub   # dán vào GitHub: repo > Settings > Deploy keys (chỉ đọc)
+GIT_SSH_COMMAND="ssh -i ~/.ssh/huyenmy_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+  git clone -b <nhánh> git@github.com:lvhoang90/huyen-mi-luan-giai.git /opt/huyenmy
+cd /opt/huyenmy && git config core.sshCommand "ssh -i /root/.ssh/huyenmy_deploy -o IdentitiesOnly=yes"
+bash deploy/setup.sh ten-mien-cua-ban.com      # hoặc không đối số để thử qua http://IP
+```
+Cập nhật sau này: `bash /opt/huyenmy/deploy/update.sh`. Các mục bên dưới là bản làm tay giải thích từng bước.
+
 ## 1. Cần mua
 | Mục | Ghi chú |
 |---|---|
