@@ -304,3 +304,17 @@ test('xóa tài khoản xóa luôn chỉ số cảm xúc và liên kết', async
   assert.equal(h.db.prepare('SELECT COUNT(*) c FROM turns WHERE actor = ?').get(`u${uid}`).c, 0);
   h.close();
 });
+
+test('một lăng kính mỗi lượt: cờ trộn nhiều hệ và lời dặn theo lăng kính đã chọn', async () => {
+  const mix = assessTurn({ phase: 'companion', reply: '[[chia_se]]Theo Tử Vi cung Mệnh của bạn mạnh, Tứ Trụ nhật chủ Đinh cũng vậy, còn chiêm tinh Mặt Trăng thì khác.', userMsg: 'công việc', prevReplies: [] });
+  assert.ok(mix.flags.includes('qua_nhieu_he'));
+  const one = assessTurn({ phase: 'companion', reply: '[[chia_se]]Theo Tử Vi, cung Mệnh của bạn có sao chủ về sự kiên nhẫn.', userMsg: 'công việc', prevReplies: [] });
+  assert.ok(!one.flags.includes('qua_nhieu_he'));
+  const { buildSystemPrompt } = await import('../server/persona.js');
+  const { normalizeProfile, buildChart } = await import('../src/engine/index.js');
+  const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: null, minute: null } });
+  const chart = buildChart(profile);
+  assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'tutru' }), /LĂNG KÍNH NGƯỜI NÀY CHỌN: Tứ Trụ/);
+  assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'none' }), /không dùng thuật ngữ nào/);
+  assert.doesNotMatch(buildSystemPrompt('reading', profile, chart, [], {}), /LĂNG KÍNH NGƯỜI NÀY CHỌN/);
+});

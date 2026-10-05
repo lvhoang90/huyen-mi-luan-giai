@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { normalizeProfile, buildChart } from '../src/engine/index.js';
-import { buildSystemPrompt, PHASE_LIST } from './persona.js';
+import { buildSystemPrompt, PHASE_LIST, LENSES } from './persona.js';
 import { demoReply } from './demo.js';
 import { openDb } from './db.js';
 import { createApi } from './routes.js';
@@ -110,7 +110,7 @@ async function handleChat(req, res) {
     record(true); send({ done: true }); return res.end();
   }
 
-  const system = buildSystemPrompt(phase, profile, chart, messages, { minute });
+  const system = buildSystemPrompt(phase, profile, chart, messages, { minute, lens: Object.hasOwn(LENSES, body.lens) ? body.lens : null });
   const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 1000, thinking: { type: 'between_tools' }, system, messages });
   res.on('close', () => { try { stream.abort(); } catch {} });
   stream.on('text', (t) => { if (ttft == null) ttft = Date.now() - t0; reply += t; send({ t }); });
