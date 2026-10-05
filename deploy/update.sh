@@ -4,5 +4,5 @@ set -euo pipefail
 cd /opt/huyenmy
 BRANCH="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 git fetch origin "$BRANCH" && git checkout "$BRANCH" && git pull --ff-only origin "$BRANCH"
-npm ci --no-audit --no-fund && npm run build
+npm ci --no-audit --no-fund && npx vite build --envDir "$(mktemp -d)"
 systemctl restart huyenmy && sleep 2 && systemctl is-active huyenmy && curl -fsS http://127.0.0.1:5173/api/status && echo

@@ -49,8 +49,9 @@ mkdir -p "$DATA_DIR" && chown "$APP_USER:$APP_USER" "$DATA_DIR" && chmod 750 "$D
 
 echo "==> 6/9 Dựng ứng dụng"
 npm ci --no-audit --no-fund
-npm run build
+npx vite build --envDir "$(mktemp -d)"   # không để Vite đọc .env chứa bí mật
 
+clean() { sed -E 's/\x1b\[[0-9;?]*[ -\/]*[@-~]//g' | tr -cd '\041-\176'; }  # bỏ ký tự điều khiển do dán vào terminal
 echo "==> 7/9 Cấu hình bí mật (.env)"
 if [ ! -f "$APP_DIR/.env" ]; then
   umask 077
@@ -58,9 +59,10 @@ if [ ! -f "$APP_DIR/.env" ]; then
   read -r -p "Email quản trị (vào được /admin, cũng dùng để nhận thông báo của Let's Encrypt): " ADMIN
   read -r -p "Mã truy cập thử nghiệm (Enter = không đặt, ai cũng vào được): " CODE
   read -r -s -p "RESEND_API_KEY (Enter = bỏ qua; khi đó mã đăng nhập chỉ hiện trong nhật ký máy chủ): " RK; echo
+  AK=$(printf '%s' "$AK" | clean); ADMIN=$(printf '%s' "$ADMIN" | clean); CODE=$(printf '%s' "$CODE" | clean); RK=$(printf '%s' "$RK" | clean)
   MAILFROM=""; [ -n "$DOMAIN" ] && MAILFROM="Huyền My <no-reply@$DOMAIN>"
   {
-    echo "NODE_ENV=production"; echo "PORT=$PORT"; echo "TRUST_PROXY=1"; echo "DATA_DIR=$DATA_DIR"
+    echo "PORT=$PORT"; echo "TRUST_PROXY=1"; echo "DATA_DIR=$DATA_DIR"
     echo "ANTHROPIC_API_KEY=$AK"; echo "ADMIN_EMAILS=$ADMIN"
     [ -n "$CODE" ] && echo "HUYENMY_ACCESS_CODE=$CODE"
     [ -n "$RK" ] && echo "RESEND_API_KEY=$RK"; [ -n "$MAILFROM" ] && echo "MAIL_FROM=\"$MAILFROM\""
@@ -87,6 +89,7 @@ After=network.target
 User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
+Environment=NODE_ENV=production
 ExecStart=/usr/bin/node --max-old-space-size=384 --env-file=$APP_DIR/.env server/index.js
 Restart=always
 RestartSec=3
