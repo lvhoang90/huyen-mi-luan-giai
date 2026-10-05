@@ -75,7 +75,8 @@ fi
 ADMIN_MAIL=$(grep -E '^ADMIN_EMAILS=' "$APP_DIR/.env" | head -1 | cut -d= -f2 | cut -d, -f1 || true)
 
 echo "==> 8/9 Dịch vụ systemd và nginx"
-cat > /etc/systemd/system/huyenmy.service <<UNIT
+write_unit() {  # $1 = 1: có cô lập hệ thống (an toàn hơn); 0: bỏ cô lập (một số máy ảo dạng container không hỗ trợ)
+  cat > /etc/systemd/system/huyenmy.service <<UNIT
 [Unit]
 Description=Huyen My Luan Giai
 After=network.target
@@ -89,13 +90,21 @@ ExecStart=/usr/bin/node server/index.js
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=true
+$([ "$1" = 1 ] && printf 'PrivateTmp=true\nProtectSystem=full\nProtectHome=true')
 [Install]
 WantedBy=multi-user.target
 UNIT
-systemctl daemon-reload && systemctl enable huyenmy >/dev/null && systemctl restart huyenmy
+  systemctl daemon-reload && systemctl enable huyenmy >/dev/null 2>&1 && systemctl restart huyenmy
+}
+if ! write_unit 1; then
+  echo "!! Máy này không cho dịch vụ chạy kiểu cô lập, thử lại ở chế độ thường..."
+  systemctl reset-failed huyenmy 2>/dev/null || true
+  if ! write_unit 0; then
+    echo "!! Dịch vụ vẫn không chạy được. Nhật ký lỗi:"; journalctl -u huyenmy -n 30 --no-pager; exit 1
+  fi
+fi
+sleep 2
+systemctl is-active --quiet huyenmy || { echo "!! Dịch vụ dừng ngay sau khi chạy. Nhật ký lỗi:"; journalctl -u huyenmy -n 30 --no-pager; exit 1; }
 
 SERVER_NAME="${DOMAIN:-_}"
 [ -n "$DOMAIN" ] && getent hosts "www.$DOMAIN" >/dev/null 2>&1 && SERVER_NAME="$DOMAIN www.$DOMAIN"
