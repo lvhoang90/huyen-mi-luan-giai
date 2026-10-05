@@ -25,7 +25,8 @@ const api = createApi({ db });
 const ACCESS_CODE = (process.env.HUYENMY_ACCESS_CODE || '').trim();   // để trống = ai cũng vào được
 
 // ---- mã truy cập: so sánh hằng thời gian, đếm lần nhập sai theo IP ----
-const sha = (v) => crypto.createHash('sha256').update(String(v)).digest();
+const norm = (v) => String(v ?? '').trim().toLowerCase(); // không phân biệt hoa thường: điện thoại hay tự viết hoa chữ đầu
+const sha = (v) => crypto.createHash('sha256').update(norm(v)).digest();
 const codeOk = (v) => !ACCESS_CODE || crypto.timingSafeEqual(sha(v ?? ''), sha(ACCESS_CODE));
 const fails = new Map();
 const lockedOut = (ip) => (fails.get(ip) ?? []).filter((t) => Date.now() - t < 10 * 60_000).length >= 8;

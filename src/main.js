@@ -648,11 +648,13 @@ const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async
 }).catch(() => {}), meReady]);
 function askCode(then) {
   if ($('.code-box')) return;
-  const input = h('input', { type: 'password', className: 'code-input', placeholder: 'Mã truy cập', autocomplete: 'off', ariaLabel: 'Mã truy cập' });
+  const input = h('input', { type: 'password', className: 'code-input', placeholder: 'Mã truy cập', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, ariaLabel: 'Mã truy cập' });
+  input.setAttribute('autocorrect', 'off');
+  const eye = h('button', { type: 'button', className: 'btn', textContent: 'Hiện mã', onclick: () => { input.type = input.type === 'password' ? 'text' : 'password'; eye.textContent = input.type === 'password' ? 'Hiện mã' : 'Ẩn mã'; } });
   const msg = h('p', { className: 'code-msg', role: 'alert' });
   const submit = async () => { const err = await tryCode(input.value.trim()); if (err) { msg.textContent = err; return; } OPEN = true; $('.code-box').remove(); then(); };
   input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-  $('#veil-actions').before(h('div', { className: 'code-box' }, h('p', { className: 'code-hint', textContent: 'Phòng này cần mã truy cập.' }), input, h('button', { className: 'btn', textContent: 'Mở cửa', onclick: submit }), msg));
+  $('#veil-actions').before(h('div', { className: 'code-box' }, h('p', { className: 'code-hint', textContent: 'Phòng này cần mã truy cập.' }), input, h('button', { className: 'btn', textContent: 'Mở cửa', onclick: submit }), eye, msg));
   input.focus();
 }
 
