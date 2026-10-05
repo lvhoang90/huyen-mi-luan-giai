@@ -36,12 +36,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---------------- trạng thái ----------------
 let S = { profile: null, messages: [], phase: 'intro' };
 let ACCOUNT = { accounts: false, user: null, refCode: '' }, syncTimer = 0;
+/** Tài khoản quản trị tự có nút ⚙ ở thanh trên để vào trang quản trị. */
+const showAdmin = () => { const a = document.getElementById('btn-admin'); if (a) a.hidden = ACCOUNT.user?.role !== 'admin'; };
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} scheduleSync(); };
 /** Người dùng đã đăng nhập và đồng ý lưu: đẩy trạng thái lên máy chủ (chỉ hồ sơ, tin nhắn và nhịp buổi), gom 8 giây một lần. */
 function scheduleSync() {
   if (!ACCOUNT.user?.consentMemory || !S.profile) return;
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: S }) }).catch(() => {}), 8000);
+  syncTimer = setTimeout(pushState, 8000);
+}
+// Cờ báo: vừa đăng nhập lại và nạp xong bản đã lưu, nên vào thẳng cuộc trò chuyện, không bắt bấm "Tiếp tục".
+const AUTORESUME = 'huyenmy.autoresume';
+const pushState = () => { if (ACCOUNT.user?.consentMemory && S.profile) fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: S }), keepalive: true }).catch(() => {}); };
+// Đóng tab hoặc chuyển ứng dụng trong lúc còn chờ 8 giây: đẩy ngay để thiết bị khác không thấy bản cũ.
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && syncTimer) { clearTimeout(syncTimer); syncTimer = 0; pushState(); } });
+addEventListener('pagehide', () => { if (syncTimer) { clearTimeout(syncTimer); syncTimer = 0; pushState(); } });
+/** Lấy lại cuộc trò chuyện đã lưu trên máy chủ nếu nó đầy đủ hơn bản trên thiết bị này. Trả về true khi đã thay trạng thái. */
+async function restoreFromServer() {
+  const r = await apiJson('/api/state');
+  if (!r.state?.profile) return false;
+  const local = load();
+  if (local?.profile && (local.messages?.length ?? 0) >= (r.state.messages?.length ?? 0)) return false;
+  try { S = { ...r.state, profile: normalizeProfile(r.state.profile) }; } catch { return false; }
+  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {}
+  return true;
 }
 const load = () => { try { return JSON.parse(localStorage.getItem(STORE)); } catch { return null; } };
 let chart = null;
@@ -159,7 +177,7 @@ function askChat(chips = []) {
   return new Promise((resolve) => {
     clearComposer();
     const send = (text, chip = false) => { clearComposer(); resolve({ text, chip }); };
-    if (chips.length) composer.append(chipsRow(chips, (c) => send(c.value ?? c, !!c.action)));
+    if (chips.length) composer.append(chipsRow(chips, (c) => send(c.value ?? c, c.action ?? false)));
     const ta = h('textarea', { className: 'field', rows: 1, placeholder: 'Kể với My…', maxLength: 2000 });
     const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; };
@@ -176,7 +194,7 @@ const CODE_KEY = 'huyenmy.code';
 const getCode = () => { try { return localStorage.getItem(CODE_KEY) || ''; } catch { return ''; } };
 const setCode = (v) => { try { v ? localStorage.setItem(CODE_KEY, v) : localStorage.removeItem(CODE_KEY); } catch {} };
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()) }) });
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null }) });
   if (!res.ok) { const j = await res.json().catch(() => ({})); if (j.needAuth) throw Object.assign(new Error(j.error), { needAuth: true }); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {
@@ -267,6 +285,7 @@ async function closeSession() {
   await say(`[[dong_cam]]Đã đến lúc My nghỉ một chút, ${S.profile.nickname}. Mỗi buổi My chỉ trò chuyện tối đa ${SESSION_MIN} phút, để lần nào cũng dành trọn cho bạn.`, 500);
   await say(`[[chiem_nghiem]]Hôm nay ta đã đi được một đoạn. Còn một điều My chưa kể: **${next}**. My để dành cho lần sau, khoảng ${hhmm(S.restUntil)} My lại ngồi đây.`, 500);
   track('session_close', { min: spent });
+  await askMood('end');
   await askNps();
   await signupGate('close');
   await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
@@ -302,8 +321,8 @@ function buildSignup(host, { title, done, canSkip = true }) {
   host.replaceChildren();
   const msg = h('p', { className: 'su-msg', role: 'alert' });
   const email = h('input', { className: 'field', type: 'email', placeholder: 'Email của bạn', autocomplete: 'email', inputMode: 'email', maxLength: 120, ariaLabel: 'Email' });
-  const consent = h('input', { type: 'checkbox', id: 'su-consent' });
-  const remind = h('input', { type: 'checkbox', id: 'su-remind' });
+  const consent = h('input', { type: 'checkbox' });
+  const remind = h('input', { type: 'checkbox' });
   const go = h('button', { className: 'btn primary', textContent: 'Gửi mã vào email' });
   const skip = h('button', { className: 'btn', textContent: 'Để sau', onclick: () => { track('signup_skip'); done(false); } });
   const code = h('input', { className: 'field', placeholder: 'Mã 6 số', autocomplete: 'one-time-code', inputMode: 'numeric', maxLength: 6, ariaLabel: 'Mã xác nhận' });
@@ -314,8 +333,8 @@ function buildSignup(host, { title, done, canSkip = true }) {
       h('p', { className: 'su-title', textContent: title }),
       h('p', { className: 'su-sub', textContent: 'Không cần mật khẩu. My chỉ gửi một mã 6 số để xác nhận email của bạn.' }),
       h('div', { className: 'row' }, email),
-      h('label', { className: 'su-consent', htmlFor: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
-      h('label', { className: 'su-consent', htmlFor: 'su-remind' }, remind, h('span', { textContent: 'Gửi cho mình một email nhắc nhẹ khi đến lúc kể tiếp (tối đa một thư mỗi tuần, hủy được bất cứ lúc nào). Không chọn thì My không gửi gì ngoài mã đăng nhập.' })),
+      h('label', { className: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình: lần sau chỉ cần nhập email là My đưa bạn về đúng chỗ đang dở, kể cả trên máy khác, không hỏi lại từ đầu (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
+      h('label', { className: 'su-consent' }, remind, h('span', { textContent: 'Gửi cho mình một email nhắc nhẹ khi đến lúc kể tiếp (tối đa một thư mỗi tuần, hủy được bất cứ lúc nào). Không chọn thì My không gửi gì ngoài mã đăng nhập.' })),
       h('p', { className: 'su-legal' }, 'Khi tiếp tục, bạn đồng ý với ', h('a', { href: '/terms.html', target: '_blank', rel: 'noopener', textContent: 'Điều khoản' }), ' và ', h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener', textContent: 'Chính sách quyền riêng tư' }), '.'),
       msg, h('div', { className: 'su-actions' }, go, ...(canSkip ? [skip] : [])));
     email.focus();
@@ -342,7 +361,9 @@ function buildSignup(host, { title, done, canSkip = true }) {
     const r = await apiJson('/api/auth/verify', 'POST', { email: email.value, code: code.value, consentMemory: wantsMemory, remind: remind.checked });
     ok.disabled = false;
     if (!r.ok) { msg.textContent = r.error || 'Chưa xác nhận được.'; return; }
-    ACCOUNT.user = r.user; track('signup_verified', { isNew: !!r.isNew });
+    ACCOUNT.user = r.user; showAdmin(); track('signup_verified', { isNew: !!r.isNew });
+    // Tài khoản cũ đăng nhập trên thiết bị mới: nạp lại hồ sơ và cuộc trò chuyện đã lưu, không hỏi lại từ đầu. Phải xong trước khi máy này kịp ghi đè bản đã lưu.
+    if (!r.isNew && r.user.consentMemory && await restoreFromServer()) { msg.textContent = 'My nhận ra bạn rồi, đang đưa bạn về đúng chỗ đang dở…'; try { sessionStorage.setItem(AUTORESUME, '1'); } catch {} setTimeout(() => location.reload(), 500); return; }
     if (wantsMemory) { ACCOUNT.user.consentMemory = true; scheduleSync(); }
     done(true);
   };
@@ -376,6 +397,15 @@ function signupGate(why) {
     });
   });
 }
+const MOODS = [['Nặng nề', 1], ['Hơi chùng', 2], ['Bình thường', 3], ['Khá nhẹ', 4], ['Nhẹ nhõm', 5]];
+/** Tự đánh giá tâm trạng bằng một lần chạm (không bắt buộc). Ba thời điểm: đầu buổi, giữa buổi, cuối buổi, để quản trị đo được lòng người nhẹ đi hay nặng thêm. */
+async function askMood(phase) {
+  const lead = { start: 'Trước khi bắt đầu, hôm nay bạn đang thấy trong người thế nào? Chạm một ô, hoặc bỏ qua cũng được.', mid: 'Hỏi nhỏ một chút thôi: lúc này lòng bạn thấy thế nào so với lúc mới đến?', end: 'Trước khi nghỉ, lòng bạn đang thấy thế nào? Chỉ để My biết mình có làm bạn nhẹ đi chút nào không.' }[phase];
+  await say(`[[lang_nghe]]${lead}`, 300);
+  const v = await ask({ kind: 'choice', chips: [...MOODS.map(([label, value]) => ({ label, value })), { label: 'Bỏ qua', value: '' }] });
+  if (v !== '') track('mood_check', { phase, value: v });
+  return v;
+}
 async function askNps() {
   await say('[[lang_nghe]]Một câu cuối thôi: bạn có muốn giới thiệu My cho bạn bè không? Chọn từ 0 (không) đến 10 (chắc chắn).', 300);
   const v = await ask({ kind: 'choice', chips: [...Array.from({ length: 11 }, (_, i) => ({ label: String(i), value: i })), { label: 'Bỏ qua', value: '' }] });
@@ -407,15 +437,17 @@ function openAccount() {
     card.append(h('p', { className: 'su-title', textContent: u.email }),
       h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
       h('div', { className: 'su-actions' },
+        ...(u.role === 'admin' ? [h('a', { className: 'btn primary', href: '/admin', textContent: 'Trang quản trị' })] : []),
         h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
         h('button', { className: 'btn', textContent: u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại', onclick: async () => { const r = await apiJson('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) { u.remind = r.remind; render(); } } }),
-        h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; close(); } }),
+        h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; showAdmin(); close(); } }),
         h('button', { className: 'btn danger', textContent: 'Xóa tài khoản và dữ liệu', onclick: (e) => { if (e.target.dataset.sure) { apiJson('/api/account/delete', 'POST').then(() => { ACCOUNT.user = null; try { localStorage.removeItem(STORE); } catch {} location.reload(); }); } else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa'; } } })));
   };
   render();
-  document.body.append(h('div', { className: 'modal', onclick: (e) => e.target.classList.contains('modal') && close() }, card));
+  document.body.append(h('div', { className: 'modal', onclick: (e) => { if (e.target.classList.contains('modal')) close(); } }, card));
 }
 $('#btn-account').onclick = openAccount;
+$('#veil-login').onclick = () => { track('login_click', { where: 'landing' }); openAccount(); };
 
 // ---------------- hành trình ----------------
 const INTRO = [
@@ -469,7 +501,8 @@ async function collect() {
     catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
   }
   S.profile = profile; save();
-  track('intake_done', { ageBand: ageBand(profile.birth.y), field: profile.field ?? 'none', hasTime: profile.birth.hour != null, hasPlace: !!profile.place });
+  track('intake_done', { ageBand: ageBand(profile.birth.y), gender: profile.gender ?? 'khac', field: profile.field ?? 'none', hasTime: profile.birth.hour != null, hasPlace: !!profile.place });
+  await askMood('start');
   await ritual();
 }
 
@@ -500,6 +533,7 @@ async function ritual() {
   if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
   if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
   if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); hookLines.push(plain(extra.join(' '))); }
+  note('Hình lá số của bạn nằm ở nút ☯ góc trên bên phải. Bạn bấm xem bất cứ lúc nào để theo dõi cùng My.');
   hookTrait = distinctiveTraits(p, chart)[0] ?? null;
   if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
   if (hookTrait) hookLines.push(`Nét hiếm trong lá số của bạn: ${hookTrait}.`);
@@ -518,16 +552,25 @@ const startChips = () => [
   { label: 'Một chuyện đang làm mình rối', value: 'Dạo này có một chuyện đang làm mình rối.' },
 ];
 // Lăng kính để soi tiếp: chỉ hiện đúng một lần, ngay sau lần luận giải đầu, để người dùng biết còn lựa chọn khác.
+/** Trước khi luận giải, hỏi người dùng quen cách xem nào để My chỉ dùng đúng một hệ và nói đúng ngôn ngữ của họ. */
+async function askLens() {
+  if (S.lens) return;
+  await say('[[lang_nghe]]Trước khi My nói, một câu thôi nhé: bạn quen với cách xem nào nhất? My sẽ chỉ dùng đúng cách ấy cho dễ theo dõi, bạn muốn đổi lúc nào cũng được.', 300);
+  const v = await ask({ kind: 'choice', chips: [{ label: 'Tử Vi', value: 'tuvi' }, { label: 'Tứ Trụ (Bát Tự)', value: 'tutru' }, { label: 'Chiêm tinh', value: 'astro' }, { label: 'Thần số học', value: 'thanso' }, { label: 'Mình chưa biết gì, My nói đơn giản thôi', value: 'none' }] });
+  if (v) { S.lens = v; save(); track('lens_pick', { lens: v, via: 'ask' }); }
+}
+const CHART_CHIP = { label: '☯ Xem hình lá số', value: '', action: 'chart' };
 const LENS_CHIPS = [
-  { label: 'Soi thêm theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
-  { label: 'Soi thêm theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
-  { label: 'Soi thêm theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
-  { label: 'Soi thêm theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
+  CHART_CHIP,
+  { lens: 'tuvi', label: 'Soi thêm theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
+  { lens: 'tutru', label: 'Soi thêm theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
+  { lens: 'astro', label: 'Soi thêm theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
+  { lens: 'thanso', label: 'Soi thêm theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
 ];
 /** Nút gợi ý theo ngữ cảnh: lượt đầu có lối vào; còn lại chỉ là gợi ý do My tự đưa ra khi hợp, không có thì để trống cho người dùng tự nói. */
 function contextChips(userTurns, justRead) {
   const mine = suggestions.map((t) => ({ label: t, value: t }));
-  if (S.phase === 'listen') return userTurns === 0 ? startChips() : [...mine, ...(userTurns >= 3 ? [READ_CHIP] : [])]; // đã kể đủ nhiều thì mới nhắc có thể mời luận giải
+  if (S.phase === 'listen') return userTurns === 0 ? startChips() : [...mine, ...(userTurns >= 3 ? [READ_CHIP] : []), CHART_CHIP]; // đã kể đủ nhiều thì mới nhắc có thể mời luận giải
   if (S.phase === 'companion') return justRead ? LENS_CHIPS : mine;
   return [];
 }
@@ -541,17 +584,20 @@ async function converse() {
     stage.setMood('listen');
     const chips = contextChips(userTurns, justRead); justRead = false;
     const { text, chip } = await askChat(chips);
+    if (chip === 'chart') { track('chart_open', { via: 'chip' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; continue; } // chỉ mở hình lá số, không gửi tin nhắn
+    const picked = LENS_CHIPS.find((c) => c.lens && c.value === text); if (picked) { S.lens = picked.lens; track('lens_pick', { lens: picked.lens, via: 'chip' }); }
     const sc = userTurns === 0 && S.phase === 'listen' ? startChips().find((c) => c.value === text) : null;
     if (userTurns === 0) track('first_message', { viaChip: !!sc });
     if (sc) track('start_choice', { chip: sc.label });
     showUser(text); S.messages.push({ role: 'user', content: text }); userTurns++;
     track('message_sent', { n: userTurns });
-    const reading = S.phase === 'listen' && chip;
-    if (reading) { stage.cast(4); track('reading_requested'); }
+    const reading = S.phase === 'listen' && chip === 'read';
+    if (reading) { stage.cast(4); track('reading_requested'); await askLens(); }
     save();
     const ok = await aiTurn(reading ? 'reading' : S.phase);
     if (!ok) { userTurns--; continue; }
     if (reading) { S.phase = 'companion'; justRead = true; suggestions = []; save(); track('reading_received'); await askResonance(); }
+    else if (userTurns === 8 && !S.moodMid) { S.moodMid = true; save(); await askMood('mid'); }
     save();
   }
 }
@@ -594,10 +640,45 @@ function tabTuVi(c) {
     <p class="sub" style="margin-top:10px">Tứ Hóa năm ${t.lunar.canChiYear.split(' ')[0]}: ${Object.entries(t.hoaAt).map(([h, v]) => `${h} → <b>${v.star}</b> (${t.palaces[v.pos].name})`).join(' · ')}.${t.menhVoChinhDieu ? ' Cung Mệnh vô chính diệu: xem sao cung Thiên Di.' : ''}</p>`;
 }
 
+const SIGN_GLYPH = ['♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'];
+/** Bánh xe hoàng đạo: 12 cung quanh vòng ngoài, hành tinh là các chấm. Cung mọc đặt bên trái nếu biết giờ và nơi sinh. */
+function zodiacWheel(a) {
+  const S0 = 320, cx = S0 / 2, cy = S0 / 2, R = 148, r2 = 118, r3 = 100;
+  const ascLon = a.asc ? a.asc.index * 30 + a.asc.degree : 0;
+  const pt = (lon, r) => { const th = Math.PI + ((lon - ascLon) * Math.PI) / 180; return [cx + r * Math.cos(th), cy - r * Math.sin(th)]; };
+  const seg = Array.from({ length: 12 }, (_, i) => {
+    const [x1, y1] = pt(i * 30, r2), [x2, y2] = pt(i * 30, R), [gx, gy] = pt(i * 30 + 15, (R + r2) / 2);
+    const warm = ['Lửa', 'Khí'].includes(['Lửa', 'Đất', 'Khí', 'Nước'][i % 4]);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" opacity=".3"/><text x="${gx}" y="${gy + 5}" text-anchor="middle" font-size="15" fill="currentColor" opacity="${warm ? '.9' : '.7'}">${SIGN_GLYPH[i]}︎</text>`;
+  }).join('');
+  const dots = a.planets.map((p) => {
+    const [x, y] = pt(p.lon, r3 - (['Sun', 'Moon'].includes(p.key) ? 0 : 6)), big = ['Sun', 'Moon'].includes(p.key);
+    return `<g><circle cx="${x}" cy="${y}" r="${big ? 7 : 4.5}" fill="${p.key === 'Sun' ? '#f1c65b' : p.key === 'Moon' ? '#cfd8ff' : '#8ab4ff'}" stroke="#0007"><title>${p.name}: ${p.sign} ${p.degree}°${p.house ? `, nhà ${p.house}` : ''}</title></circle></g>`;
+  }).join('');
+  const ascMark = a.asc ? `<line x1="${cx - R - 8}" y1="${cy}" x2="${cx - r2 + 6}" y2="${cy}" stroke="#f1c65b" stroke-width="2.5"/><text x="${cx - R - 8}" y="${cy - 8}" font-size="10.5" fill="#f1c65b">ASC</text>` : '';
+  return `<svg class="wheel" viewBox="0 0 ${S0} ${S0}" role="img" aria-label="Bánh xe lá số chiêm tinh"><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="currentColor" opacity=".45"/><circle cx="${cx}" cy="${cy}" r="${r2}" fill="none" stroke="currentColor" opacity=".3"/>${seg}${ascMark}${dots}</svg><p class="wlegend"><span><i style="background:#f1c65b"></i>Mặt Trời</span><span><i style="background:#cfd8ff"></i>Mặt Trăng</span><span><i style="background:#8ab4ff"></i>Hành tinh khác</span>${a.asc ? '<span><i class="ln"></i>Cung mọc (ASC)</span>' : ''}</p>`;
+}
+
+/** Tóm tắt trực quan, nói bằng lời thường: ai chỉ quen một hệ vẫn theo dõi được, và biết nên nhìn vào đâu. */
+function tabOverview(c) {
+  const b = c.bazi, a = c.astro, n = c.numerology, t = c.tuvi;
+  const pil = (label, pl) => pl ? `<div class="pillar"><div class="lbl">${label}</div><div class="nm">${pl.name}</div><div class="el">${el(pl.hanhCan)} · ${el(pl.hanhChi)}</div></div>` : `<div class="pillar"><div class="lbl">${label}</div><div class="nm"> - </div><div class="el">không rõ giờ</div></div>`;
+  const max = Math.max(...Object.values(b.elements.counts), 1);
+  const bars = HANH.map((k) => `<div class="bar"><span class="${k}">${k}</span><i><b style="width:${(b.elements.counts[k] / max) * 100}%;background:${ELC[k]}"></b></i><span>${b.elements.counts[k]}</span></div>`).join('');
+  const menh = t ? t.palaces[t.menh] : null;
+  const card = (title, hint, body, tab) => `<section class="ov"><div class="ovh"><h4>${title}</h4><button class="btn sm" data-goto="${tab}">Xem chi tiết</button></div><p class="hint">${hint}</p>${body}</section>`;
+  return `<p class="sub">Bốn cách nhìn, mỗi cách một khung. My khuyên chọn <b>một</b> cách bạn thấy gần nhất để theo dõi, đừng cố đọc hết cùng lúc.</p><div class="ovgrid">
+    ${card('Tứ Trụ', `Nhật chủ là hành đại diện cho chính bạn: <b>${b.dayMaster.can} (${b.dayMaster.hanh}, ${b.dayMaster.yang ? 'dương' : 'âm'})</b>. Năm hành bên dưới cho thấy hành nào nhiều, hành nào ít.`, `<div class="pillars">${pil('Giờ', b.pillars.hour)}${pil('Ngày', b.pillars.day)}${pil('Tháng', b.pillars.month)}${pil('Năm', b.pillars.year)}</div><div class="bars" style="margin-top:8px">${bars}</div>`, 'tutru')}
+    ${card('Chiêm tinh', `Mặt Trời <b>${a.sun.name}</b> (con người bên ngoài), Mặt Trăng <b>${a.moon.name}${a.moonUncertain ? ' ?' : ''}</b> (cảm xúc bên trong)${a.asc ? `, cung mọc <b>${a.asc.name}</b> (ấn tượng đầu tiên)` : ''}.`, zodiacWheel(a), 'astro')}
+    ${card('Tử Vi', menh ? `Cung Mệnh (góc nhìn về con người bạn) có ${menh.chinh.length ? `sao <b>${menh.chinh.join(', ')}</b>` : 'chưa có sao chính (vô chính diệu)'}. Trong hình, ô Mệnh có viền sáng.` : 'Cần giờ sinh và giới tính nam/nữ để lập lá số Tử Vi.', menh ? `<div class="tvmini"><b>${menh.can} ${menh.chi}</b> · ${esc(t.cuc.ten)} · ${esc(t.amDuong)}</div>` : '', 'tuvi')}
+    ${card('Thần số học', `Số chủ đạo <b>${n.lifePath}</b>: ${NUMBER_KEYWORDS[n.lifePath]}.`, `<div class="bignum">${n.lifePath}</div>`, 'thanso')}
+  </div>`;
+}
+
 function tabAstro(c) {
   const a = c.astro;
   const rows = a.planets.map((p) => `<tr><td>${p.name}</td><td>${p.sign}${p.uncertain ? ' ?' : ''}</td><td>${p.degree}°${p.retrograde ? ' ℞' : ''}</td><td>${p.house ? 'Nhà ' + p.house : '-'}</td></tr>`).join('');
-  return `<h3>Chiêm tinh <small>tropical · astronomy-engine · nhà cung nguyên</small></h3>
+  return `<h3>Chiêm tinh <small>tropical · astronomy-engine · nhà cung nguyên</small></h3>${zodiacWheel(a)}
     <div class="grid">
       ${cell('Mặt Trời', a.sun.name + (a.sunUncertain ? ' ?' : ''), `${a.sun.element} · ${a.sun.degree}°`)}
       ${cell('Mặt Trăng', a.moon.name + (a.moonUncertain ? ' ?' : ''), a.moonUncertain ? 'thiếu giờ sinh nên chưa chắc' : `${a.moon.element} · ${a.moon.degree}°`)}
@@ -615,11 +696,11 @@ function tabThanSo(c) {
     ${cell('Năm cá nhân ' + c.thisYear.year, n.personalYear, PERSONAL_YEAR_THEME[n.personalYear])}</div>`;
 }
 
-let sheetTab = 'tuvi';
+let sheetTab = 'tomtat';
 function renderSheet() {
   const p = S.profile, c = chart ?? (chart = buildChart(p)), a = c.astro;
-  const tabs = [['tuvi', 'Tử Vi'], ['tutru', 'Tứ Trụ'], ['astro', 'Chiêm tinh'], ['thanso', 'Thần số']];
-  const body = { tuvi: tabTuVi, tutru: tabTuTru, astro: tabAstro, thanso: tabThanSo }[sheetTab](c);
+  const tabs = [['tomtat', 'Tóm tắt'], ['tuvi', 'Tử Vi'], ['tutru', 'Tứ Trụ'], ['astro', 'Chiêm tinh'], ['thanso', 'Thần số']];
+  const body = { tomtat: tabOverview, tuvi: tabTuVi, tutru: tabTuTru, astro: tabAstro, thanso: tabThanSo }[sheetTab](c);
   $('#sheet-body').innerHTML = `
     <h2>Lá số của ${esc(p.nickname)}</h2>
     <p class="sub">${esc(p.fullName)} · ${p.birth.d}/${p.birth.m}/${p.birth.y}${p.birth.hour !== null ? ` · ${String(p.birth.hour).padStart(2, '0')}:${String(p.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>
@@ -627,10 +708,11 @@ function renderSheet() {
     ${body}
     <div class="src"><b>Minh chứng & giới hạn.</b> Các con số được <b>tính</b> bằng thuật toán thiên văn (astronomy-engine) và quy tắc cổ truyền, không do AI đoán; My nhận chúng làm dữ kiện. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b> - một lăng kính biểu tượng. Hiện chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận hay dự báo được sự kiện; giá trị của lá số là gợi những câu hỏi đáng hỏi, rồi My đối chiếu với câu chuyện thật của bạn và những khung <b>tâm lý học đã được kiểm chứng</b>.
     <ul>${c.caveats.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
-  for (const btn of $('#sheet-body').querySelectorAll('[data-tab]')) btn.onclick = () => { sheetTab = btn.dataset.tab; renderSheet(); };
+  for (const btn of $('#sheet-body').querySelectorAll('[data-tab]')) btn.onclick = () => { sheetTab = btn.dataset.tab; track('chart_tab', { tab: sheetTab }); renderSheet(); };
+  for (const btn of $('#sheet-body').querySelectorAll('[data-goto]')) btn.onclick = () => { sheetTab = btn.dataset.goto; track('chart_tab', { tab: sheetTab }); renderSheet(); };
 }
 const sheet = $('#sheet');
-$('#btn-chart').onclick = () => { track('chart_open'); renderSheet(); sheet.hidden = false; };
+$('#btn-chart').onclick = () => { track('chart_open'); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; };
 $('#sheet-close').onclick = () => (sheet.hidden = true);
 sheet.onclick = (e) => { if (e.target === sheet) sheet.hidden = true; };
 addEventListener('keydown', (e) => e.key === 'Escape' && (sheet.hidden = true));
@@ -652,12 +734,10 @@ const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/
 track('landing_view', { ref: urlRef });
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
   ACCOUNT = { accounts: !!me.accounts, user: me.user ?? null, refCode: me.refCode ?? '' };
-  $('#btn-account').hidden = !ACCOUNT.accounts;
+  $('#btn-account').hidden = !ACCOUNT.accounts; showAdmin();
+  $('#veil-login').hidden = !ACCOUNT.accounts || !!ACCOUNT.user;
   // Đăng nhập trên thiết bị mới: lấy lại cuộc trò chuyện đã lưu nếu người dùng đã đồng ý.
-  if (ACCOUNT.user?.consentMemory && !load()?.profile) {
-    const r = await apiJson('/api/state');
-    if (r.state?.profile) { try { S = { ...r.state, profile: normalizeProfile(r.state.profile) }; save(); offerResume(); } catch {} }
-  }
+  if (ACCOUNT.user?.consentMemory && await restoreFromServer()) { offerResume(); enter(true); } // thiết bị mới đã đăng nhập sẵn: vào thẳng đúng phiên (không await: enter chờ chính promise này)
 }).catch(() => {});
 const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async (s) => {
   $('#demo-badge').hidden = s.ai;
@@ -740,3 +820,4 @@ const saved = load();
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {
   try { S = { ...saved, profile: normalizeProfile(saved.profile) }; offerResume(); } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);
+try { if (sessionStorage.getItem(AUTORESUME)) { sessionStorage.removeItem(AUTORESUME); if (S.profile && S.messages?.length) enter(true); } } catch {}

@@ -237,3 +237,84 @@ test('đăng ký có chọn nhận nhắc, hủy bằng liên kết một chạm
   assert.equal((await h.call('POST', '/api/unsub?t=' + tok)).status, 200);  // hủy một chạm theo chuẩn List-Unsubscribe-Post
   h.close();
 });
+
+// ---- quản trị: người tham gia và hành trình cảm xúc ----
+import { analyzeAffect } from '../server/affect.js';
+import { computeJourney, listParticipants, meanCi } from '../server/people.js';
+
+test('từ điển cảm xúc: phủ định, cường độ, emoji và không lưu chữ', () => {
+  assert.equal(analyzeAffect('Tôi rất mệt và lo').emo === 'met_moi' || analyzeAffect('Tôi rất mệt và lo').emo === 'lo_au', true);
+  assert.ok(analyzeAffect('Mình thấy nhẹ lòng hơn nhiều, cảm ơn My').val > 0.5);
+  assert.ok(analyzeAffect('Tôi buồn lắm, cô đơn nữa').val < -0.8);
+  assert.equal(analyzeAffect('Tôi không vui, chẳng ai hiểu mình cả').emo, 'buon');
+  assert.ok(analyzeAffect('Mình không buồn nữa, bớt lo rồi').val > 0, 'phủ định chỉ áp cho từ khoá sát bên');
+  assert.equal(analyzeAffect('ừ').emo, 'trung_tinh');
+  assert.equal(analyzeAffect('ừ').disc, 0);
+  assert.ok(analyzeAffect('toi chan nan va co don, gia dinh khong ai hieu').val < 0, 'gõ không dấu vẫn hiểu');
+  const r = analyzeAffect('Mình rất lo, tôi buồn');
+  assert.deepEqual(Object.keys(r).sort(), ['aro', 'disc', 'emo', 'hits', 'val', 'words']);
+});
+
+test('khoảng tin cậy trung bình: cỡ mẫu nhỏ thì rộng, n=1 thì không có khoảng', () => {
+  assert.equal(meanCi([]).mean, null);
+  assert.equal(meanCi([2]).lo, null);
+  const c = meanCi([1, 1, 1, 1, 3]); assert.ok(c.lo < c.mean && c.hi > c.mean);
+});
+
+test('quản trị: người tham gia, tự đánh giá tâm trạng và hành trình cảm xúc', async () => {
+  const h = await harness();
+  const T0 = Date.UTC(2026, 9, 4, 3, 0, 0);
+  const evt = (actor, name, props, t) => ingest(h.db, { actor, sid: `s-${actor}`, events: [{ name, props, t }] }, T0 + 3_600_000);
+  const turn = (actor, ut, msg, phase = 'listen') => h.api.recordTurn({ actor, sid: `s-${actor}`, phase, minute: ut * 2, ms: 1000, ttft: 300, reply: '[[dong_cam]]My nghe bạn.', userMsg: msg, userHistory: '', prevReplies: [], ok: true, ut });
+  const people = [['a1', 2, 5], ['a2', 3, 3], ['a3', 1, 2]]; // [actor, đầu, cuối]
+  for (const [a, s, e] of people) {
+    evt(a, 'landing_view', {}, T0); evt(a, 'intake_done', { ageBand: '27-40', gender: 'nu', field: 'edu' }, T0 + 1000);
+    evt(a, 'mood_check', { phase: 'start', value: s }, T0 + 2000); evt(a, 'first_message', {}, T0 + 3000);
+    ['Tôi rất buồn và mệt', 'Vẫn lo lắm', 'Có nói ra thì nhẹ lòng hơn', 'Cảm ơn My, mình thấy bình yên hơn'].forEach((m, i) => turn(a, i + 1, m, i === 1 ? 'reading' : 'listen'));
+    evt(a, 'mood_check', { phase: 'end', value: e }, T0 + 9000);
+  }
+  const rows = listParticipants(h.db, { now: T0 + 3_600_000 }).rows;
+  assert.equal(rows.length, 3);
+  const r1 = rows.find((r) => r.id.startsWith('A-a1'));
+  assert.equal(r1.moodDelta, 3); assert.equal(r1.ageBand, '27-40'); assert.equal(r1.userTurns, 4); assert.equal(r1.trend, 'Cải thiện');
+  const j = computeJourney(h.db, { now: T0 + 3_600_000 });
+  assert.equal(j.selfReport.paired, 3);
+  assert.equal(j.selfReport.delta.mean, 1.33, 'trung bình (3 + 0 + -1) / 3');
+  assert.equal(j.byTurn[0].n, 3); assert.ok(j.byTurn[3].val.mean > j.byTurn[0].val.mean, 'sắc thái nhẹ dần theo lượt');
+  assert.ok(j.emoShare.find((e) => e.emo === 'buon').first > 0);
+  // quyền truy cập
+  assert.equal((await h.call('GET', '/api/admin/journey')).status, 401);
+  await h.call('POST', '/api/auth/request', { email: 'user@x.vn' }); await h.call('POST', '/api/auth/verify', { email: 'user@x.vn', code: codeOf(h.mails.at(-1)) });
+  assert.equal((await h.call('GET', '/api/admin/participants')).status, 403);
+  h.tick(60_000); await h.call('POST', '/api/auth/logout'); h.newJar();
+  await h.call('POST', '/api/auth/request', { email: 'admin@x.vn' }); await h.call('POST', '/api/auth/verify', { email: 'admin@x.vn', code: codeOf(h.mails.at(-1)) });
+  const list = await h.call('GET', '/api/admin/participants'); assert.equal(list.status, 200); assert.equal(list.body.rows.length, 4, '3 người thử và tài khoản user@x.vn vừa tạo, admin không tính');
+  const det = await h.call('GET', `/api/admin/participant?id=${encodeURIComponent(r1.id)}`); assert.equal(det.status, 200); assert.equal(det.body.turns.length, 4);
+  const csv = await h.call('GET', '/api/admin/export/turns.csv'); assert.equal(csv.status, 200); assert.match(csv.text, /person,ts,ut,phase/); assert.ok(!/Tôi rất buồn/.test(csv.text), 'không có nội dung trò chuyện');
+  h.close();
+});
+
+test('xóa tài khoản xóa luôn chỉ số cảm xúc và liên kết', async () => {
+  const h = await harness();
+  await h.call('POST', '/api/auth/request', { email: 'xoa@x.vn' }); const v = await h.call('POST', '/api/auth/verify', { email: 'xoa@x.vn', code: codeOf(h.mails[0]) });
+  const uid = v.body.user.id;
+  h.api.recordTurn({ actor: `u${uid}`, sid: 's', phase: 'listen', minute: 1, ms: 1, ttft: 1, reply: '[[an_ui]]ok', userMsg: 'tôi buồn', userHistory: '', prevReplies: [], ok: true, ut: 1 });
+  assert.equal(h.db.prepare('SELECT COUNT(*) c FROM turns WHERE actor = ?').get(`u${uid}`).c, 1);
+  assert.equal((await h.call('POST', '/api/account/delete')).status, 200);
+  assert.equal(h.db.prepare('SELECT COUNT(*) c FROM turns WHERE actor = ?').get(`u${uid}`).c, 0);
+  h.close();
+});
+
+test('một lăng kính mỗi lượt: cờ trộn nhiều hệ và lời dặn theo lăng kính đã chọn', async () => {
+  const mix = assessTurn({ phase: 'companion', reply: '[[chia_se]]Theo Tử Vi cung Mệnh của bạn mạnh, Tứ Trụ nhật chủ Đinh cũng vậy, còn chiêm tinh Mặt Trăng thì khác.', userMsg: 'công việc', prevReplies: [] });
+  assert.ok(mix.flags.includes('qua_nhieu_he'));
+  const one = assessTurn({ phase: 'companion', reply: '[[chia_se]]Theo Tử Vi, cung Mệnh của bạn có sao chủ về sự kiên nhẫn.', userMsg: 'công việc', prevReplies: [] });
+  assert.ok(!one.flags.includes('qua_nhieu_he'));
+  const { buildSystemPrompt } = await import('../server/persona.js');
+  const { normalizeProfile, buildChart } = await import('../src/engine/index.js');
+  const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: null, minute: null } });
+  const chart = buildChart(profile);
+  assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'tutru' }), /LĂNG KÍNH NGƯỜI NÀY CHỌN: Tứ Trụ/);
+  assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'none' }), /không dùng thuật ngữ nào/);
+  assert.doesNotMatch(buildSystemPrompt('reading', profile, chart, [], {}), /LĂNG KÍNH NGƯỜI NÀY CHỌN:/);
+});

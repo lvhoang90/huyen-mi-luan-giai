@@ -4,6 +4,9 @@ import crypto from 'node:crypto';
 import { createAuth, parseCookies, cookie, sendMail } from './auth.js';
 import { ingest } from './events.js';
 import { computeMetrics } from './admin.js';
+import { analyzeAffect, firstTag } from './affect.js';
+import { deviceOf } from './device.js';
+import { listParticipants, participantDetail, computeJourney, exportTurns } from './people.js';
 import { assessTurn } from './quality.js';
 import { newToken } from './reminders.js';
 
@@ -67,10 +70,12 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
     return id;
   }
 
-  function recordTurn({ actor, sid, phase, minute, ms, ttft, reply, userMsg, userHistory, prevReplies, ok }) {
+  function recordTurn({ actor, sid, phase, minute, ms, ttft, reply, userMsg, userHistory, prevReplies, ok, ut }) {
     const a = ok ? assessTurn({ phase, reply, userMsg, userHistory, prevReplies }) : { words: 0, q: 0, tags: 0, rep: 0, echo: 0, score: 0, flags: [] };
-    db.prepare('INSERT INTO turns(ts, actor, sid, phase, minute, ms, ttft, words, q, tags, rep, echo, score, flags, ok) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(now(), actor, String(sid ?? '').slice(0, 24) || null, phase, Number.isFinite(minute) ? Math.round(minute) : null, ms ?? null, ttft ?? null, a.words, a.q, a.tags, a.rep, a.echo, a.score, a.flags.join(','), ok ? 1 : 0);
+    const af = analyzeAffect(userMsg); // chỉ giữ các con số, không giữ nội dung
+    db.prepare('INSERT INTO turns(ts, actor, sid, phase, minute, ms, ttft, words, q, tags, rep, echo, score, flags, ok, u_val, u_aro, u_emo, u_disc, u_words, my_emo, ut) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(now(), actor, String(sid ?? '').slice(0, 24) || null, phase, Number.isFinite(minute) ? Math.round(minute) : null, ms ?? null, ttft ?? null, a.words, a.q, a.tags, a.rep, a.echo, a.score, a.flags.join(','), ok ? 1 : 0,
+        af.val, af.aro, af.emo, af.disc, af.words, firstTag(reply), Number.isFinite(ut) ? ut : null);
     return a;
   }
 
@@ -93,6 +98,11 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       const anonRow = db.prepare('SELECT ref FROM anon WHERE id = ?').get(id.anon);
       const r = auth.verify(b.email, b.code, { ref: anonRow?.ref ?? null, consentMemory: b.consentMemory === true, remind: b.remind === true });
       if (!r.ok) return json(res, r.status, { error: r.error }), true;
+      try { // nối người ẩn danh với tài khoản để hành trình trước và sau đăng ký thành một người
+        const d = db.prepare('SELECT device, os, browser FROM anon WHERE id = ?').get(id.anon) ?? deviceOf(req.headers['user-agent']);
+        db.prepare('UPDATE users SET anon_id = COALESCE(anon_id, ?), device = COALESCE(device, ?), os = COALESCE(os, ?), browser = COALESCE(browser, ?) WHERE id = ?').run(id.anon, d.device ?? null, d.os ?? null, d.browser ?? null, r.user.id);
+        db.prepare('INSERT OR REPLACE INTO anon_links(anon_id, user_id, linked_at) VALUES (?,?,?)').run(id.anon, r.user.id, now());
+      } catch (e) { console.error('[link]', e.message); }
       const prev = res.getHeader('Set-Cookie');
       res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [prev] : []), cookie('hm_s', r.token, { maxAgeSec: r.maxAgeSec, secure: secure(req) })]);
       return json(res, 200, { ok: true, user: r.user, isNew: r.isNew }), true;
@@ -105,6 +115,12 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       let b; try { b = await readBody(req, 16 * 1024); } catch { return res.writeHead(204).end(), true; }
       const id = identify(req, res);
       ingest(db, { actor: id.actor, userId: id.user?.id, sid: b.sid, events: b.events }, now());
+      try { // ghi nhóm thiết bị một lần cho mỗi người (chỉ loại máy, hệ điều hành, trình duyệt)
+        const d = deviceOf(req.headers['user-agent']);
+        db.prepare('INSERT OR IGNORE INTO anon(id, first_seen) VALUES (?,?)').run(id.anon, now());
+        db.prepare('UPDATE anon SET device = COALESCE(device, ?), os = COALESCE(os, ?), browser = COALESCE(browser, ?) WHERE id = ?').run(d.device, d.os, d.browser, id.anon);
+        if (id.user) db.prepare('UPDATE users SET device = COALESCE(device, ?), os = COALESCE(os, ?), browser = COALESCE(browser, ?), anon_id = COALESCE(anon_id, ?) WHERE id = ?').run(d.device, d.os, d.browser, id.anon, id.user.id);
+      } catch (e) { console.error('[device]', e.message); }
       return res.writeHead(204).end(), true;
     }
     if (pathname === '/api/state') {
@@ -160,6 +176,22 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
       auth.deleteAccount(id.user.id);
       return json(res, 200, { ok: true }, { 'Set-Cookie': cookie('hm_s', '', { maxAgeSec: 0, secure: secure(req) }) }), true;
+    }
+    if (pathname.startsWith('/api/admin/') && pathname !== '/api/admin/metrics' && method === 'GET') {
+      const id = identify(req, res);
+      if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      if (id.user.role !== 'admin') return json(res, 403, { error: 'Chỉ dành cho quản trị viên.' }), true;
+      const q = new URL(req.url, 'http://x').searchParams, days = Math.min(365, Math.max(0, +q.get('days') || 0));
+      if (pathname === '/api/admin/participants') return json(res, 200, listParticipants(db, { days, now: now() })), true;
+      if (pathname === '/api/admin/participant') { const d = participantDetail(db, String(q.get('id') ?? ''), { now: now() }); return d ? json(res, 200, d) : json(res, 404, { error: 'Không thấy người này.' }), true; }
+      if (pathname === '/api/admin/journey') return json(res, 200, computeJourney(db, { days, now: now() })), true;
+      if (pathname === '/api/admin/export/turns.csv') {
+        const rows = exportTurns(db, { days, now: now(), salt: pepper }, (x) => crypto.createHash('sha256').update(x).digest('hex').slice(0, 10));
+        const cols = ['person', 'ts', 'ut', 'phase', 'minute', 'val', 'aro', 'emo', 'disc', 'words', 'my_tone', 'score', 'flags', 'ok'];
+        const csv = '\uFEFF' + cols.join(',') + '\n' + rows.map((r) => cols.map((c) => { const v = r[c] ?? ''; return /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v; }).join(',')).join('\n');
+        res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="huyenmy-luot-tro-chuyen.csv"', 'Cache-Control': 'no-store' }); res.end(csv); return true;
+      }
+      return false;
     }
     if (pathname === '/api/admin/metrics' && method === 'GET') {
       const id = identify(req, res);

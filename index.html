@@ -4,14 +4,25 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0a24" />
-  <meta name="description" content="Huyền My Luận Giải - soi mình qua thần số học, chiêm tinh và ngũ hành, cùng một người đồng hành biết lắng nghe." />
-  <title>Huyền My Luận Giải</title>
+  <meta name="description" content="Nhập ngày giờ sinh, My tính lá số thật rồi trò chuyện cùng bạn. Không tiên đoán, không dọa hạn, chỉ soi lại để bạn hiểu mình hơn." />
+  <title>Huyền My Luận Giải - Người bạn AI biết lắng nghe</title>
   <link rel="icon" type="image/svg+xml" href="/art/huyenmy-avatar.svg" />
   <meta name="author" content="Lương Việt Hoàng" />
   <meta name="copyright" content="© 2026 Lương Việt Hoàng." />
-  <meta property="og:title" content="Huyền My Luận Giải" />
-  <meta property="og:description" content="Soi mình qua thần số, tinh tượng và ngũ hành cùng Huyền My." />
-  <meta property="og:image" content="/art/huyenmy-og.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="vi_VN" />
+  <meta property="og:site_name" content="Huyền My Luận Giải" />
+  <meta property="og:url" content="https://huyenmy.isavietnam.app/" />
+  <meta property="og:title" content="Bạn đã hỏi tử vi, hỏi con số. Giờ có người chịu ngồi nghe bạn." />
+  <meta property="og:description" content="Huyền My, người bạn AI biết lắng nghe: tính lá số từ thiên văn thật rồi trò chuyện cùng bạn. Không tiên đoán, không dọa hạn." />
+  <meta property="og:image" content="https://huyenmy.isavietnam.app/art/huyenmy-og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Huyền My đội nón lá, tay cầm quả cầu phát sáng, dưới bầu trời sao" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Bạn đã hỏi tử vi, hỏi con số. Giờ có người chịu ngồi nghe bạn." />
+  <meta name="twitter:description" content="Huyền My, người bạn AI biết lắng nghe: tính lá số từ thiên văn thật rồi trò chuyện cùng bạn." />
+  <meta name="twitter:image" content="https://huyenmy.isavietnam.app/art/huyenmy-og.png" />
   <link rel="preload" href="/fonts/be-vietnam-pro-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/literata-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/cormorant-garamond-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
@@ -31,6 +42,7 @@
       <h1 id="veil-logo"></h1>
       <p class="tag">Soi mình qua thần số, tinh tượng và ngũ hành - <br>cùng một người biết lắng nghe.</p>
       <div id="veil-actions"><button id="enter" class="btn primary">Bước vào</button></div>
+      <button type="button" id="veil-login" class="veil-login" hidden>Đã có tài khoản? Đăng nhập để tiếp tục</button>
       <p class="fine">Cuộc trò chuyện được gửi tới trí tuệ nhân tạo để My trả lời. My chỉ lưu hồ sơ của bạn khi bạn đăng ký và đồng ý.</p>
       <p class="copy">© 2026 <b>Lương Việt Hoàng</b>. Bảo lưu mọi quyền. <span class="legal"><a href="/about.html" target="_blank" rel="noopener">Giới thiệu</a> · <a href="/terms.html" target="_blank" rel="noopener">Điều khoản</a> · <a href="/privacy.html" target="_blank" rel="noopener">Quyền riêng tư</a></span></p>
       </div>
@@ -46,6 +58,7 @@
       <span id="clock" class="badge" hidden title="Thời gian còn lại của buổi này"></span>
       <button id="btn-sound" class="icon" aria-label="Nhạc nền" title="Nhạc nền" aria-pressed="false">♪</button>
       <button id="btn-pace" class="icon" aria-label="Nhịp đọc" title="Nhịp đọc">›</button>
+      <a id="btn-admin" class="icon" href="/admin" hidden aria-label="Trang quản trị" title="Trang quản trị">⚙</a>
       <button id="btn-account" class="icon" hidden aria-label="Tài khoản" title="Tài khoản">☺</button>
       <button id="btn-chart" class="icon" hidden aria-label="Xem lá số" title="Lá số của bạn">☯</button>
       <button id="btn-reset" class="icon" aria-label="Bắt đầu lại" title="Bắt đầu lại">↺</button>

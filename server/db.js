@@ -25,6 +25,7 @@ export function openDb(file) {
       ms INTEGER, ttft INTEGER, words INTEGER, q INTEGER, tags INTEGER, rep REAL, echo INTEGER, score INTEGER, flags TEXT, ok INTEGER NOT NULL DEFAULT 1
     );
     CREATE INDEX IF NOT EXISTS tr_ts ON turns(ts);
+    CREATE TABLE IF NOT EXISTS anon_links (anon_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, linked_at INTEGER NOT NULL);
   `);
   // di chuyển dữ liệu cũ: thời gian trò chuyện thực (không tính lúc người dùng vắng mặt)
   const cols = db.prepare('PRAGMA table_info(anon)').all().map((c) => c.name);
@@ -33,5 +34,14 @@ export function openDb(file) {
   const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   for (const [name, ddl] of [['remind_optin', 'INTEGER NOT NULL DEFAULT 0'], ['remind_token', 'TEXT'], ['remind_last', 'INTEGER'], ['remind_count', 'INTEGER NOT NULL DEFAULT 0']])
     if (!ucols.includes(name)) db.exec(`ALTER TABLE users ADD COLUMN ${name} ${ddl}`);
+  // Hành trình cảm xúc: chỉ lưu con số ước lượng từ từng lượt, không lưu nội dung (xem server/affect.js).
+  const tcols = db.prepare('PRAGMA table_info(turns)').all().map((c) => c.name);
+  for (const [name, ddl] of [['u_val', 'REAL'], ['u_aro', 'REAL'], ['u_emo', 'TEXT'], ['u_disc', 'INTEGER'], ['u_words', 'INTEGER'], ['my_emo', 'TEXT'], ['ut', 'INTEGER']])
+    if (!tcols.includes(name)) db.exec(`ALTER TABLE turns ADD COLUMN ${name} ${ddl}`);
+  // Thiết bị (chỉ nhóm thô: loại máy, hệ điều hành, trình duyệt) để biết người thử dùng gì, và liên kết người ẩn danh với tài khoản sau khi đăng ký.
+  const acols = db.prepare('PRAGMA table_info(anon)').all().map((c) => c.name);
+  for (const name of ['device', 'os', 'browser']) if (!acols.includes(name)) db.exec(`ALTER TABLE anon ADD COLUMN ${name} TEXT`);
+  const ucols2 = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  for (const name of ['device', 'os', 'browser', 'anon_id']) if (!ucols2.includes(name)) db.exec(`ALTER TABLE users ADD COLUMN ${name} TEXT`);
   return db;
 }

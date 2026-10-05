@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { normalizeProfile, buildChart } from '../src/engine/index.js';
-import { buildSystemPrompt, PHASE_LIST } from './persona.js';
+import { buildSystemPrompt, PHASE_LIST, LENSES } from './persona.js';
 import { demoReply } from './demo.js';
 import { openDb } from './db.js';
 import { createApi } from './routes.js';
@@ -100,7 +100,7 @@ async function handleChat(req, res) {
   const t0 = Date.now(); let ttft = null, reply = '';
   const lastUser = messages[messages.length - 1]?.content ?? '', prevReplies = messages.filter((m) => m.role === 'assistant').map((m) => m.content), userHistory = messages.filter((m) => m.role === 'user').map((m) => m.content).join(' ');
   const minute = Number.isFinite(+body.minute) ? Math.min(60, Math.max(0, +body.minute)) : null;
-  const record = (ok) => { try { api.recordTurn({ actor: who.actor, sid: body.sid, phase, minute, ms: Date.now() - t0, ttft, reply, userMsg: lastUser, userHistory, prevReplies, ok }); } catch (e) { console.error('[turn]', e.message); } };
+  const record = (ok) => { try { api.recordTurn({ actor: who.actor, sid: body.sid, phase, minute, ms: Date.now() - t0, ttft, reply, userMsg: lastUser, userHistory, prevReplies, ok, ut: messages.filter((m) => m.role === 'user').length }); } catch (e) { console.error('[turn]', e.message); } };
 
   if (!client) {
     send({ demo: true });
@@ -110,7 +110,7 @@ async function handleChat(req, res) {
     record(true); send({ done: true }); return res.end();
   }
 
-  const system = buildSystemPrompt(phase, profile, chart, messages, { minute });
+  const system = buildSystemPrompt(phase, profile, chart, messages, { minute, lens: Object.hasOwn(LENSES, body.lens) ? body.lens : null });
   const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 1000, thinking: { type: 'between_tools' }, system, messages });
   res.on('close', () => { try { stream.abort(); } catch {} });
   stream.on('text', (t) => { if (ttft == null) ttft = Date.now() - t0; reply += t; send({ t }); });

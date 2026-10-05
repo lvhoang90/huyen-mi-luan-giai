@@ -89,11 +89,18 @@ export function createAuth({ db, pepper, adminEmails = [], mailer = sendMail, no
   function fromToken(token) {
     if (!token) return null;
     const row = db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires > ?').get(sha(token), now());
-    return row ? publicUser(row) : null;
+    if (!row) return null;
+    // Email vừa được thêm vào ADMIN_EMAILS: nâng quyền ngay, không cần đăng nhập lại.
+    const want = admins.has(normEmail(row.email)) ? 'admin' : row.role;
+    if (want !== row.role) { db.prepare('UPDATE users SET role = ? WHERE id = ?').run(want, row.id); row.role = want; }
+    return publicUser(row);
   }
   const logout = (token) => { if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha(token)); };
   function deleteAccount(userId) {
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM anon_links WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM turns WHERE actor = ?').run(`u${userId}`);
+    db.prepare('DELETE FROM events WHERE actor = ?').run(`u${userId}`);
     db.prepare('UPDATE events SET user_id = NULL WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
   }
