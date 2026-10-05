@@ -1,5 +1,6 @@
 // Tài khoản tối giản: chỉ cần email, xác thực bằng mã 6 số gửi qua email (không mật khẩu).
 import crypto from 'node:crypto';
+import { newToken } from './reminders.js';
 
 const DAY = 86_400_000;
 export const SESSION_DAYS = 30, CODE_TTL_MS = 10 * 60_000, CODE_MAX_ATTEMPTS = 5;
@@ -20,11 +21,11 @@ export function cookie(name, value, { maxAgeSec, secure } = {}) {
 }
 
 /** Gửi email: Resend (RESEND_API_KEY) nếu có; không thì in ra console khi chạy thử (không bao giờ trả mã về trình duyệt). */
-export async function sendMail({ to, subject, text }, env = process.env, fetchImpl = fetch) {
+export async function sendMail({ to, subject, text, headers }, env = process.env, fetchImpl = fetch) {
   if (env.RESEND_API_KEY) {
     const r = await fetchImpl('https://api.resend.com/emails', {
       method: 'POST', headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: env.MAIL_FROM || 'Huyền My <onboarding@resend.dev>', to: [to], subject, text }),
+      body: JSON.stringify({ from: env.MAIL_FROM || 'Huyền My <onboarding@resend.dev>', to: [to], subject, text, ...(headers ? { headers } : {}) }),
     });
     if (!r.ok) throw new Error(`mail ${r.status}`);
     return { sent: true };
@@ -56,7 +57,7 @@ export function createAuth({ db, pepper, adminEmails = [], mailer = sendMail, no
     return { ok: true };
   }
 
-  function verify(emailRaw, codeRaw, { ref = null, consentMemory = false } = {}) {
+  function verify(emailRaw, codeRaw, { ref = null, consentMemory = false, remind = false } = {}) {
     const email = normEmail(emailRaw), code = String(codeRaw ?? '').replace(/\D/g, ''), t = now();
     const row = db.prepare('SELECT * FROM codes WHERE email = ?').get(email);
     if (!row || row.expires < t) return { ok: false, status: 400, error: 'Mã đã hết hạn, bạn yêu cầu mã mới nhé.' };
@@ -77,12 +78,14 @@ export function createAuth({ db, pepper, adminEmails = [], mailer = sendMail, no
       if (consentMemory && !user.consent_memory) db.prepare('UPDATE users SET consent_memory = 1, consent_at = ? WHERE id = ?').run(t, user.id);
     }
     user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (remind === true && !user.remind_optin) db.prepare('UPDATE users SET remind_optin = 1, remind_token = COALESCE(remind_token, ?), remind_count = 0 WHERE id = ?').run(newToken(), user.id);
+    user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     const token = crypto.randomBytes(32).toString('base64url');
     db.prepare('INSERT INTO sessions(token_hash, user_id, created, expires) VALUES (?,?,?,?)').run(sha(token), user.id, t, t + SESSION_DAYS * DAY);
     return { ok: true, token, user: publicUser(user), isNew, maxAgeSec: SESSION_DAYS * 86400 };
   }
 
-  const publicUser = (u) => ({ id: u.id, email: u.email, role: u.role, consentMemory: !!u.consent_memory });
+  const publicUser = (u) => ({ id: u.id, email: u.email, role: u.role, consentMemory: !!u.consent_memory, remind: !!u.remind_optin });
   function fromToken(token) {
     if (!token) return null;
     const row = db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires > ?').get(sha(token), now());

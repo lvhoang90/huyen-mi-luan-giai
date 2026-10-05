@@ -140,6 +140,8 @@ echo "==> 9/9 Sao lưu hằng ngày và HTTPS"
 cat > /etc/cron.d/huyenmy-backup <<CRON
 15 3 * * * $APP_USER sqlite3 $DATA_DIR/huyenmy.db ".backup '$DATA_DIR/backup-\$(date +\%a).db'"
 CRON
+chmod +x "$APP_DIR/deploy/healthcheck.sh"
+echo "*/5 * * * * root $APP_DIR/deploy/healthcheck.sh" > /etc/cron.d/huyenmy-health
 if [ -n "$DOMAIN" ]; then
   DOMAINS="-d $DOMAIN"; getent hosts "www.$DOMAIN" >/dev/null 2>&1 && DOMAINS="$DOMAINS -d www.$DOMAIN"
   certbot --nginx $DOMAINS --non-interactive --agree-tos --redirect ${ADMIN_MAIL:+-m "$ADMIN_MAIL"} \

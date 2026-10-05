@@ -303,6 +303,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
   const msg = h('p', { className: 'su-msg', role: 'alert' });
   const email = h('input', { className: 'field', type: 'email', placeholder: 'Email của bạn', autocomplete: 'email', inputMode: 'email', maxLength: 120, ariaLabel: 'Email' });
   const consent = h('input', { type: 'checkbox', id: 'su-consent' });
+  const remind = h('input', { type: 'checkbox', id: 'su-remind' });
   const go = h('button', { className: 'btn primary', textContent: 'Gửi mã vào email' });
   const skip = h('button', { className: 'btn', textContent: 'Để sau', onclick: () => { track('signup_skip'); done(false); } });
   const code = h('input', { className: 'field', placeholder: 'Mã 6 số', autocomplete: 'one-time-code', inputMode: 'numeric', maxLength: 6, ariaLabel: 'Mã xác nhận' });
@@ -314,6 +315,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
       h('p', { className: 'su-sub', textContent: 'Không cần mật khẩu. My chỉ gửi một mã 6 số để xác nhận email của bạn.' }),
       h('div', { className: 'row' }, email),
       h('label', { className: 'su-consent', htmlFor: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
+      h('label', { className: 'su-consent', htmlFor: 'su-remind' }, remind, h('span', { textContent: 'Gửi cho mình một email nhắc nhẹ khi đến lúc kể tiếp (tối đa một thư mỗi tuần, hủy được bất cứ lúc nào). Không chọn thì My không gửi gì ngoài mã đăng nhập.' })),
       h('p', { className: 'su-legal' }, 'Khi tiếp tục, bạn đồng ý với ', h('a', { href: '/terms.html', target: '_blank', rel: 'noopener', textContent: 'Điều khoản' }), ' và ', h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener', textContent: 'Chính sách quyền riêng tư' }), '.'),
       msg, h('div', { className: 'su-actions' }, go, ...(canSkip ? [skip] : [])));
     email.focus();
@@ -337,7 +339,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
   const verify = async () => {
     msg.textContent = ''; ok.disabled = true;
     const wantsMemory = consent.checked;
-    const r = await apiJson('/api/auth/verify', 'POST', { email: email.value, code: code.value, consentMemory: wantsMemory });
+    const r = await apiJson('/api/auth/verify', 'POST', { email: email.value, code: code.value, consentMemory: wantsMemory, remind: remind.checked });
     ok.disabled = false;
     if (!r.ok) { msg.textContent = r.error || 'Chưa xác nhận được.'; return; }
     ACCOUNT.user = r.user; track('signup_verified', { isNew: !!r.isNew });
@@ -406,6 +408,7 @@ function openAccount() {
       h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
       h('div', { className: 'su-actions' },
         h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
+        h('button', { className: 'btn', textContent: u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại', onclick: async () => { const r = await apiJson('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) { u.remind = r.remind; render(); } } }),
         h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; close(); } }),
         h('button', { className: 'btn danger', textContent: 'Xóa tài khoản và dữ liệu', onclick: (e) => { if (e.target.dataset.sure) { apiJson('/api/account/delete', 'POST').then(() => { ACCOUNT.user = null; try { localStorage.removeItem(STORE); } catch {} location.reload(); }); } else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa'; } } })));
   };
@@ -421,6 +424,19 @@ const INTRO = [
   '[[nghiem_tuc]]My không nói trước điều chưa đến, cũng không nói điều bạn chỉ muốn nghe. [[chia_se]]My chỉ soi lại tấm bản đồ mà trời đất khẽ đặt vào ngày bạn sinh ra, để bạn nhìn mình rõ hơn.',
 ];
 
+/** Dịch vụ dành cho người từ đủ 16 tuổi. Người dưới 16 chỉ tiếp tục khi có cha mẹ hoặc người giám hộ đồng ý. Trả về false nếu dừng. */
+async function ageGate(y, m, d) {
+  const n = new Date(); let age = n.getFullYear() - y; if (n.getMonth() + 1 < m || (n.getMonth() + 1 === m && n.getDate() < d)) age--;
+  if (age >= 16) return true;
+  track('age_gate', { ageBand: ageBand(y) });
+  await say('[[dong_cam]]My cần dừng lại một chút. Dịch vụ này dành cho người từ đủ 16 tuổi. Nếu bạn chưa đủ 16, My chỉ trò chuyện tiếp khi có cha mẹ hoặc người giám hộ biết, đồng ý và ở cạnh bạn. Có người lớn đang đồng hành cùng bạn không?');
+  const ok = await ask({ kind: 'choice', chips: [{ label: 'Có, người giám hộ đồng ý và ở cạnh mình', value: 'yes' }, { label: 'Không có', value: 'no' }] });
+  track('age_gate_answer', { ok: ok === 'yes' });
+  if (ok === 'yes') return true;
+  await say('[[an_ui]]Không sao đâu. Khi nào có người lớn cùng bạn, hoặc khi bạn đủ 16 tuổi, My rất vui được gặp lại. Chúc bạn một ngày dễ chịu.');
+  clearComposer(); composer.append(h('div', { className: 'rest' }, h('span', { textContent: 'Hẹn gặp lại bạn khi đủ điều kiện.' })));
+  return false;
+}
 async function collect() {
   S.phase = 'collect'; save();
   await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
@@ -436,6 +452,7 @@ async function collect() {
     const date = await ask({ kind: 'date' });
     const [y, m, d] = date.split('-').map(Number);
     track('intake_step', { step: 'date' });
+    if (!(await ageGate(y, m, d))) return;
     await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
     const time = await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] });
     track('intake_step', { step: 'time' });

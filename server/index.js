@@ -1,4 +1,6 @@
 import { clientIp } from './ip.js';
+import { runReminders } from './reminders.js';
+import { sendMail } from './auth.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -149,3 +151,11 @@ http.createServer(async (req, res) => {
   if (vite) return vite.middlewares(req, res);
   serveStatic(req, res);
 }).listen(PORT, () => console.log(`Huyền My Luận Giải - http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'}; mã truy cập: ${ACCESS_CODE ? 'BẬT' : 'tắt'}; tài khoản: ${api.accountsOn ? 'BẬT' : 'tắt'}; quản trị: ${api.adminConfigured ? 'có' : 'chưa đặt ADMIN_EMAILS'})`));
+
+// Email nhắc quay lại (chỉ gửi cho người đã tự chọn nhận): bật bằng HUYENMY_REMINDERS=on và PUBLIC_URL=https://tên-miền
+if (process.env.HUYENMY_REMINDERS === 'on' && api.accountsOn && process.env.PUBLIC_URL && process.env.RESEND_API_KEY) {
+  const tick = () => runReminders({ db, mail: (m) => sendMail(m, process.env), now: Date.now(), baseUrl: process.env.PUBLIC_URL.replace(/\/$/, ''), log: (m) => console.error(m) })
+    .then((n) => n && console.log(`[reminder] đã gửi ${n} thư nhắc`)).catch((e) => console.error('[reminder]', e.message));
+  setTimeout(tick, 2 * 60_000); setInterval(tick, 60 * 60_000);
+  console.log('Email nhắc quay lại: BẬT');
+}

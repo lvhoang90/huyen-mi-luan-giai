@@ -15,6 +15,8 @@ Có hiệu lực từ 05/10/2026. Trang này giải thích Huyền My Luận Gi�
 
 **c. Tài khoản (nếu bạn đăng ký).** Địa chỉ email, thời điểm tạo tài khoản và đăng nhập, mã giới thiệu nếu có. Mã xác nhận 6 số chỉ lưu dạng băm, hết hạn sau 10 phút. Phiên đăng nhập lưu dạng băm.
 
+**c2. Email nhắc quay lại (chỉ khi bạn chọn).** Khi đăng ký, bạn có một ô riêng (mặc định không chọn) để nhận email nhắc nhẹ khi đến lúc kể tiếp. Nếu bạn chọn, chúng tôi lưu lựa chọn đó cùng một mã hủy riêng, gửi tối đa một thư mỗi 7 ngày, chỉ gửi sau khi bạn vắng ít nhất 24 giờ, và dừng hẳn sau 3 thư nếu bạn chưa quay lại. Mỗi thư có liên kết hủy một chạm; bạn cũng tắt được trong mục Tài khoản. Chúng tôi không dùng email của bạn cho quảng cáo hay chia sẻ cho bên khác.
+
 **d. Cuộc trò chuyện lưu trên máy chủ (chỉ khi bạn bật).** Hồ sơ, các tin nhắn và nhịp buổi được mã hóa (AES-256-GCM) rồi lưu để bạn tiếp tục trên thiết bị khác. Đây là mã hóa phía máy chủ, không phải mã hóa đầu cuối: người vận hành giữ khóa. Bạn tắt và xóa bản đã lưu bất cứ lúc nào.
 
 **e. Số liệu sử dụng ẩn danh.** Một mã ẩn danh (cookie `hm_a`, và mã phiên trong trình duyệt), tên các bước bạn đi qua (ví dụ đã xem màn chào, đã bắt đầu trò chuyện, đã chấm điểm), nhóm tuổi, lĩnh vực, nguồn giới thiệu, và chỉ số kỹ thuật của mỗi lượt trả lời (số từ, độ trễ, cờ an toàn). **Không có nội dung trò chuyện trong số liệu này.** Chúng tôi dùng nó để sửa lỗi và cải thiện My.

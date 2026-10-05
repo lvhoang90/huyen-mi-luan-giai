@@ -5,6 +5,7 @@ import { createAuth, parseCookies, cookie, sendMail } from './auth.js';
 import { ingest } from './events.js';
 import { computeMetrics } from './admin.js';
 import { assessTurn } from './quality.js';
+import { newToken } from './reminders.js';
 
 const DAY = 86_400_000;
 export const ANON_LIMIT_MS = 32 * 60_000; // 30 phút + 2 phút châm chước
@@ -90,7 +91,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       let b; try { b = await readBody(req, 2048); } catch (e) { return json(res, 400, { error: e.message }), true; }
       const id = identify(req, res);
       const anonRow = db.prepare('SELECT ref FROM anon WHERE id = ?').get(id.anon);
-      const r = auth.verify(b.email, b.code, { ref: anonRow?.ref ?? null, consentMemory: b.consentMemory === true });
+      const r = auth.verify(b.email, b.code, { ref: anonRow?.ref ?? null, consentMemory: b.consentMemory === true, remind: b.remind === true });
       if (!r.ok) return json(res, r.status, { error: r.error }), true;
       const prev = res.getHeader('Set-Cookie');
       res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [prev] : []), cookie('hm_s', r.token, { maxAgeSec: r.maxAgeSec, secure: secure(req) })]);
@@ -137,6 +138,22 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       try { await send({ to: id.user.email, subject: 'Điều thú vị My vừa kể với bạn', text: `${lines.join('\n\n')}\n\nĐây chỉ là điểm chung để bắt đầu câu chuyện, không phải lời tiên đoán hay số phận.${link}` }); }
       catch (e) { console.error('[mail]', e.message); return json(res, 503, { error: 'My chưa gửi được email lúc này.' }), true; }
       return json(res, 200, { ok: true }), true;
+    }
+    if (pathname === '/api/account/remind' && method === 'POST') {
+      const id = identify(req, res);
+      if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      let b; try { b = await readBody(req, 1024); } catch (e) { return json(res, 400, { error: e.message }), true; }
+      if (b.on === true) db.prepare('UPDATE users SET remind_optin = 1, remind_token = COALESCE(remind_token, ?), remind_count = 0 WHERE id = ?').run(newToken(), id.user.id);
+      else db.prepare('UPDATE users SET remind_optin = 0 WHERE id = ?').run(id.user.id);
+      return json(res, 200, { ok: true, remind: b.on === true }), true;
+    }
+    if (pathname === '/api/unsub' && (method === 'GET' || method === 'POST')) {
+      const t = String(new URL(req.url, 'http://x').searchParams.get('t') ?? '').replace(/[^\w-]/g, '').slice(0, 64);
+      const r = t ? db.prepare('UPDATE users SET remind_optin = 0 WHERE remind_token = ?').run(t) : { changes: 0 };
+      if (method === 'POST') return res.writeHead(r.changes ? 200 : 404).end(), true;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Huyền My</title><body style="margin:0;background:#0b0912;color:#e9e1cf;font:17px/1.7 system-ui,sans-serif"><main style="max-width:520px;margin:12vh auto;padding:0 20px"><h1 style="font-size:1.4rem">${r.changes ? 'Đã hủy nhận email nhắc' : 'Liên kết này không còn hiệu lực'}</h1><p>${r.changes ? 'My sẽ không gửi thư nhắc nữa. Bạn vẫn có thể quay lại gặp My bất cứ lúc nào.' : 'Có thể bạn đã hủy trước đó. Nếu vẫn nhận được thư, hãy trả lời thư hoặc viết tới luongviethoang.hcm@gmail.com.'}</p><p><a style="color:#e8c46a" href="/">Về Huyền My</a></p></main>`);
+      return true;
     }
     if (pathname === '/api/account/delete' && method === 'POST') {
       const id = identify(req, res);

@@ -14,6 +14,10 @@ bash deploy/setup.sh ten-mien-cua-ban.com      # hoặc không đối số để
 ```
 Cập nhật sau này: `bash /opt/huyenmy/deploy/update.sh`. Các mục bên dưới là bản làm tay giải thích từng bước.
 
+## Giám sát và email nhắc
+- **Giám sát tự động:** `setup.sh` cài sẵn một việc chạy mỗi 5 phút (`deploy/healthcheck.sh`): nếu app không trả lời thì tự khởi động lại và gửi email cho quản trị (cần đã gắn Resend); cũng báo khi ổ đĩa đầy trên 85%. Máy đã cài trước đó: chạy lại `bash deploy/setup.sh ten-mien.com` một lần để cài.
+- **Email nhắc quay lại** (chỉ gửi cho người tự chọn nhận khi đăng ký): bật bằng `bash deploy/set-env.sh PUBLIC_URL` (gõ `https://ten-mien.com`) và `bash deploy/set-env.sh HUYENMY_REMINDERS` (gõ `on`). Tối đa 1 thư mỗi 7 ngày, chỉ sau khi người dùng vắng 24 giờ, dừng sau 3 thư nếu họ chưa quay lại; mỗi thư có liên kết hủy một chạm.
+
 ## 1. Cần mua
 | Mục | Ghi chú |
 |---|---|

@@ -2,7 +2,7 @@
 export const EVENTS = new Set([
   'landing_view', 'enter_click', 'resume_click', 'intake_step', 'intake_done', 'hook_shown', 'start_choice', 'first_message', 'message_sent',
   'reading_requested', 'reading_received', 'resonance', 'share_card', 'chart_open', 'pace_toggle', 'warn_shown', 'session_close',
-  'intro_view', 'intro_skip', 'sound_toggle', 'nps', 'signup_view', 'signup_submit', 'signup_verified', 'signup_skip', 'return_visit', 'rest_view', 'rest_over', 'client_error', 'feedback',
+  'intro_view', 'intro_skip', 'sound_toggle', 'nps', 'signup_view', 'signup_submit', 'signup_verified', 'signup_skip', 'return_visit', 'rest_view', 'rest_over', 'age_gate', 'age_gate_answer', 'client_error', 'feedback',
 ]);
 const KEY_RE = /^[a-zA-Z_]{1,24}$/;
 
