@@ -5,10 +5,12 @@ import { computeTuVi } from './tuvi.js';
 import { solarToLunar } from './lunar.js';
 import { computeNumerology, NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './numerology.js';
 import { CUNG_TEN } from './tuvi.js';
+import { describeTimeCycle } from './thoivan.js';
 
 export { PLACES };
 export { findPlaces } from './places.js';
 export { pickFamous, famousFor, FIELD_OPTIONS } from './famous.js';
+export { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, LEVELS, CUNG_DOI_THUONG } from './thoivan.js';
 
 /** Kiểm tra & chuẩn hóa hồ sơ người dùng. Ném Error nếu sai. */
 export function normalizeProfile(p) {
@@ -62,7 +64,7 @@ export function buildChart(profile, now = new Date()) {
 const P = (p) => (p ? `${p.name} (${p.hanhCan}/${p.hanhChi}${p.yang ? ', dương' : ', âm'})` : 'không rõ');
 
 /** Văn bản mô tả lá số - đưa vào system prompt (dữ kiện đã tính, AI không được tự bịa thêm). */
-export function describeChart(profile, chart) {
+export function describeChart(profile, chart, now = new Date()) {
   const { bazi, numerology: n, astro, cungMenh: c, thisYear } = chart;
   const e = bazi.elements;
   const L = [];
@@ -104,6 +106,8 @@ export function describeChart(profile, chart) {
       L.push(`- ${p.name} (${p.can} ${p.chi}${p.isThan ? ', Thân' : ''}${p.daiHan ? `; đại hạn ${p.daiHan[0]}-${p.daiHan[1]} tuổi` : ''}): ${st}${p.hoa.length ? ` [${p.hoa.join(', ')}]` : ''}`);
     }
   } else L.push('- Chưa lập được (thiếu giờ sinh hoặc giới tính).');
+  L.push('');
+  L.push(describeTimeCycle(profile, chart, now));
   L.push('');
   L.push('GIỚI HẠN CỦA DỮ LIỆU:');
   for (const cv of chart.caveats) L.push(`- ${cv}`);

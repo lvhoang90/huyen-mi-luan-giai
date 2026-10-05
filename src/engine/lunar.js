@@ -62,3 +62,29 @@ export function solarToLunar(y, m, d) {
   const year = num >= 11 ? ya : ya + 1;
   return { day: D - S[j] + 1, month: num, year, leap, monthStartJdn: S[j] };
 }
+
+const fromJdn = (j) => { const t = new Date((j - 2440588) * DAY_MS); return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() }; };
+
+/**
+ * Các tháng âm lịch của năm âm `year` (từ mùng 1 tháng Giêng đến hết tháng Chạp, gồm cả tháng nhuận nếu có).
+ * Mỗi mục: { month, leap, startJdn, start: {y,m,d}, end: {y,m,d} }. Dò theo ngày đầu tháng nên chỉ cần khoảng 30 lần đổi lịch.
+ */
+const MONTHS_CACHE = new Map();
+export function lunarMonthsOfYear(year) {
+  if (!MONTHS_CACHE.has(year)) MONTHS_CACHE.set(year, computeMonthsOfYear(year));
+  return MONTHS_CACHE.get(year);
+}
+function computeMonthsOfYear(year) {
+  // Mùng 1 Tết rơi trong khoảng 21/1-21/2, nên 1/3 luôn nằm trong tháng Giêng hoặc các tháng sau đó: lùi từng tháng về tháng Giêng.
+  let cur = solarToLunar(year, 3, 1), s = cur.monthStartJdn;
+  for (let g = 0; g < 4 && !(cur.month === 1 && !cur.leap); g++) { const b = fromJdn(s - 1); cur = solarToLunar(b.y, b.m, b.d); s = cur.monthStartJdn; }
+  const out = [];
+  for (let guard = 0; guard < 14; guard++) {
+    const probe = fromJdn(s + 29), r = solarToLunar(probe.y, probe.m, probe.d);
+    const next = r.monthStartJdn === s ? s + 30 : s + 29;
+    out.push({ month: cur.month, leap: cur.leap, startJdn: s, start: fromJdn(s), end: fromJdn(next - 1) });
+    s = next; const f = fromJdn(s); cur = solarToLunar(f.y, f.m, f.d);
+    if (cur.year !== year || (cur.month === 1 && !cur.leap)) break;
+  }
+  return out;
+}

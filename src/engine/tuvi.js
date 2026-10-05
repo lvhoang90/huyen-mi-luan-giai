@@ -7,9 +7,9 @@ const mod = (n) => ((n % 12) + 12) % 12;
 export const CUNG_TEN = ['Mệnh', 'Phụ Mẫu', 'Phúc Đức', 'Điền Trạch', 'Quan Lộc', 'Nô Bộc', 'Thiên Di', 'Tật Ách', 'Tài Bạch', 'Tử Tức', 'Phu Thê', 'Huynh Đệ'];
 const CUC = { Thủy: 2, Mộc: 3, Kim: 4, Thổ: 5, Hỏa: 6 };
 const CUC_TEN = { 2: 'Thủy nhị cục', 3: 'Mộc tam cục', 4: 'Kim tứ cục', 5: 'Thổ ngũ cục', 6: 'Hỏa lục cục' };
-const HOUR_BRANCH = (hour) => Math.floor((hour + 1) / 2) % 12;
+export const HOUR_BRANCH = (hour) => Math.floor((hour + 1) / 2) % 12;
 
-const TU_HOA = {
+export const TU_HOA = {
   Giáp: ['Liêm Trinh', 'Phá Quân', 'Vũ Khúc', 'Thái Dương'], Ất: ['Thiên Cơ', 'Thiên Lương', 'Tử Vi', 'Thái Âm'],
   Bính: ['Thiên Đồng', 'Thiên Cơ', 'Văn Xương', 'Liêm Trinh'], Đinh: ['Thái Âm', 'Thiên Đồng', 'Thiên Cơ', 'Cự Môn'],
   Mậu: ['Tham Lang', 'Thái Âm', 'Hữu Bật', 'Thiên Cơ'], Kỷ: ['Vũ Khúc', 'Tham Lang', 'Thiên Lương', 'Văn Khúc'],

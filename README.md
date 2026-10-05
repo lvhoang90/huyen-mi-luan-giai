@@ -77,7 +77,7 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 
 ## Giới hạn hiện tại
 
-- Tử Vi chưa có độ sáng của sao (miếu/hãm), Tuần/Triệt, tiểu hạn, lưu niên; các phái khác nhau (ví dụ Tứ Hóa năm Canh) có thể cho kết quả khác.
+- Tử Vi chưa có độ sáng của sao (miếu/hãm), Tuần/Triệt, tiểu hạn và các sao lưu (đã có Lưu Thái Tuế, Lưu Tứ Hóa và lưu nguyệt Đẩu Quân, xem `src/engine/thoivan.js`; phần này chưa có thư viện nào để đối chiếu độc lập); các phái khác nhau (ví dụ Tứ Hóa năm Canh) có thể cho kết quả khác.
 - Tứ Trụ chỉ xét can chi chính khí, chưa xét tàng can, hợp xung, đại vận. "Thân vượng/nhược" chỉ tham khảo.
 - **Nhân vật 2D** vẽ bằng mã nên nét gọn, kiểu sticker, chưa có độ tinh xảo của tranh họa sĩ vẽ tay. Quay đầu chỉ mô phỏng bằng cách dịch chuyển nét mặt so với tóc và da, không phải góc nhìn 3/4 thật. Muốn nhân vật đẹp hơn, nên nhờ họa sĩ vẽ lại theo cùng cấu trúc bộ phận (xem `tools/rig.py`).
 - Không dùng giọng nói: My chỉ trò chuyện bằng chữ. Không còn thư viện 3D nên ứng dụng gọn nhẹ.

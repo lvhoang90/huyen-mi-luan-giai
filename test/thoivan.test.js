@@ -1,0 +1,107 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { lunarMonthsOfYear } from '../src/engine/lunar.js';
+import { normalizeProfile, buildChart, describeChart } from '../src/engine/index.js';
+import { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, relation, chiRelation, LEVELS } from '../src/engine/thoivan.js';
+import { TU_HOA } from '../src/engine/tuvi.js';
+
+const NOW = new Date('2026-10-05');
+const mk = (extra = {}) => {
+  const profile = normalizeProfile({ fullName: 'Nguyễn Văn An', gender: 'nam', birth: { y: 1992, m: 7, d: 22, hour: 6, minute: 0 }, ...extra });
+  return { profile, chart: buildChart(profile, NOW) };
+};
+
+test('Lịch tháng âm: mùng 1 Giêng và tháng nhuận khớp lịch thực', () => {
+  const first = (y) => { const m = lunarMonthsOfYear(y)[0]; return [m.start.d, m.start.m]; };
+  assert.deepEqual(first(2024), [10, 2]); assert.deepEqual(first(2025), [29, 1]); assert.deepEqual(first(2026), [17, 2]);
+  assert.deepEqual(first(2000), [5, 2]); assert.deepEqual(first(1999), [16, 2]);
+  const leap = (y) => lunarMonthsOfYear(y).find((m) => m.leap);
+  assert.equal(lunarMonthsOfYear(2023).length, 13); assert.equal(leap(2023).month, 2);
+  assert.equal(lunarMonthsOfYear(2025).length, 13); assert.equal(leap(2025).month, 6);
+  assert.equal(lunarMonthsOfYear(2033).length, 13); assert.equal(leap(2033).month, 11);
+  assert.equal(lunarMonthsOfYear(2026).length, 12);
+});
+
+test('Lịch tháng âm: các tháng nối liền nhau, mỗi tháng 29 hoặc 30 ngày', () => {
+  for (const y of [1990, 2012, 2024, 2026, 2031]) {
+    const L = lunarMonthsOfYear(y);
+    for (let i = 0; i < L.length; i++) {
+      const len = (i + 1 < L.length ? L[i + 1].startJdn : L[i].startJdn + 29.5) - L[i].startJdn;
+      if (i + 1 < L.length) assert.ok(len === 29 || len === 30, `${y} tháng ${L[i].month}: ${len}`);
+    }
+  }
+});
+
+test('Quan hệ hành và địa chi', () => {
+  assert.equal(relation('Mộc', 'Thủy'), 'sinh_ta'); assert.equal(relation('Mộc', 'Hỏa'), 'ta_sinh');
+  assert.equal(relation('Mộc', 'Thổ'), 'ta_khac'); assert.equal(relation('Mộc', 'Kim'), 'khac_ta'); assert.equal(relation('Mộc', 'Mộc'), 'dong');
+  assert.equal(chiRelation(0, 6), 'xung'); assert.equal(chiRelation(0, 1), 'hop'); assert.equal(chiRelation(2, 11), 'hop');
+  assert.equal(chiRelation(8, 0), 'tamhop'); assert.equal(chiRelation(0, 0), null); assert.equal(chiRelation(0, 3), null);
+});
+
+test('Lưu niên: Thái Tuế đóng đúng chi của năm; Lưu Tứ Hóa theo can năm rơi đúng cung chứa sao', () => {
+  const { profile, chart } = mk();
+  const t = timeCycle(profile, chart, 2026); // Bính Ngọ
+  assert.equal(t.yearPillar, 'Bính Ngọ');
+  assert.equal(t.tuvi.ttChi, 'Ngọ'); assert.equal(chart.tuvi.palaces[t.tuvi.tt].chi, 'Ngọ');
+  assert.equal(t.tuvi.cungs.find((c) => c.luuName === 'Mệnh').pos, t.tuvi.tt);
+  assert.equal(t.tuvi.can, 'Bính');
+  assert.deepEqual(t.tuvi.luuHoa.map((h) => h.star), TU_HOA.Bính);
+  for (const h of t.tuvi.luuHoa) { const p = chart.tuvi.palaces[h.pos]; assert.ok([...p.chinh, ...p.phu].includes(h.star)); assert.equal(h.cung, p.name); }
+  // tuổi âm và đại hạn: sinh âm lịch 1992 → 2026 là 35 tuổi, đại hạn chứa tuổi đó
+  assert.equal(t.tuvi.age, 35); assert.ok(t.tuvi.dai.daiHan[0] <= 35 && 35 <= t.tuvi.dai.daiHan[1]);
+});
+
+test('Lưu nguyệt (Đẩu Quân): tháng sinh trong năm xem cách cung Thái Tuế đúng một khoảng bằng giờ sinh', () => {
+  const { profile, chart } = mk();
+  const t = timeCycle(profile, chart, 2027);
+  assert.equal(t.months.length, 12);
+  for (let i = 1; i < 12; i++) assert.equal(t.months[i].cung.pos, (t.months[i - 1].cung.pos + 1) % 12);
+  const hourBranch = Math.floor((profile.birth.hour + 1) / 2) % 12;
+  const sinh = t.months[chart.tuvi.lunar.month - 1].cung.pos;
+  assert.equal(sinh, (t.tuvi.tt + hourBranch) % 12);
+});
+
+test('Mức chú ý: chỉ có ba mức, cấu trúc đầy đủ, và radar 12 cung', () => {
+  const { profile, chart } = mk();
+  const nat = natalAttention(chart.tuvi);
+  assert.equal(nat.length, 12);
+  for (const c of nat) { assert.ok(c.level >= 0 && c.level <= 2); assert.ok(c.score >= 0); }
+  const t = timeCycle(profile, chart, 2026);
+  assert.equal(t.tuvi.cungs.length, 12); assert.ok(t.level >= 0 && t.level <= 2);
+  for (const m of t.months) { assert.ok(m.level >= 0 && m.level <= 2); assert.ok(m.pillar); assert.ok(m.notes.length >= 2); }
+  assert.deepEqual(LEVELS, ['nhẹ', 'vừa', 'nhiều']);
+  const st = lifeStages(chart.tuvi, NOW); assert.equal(st.filter((s) => s.current).length, 1);
+  const tl = timeline(profile, chart, 2025, 5); assert.equal(tl.length, 5); assert.equal(tl[1].year, 2026);
+});
+
+test('Thiếu giờ sinh hoặc giới tính: vẫn có thời vận theo Tứ Trụ và thần số, không có Tử Vi', () => {
+  const { profile, chart } = mk({ birth: { y: 1992, m: 7, d: 22, hour: null } });
+  assert.equal(chart.tuvi, null);
+  const t = timeCycle(profile, chart, 2026);
+  assert.equal(t.tuvi, null); assert.equal(t.months.length, 12);
+  assert.ok(t.months.every((m) => m.cung === null && m.level >= 0 && m.level <= 2));
+  assert.ok(describeTimeCycle(profile, chart, NOW).includes('Tứ Trụ'));
+  // có giờ sinh nhưng không có giới tính cũng không được ném lỗi
+  const g = mk({ gender: 'khac' }); assert.doesNotThrow(() => describeChart(g.profile, g.chart, NOW));
+});
+
+test('Lời cho AI có khối thời vận, không chứa từ dọa hạn', () => {
+  const { profile, chart } = mk();
+  const txt = describeChart(profile, chart, NOW);
+  assert.match(txt, /THỜI VẬN/); assert.match(txt, /Năm 2026 \(Bính Ngọ, năm nay\)/); assert.match(txt, /Tháng 1 \(17\/2/);
+  assert.doesNotMatch(describeTimeCycle(profile, chart, NOW), /hạn nặng|sao xấu|vận đen|đại họa|tai họa|đoản mệnh|số khổ/i);
+});
+
+test('Phân bố mức chú ý không dồn vào một mức (hiệu chỉnh trên 60 hồ sơ ngẫu nhiên)', () => {
+  let seed = 7; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+  const mo = [0, 0, 0], cu = [0, 0, 0];
+  for (let i = 0; i < 60; i++) {
+    const profile = normalizeProfile({ fullName: 'Thử Nghiệm', gender: rnd() < 0.5 ? 'nam' : 'nu', birth: { y: 1960 + Math.floor(rnd() * 45), m: 1 + Math.floor(rnd() * 12), d: 1 + Math.floor(rnd() * 28), hour: Math.floor(rnd() * 24), minute: 0 } });
+    const chart = buildChart(profile, NOW); const t = timeCycle(profile, chart, 2026);
+    for (const m of t.months) mo[m.level]++;
+    for (const c of t.tuvi.cungs) cu[c.level]++;
+  }
+  const share = (a, i) => a[i] / a.reduce((p, q) => p + q, 0);
+  for (const a of [mo, cu]) { assert.ok(share(a, 0) < 0.7, 'quá nhiều mức nhẹ'); assert.ok(share(a, 2) > 0.08, 'gần như không có mức nhiều'); assert.ok(share(a, 2) < 0.4, 'quá nhiều mức nhiều'); }
+});
