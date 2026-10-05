@@ -20,7 +20,7 @@ const LIMITS = { listen: { words: 110, q: 1 }, reading: { words: 380, q: 2 }, co
  */
 export function assessTurn({ phase, reply, userMsg = '', userHistory = '', prevReplies = [] }) {
   const w = words(reply), n = w.length, lim = LIMITS[phase] ?? LIMITS.companion;
-  const q = (String(reply).match(/\?/g) ?? []).length;
+  const q = (String(reply).replace(/\[\[goi_y:[^\]]*\]\]/g, '').match(/\?/g) ?? []).length;
   const tags = (String(reply).match(/\[\[[a-z_]+\]\]/g) ?? []).length;
   const tg = trigrams(w);
   const rep = Math.round(100 * Math.max(0, ...prevReplies.slice(-5).map((p) => jaccard(tg, trigrams(words(p)))))) / 100;

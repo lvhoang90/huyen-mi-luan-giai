@@ -7,7 +7,7 @@ import { shareCard } from './share.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { sound } from './sound.js';
-import { parseTagged, stripTags } from './emotion-tags.js';
+import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { HANH } from './engine/bazi.js';
@@ -197,7 +197,9 @@ async function aiTurn(phase) {
   busy = true;
   try { return await aiTurnInner(phase); } finally { busy = false; if (limitHit) closeSession(); }
 }
+let suggestions = []; // gợi ý trả lời do chính My đưa ra ở lượt vừa rồi (chỉ khi hợp ngữ cảnh)
 async function aiTurnInner(phase) {
+  suggestions = [];
   stage.setMood('think'); // suy nghĩ trong lúc chờ
   const b = new Bubble(); let first = true, raw = '';
   try {
@@ -212,6 +214,7 @@ async function aiTurnInner(phase) {
     return false;
   }
   await b.end();
+  suggestions = extractSuggestions(raw);
   S.messages.push({ role: 'assistant', content: stripTags(raw) }); save();
   return true;
 }
@@ -465,32 +468,34 @@ async function ritual() {
 }
 
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
-const READ_LENS = [
-  { label: 'Luận theo Tử Vi', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tử Vi Đẩu Số giúp mình.', action: 'read' },
-  { label: 'Luận theo Tứ Trụ', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tứ Trụ giúp mình.', action: 'read' },
-  { label: 'Luận theo Chiêm tinh', value: 'Mình đã kể xong rồi. Mời My luận giải theo chiêm tinh phương Tây giúp mình.', action: 'read' },
-];
 const startChips = () => [
   ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
   { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
   { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },
   { label: 'Một chuyện đang làm mình rối', value: 'Dạo này có một chuyện đang làm mình rối.' },
 ];
-const FOLLOW_CHIPS = ['Về con đường sự nghiệp của mình', 'Về chuyện tình cảm', 'Năm nay của mình có gì đáng lưu tâm?', 'Điều đang làm mình rối nhất'];
+// Lăng kính để soi tiếp: chỉ hiện đúng một lần, ngay sau lần luận giải đầu, để người dùng biết còn lựa chọn khác.
 const LENS_CHIPS = [
-  { label: 'Soi theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
-  { label: 'Soi theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
-  { label: 'Soi theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
-  { label: 'Soi theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
-  { label: 'Kết hợp tất cả', value: 'My kết hợp các phương pháp để soi giúp mình nhé.' },
+  { label: 'Soi thêm theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
+  { label: 'Soi thêm theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
+  { label: 'Soi thêm theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
+  { label: 'Soi thêm theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
 ];
+/** Nút gợi ý theo ngữ cảnh: lượt đầu có lối vào; còn lại chỉ là gợi ý do My tự đưa ra khi hợp, không có thì để trống cho người dùng tự nói. */
+function contextChips(userTurns, justRead) {
+  const mine = suggestions.map((t) => ({ label: t, value: t }));
+  if (S.phase === 'listen') return userTurns === 0 ? startChips() : [...mine, ...(userTurns >= 3 ? [READ_CHIP] : [])]; // đã kể đủ nhiều thì mới nhắc có thể mời luận giải
+  if (S.phase === 'companion') return justRead ? LENS_CHIPS : mine;
+  return [];
+}
 
 async function converse() {
+  let justRead = false;
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
   for (;;) {
     if (limitHit) return closeSession();
     stage.setMood('listen');
-    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : startChips()) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
+    const chips = contextChips(userTurns, justRead); justRead = false;
     const { text, chip } = await askChat(chips);
     const sc = userTurns === 0 && S.phase === 'listen' ? startChips().find((c) => c.value === text) : null;
     if (userTurns === 0) track('first_message', { viaChip: !!sc });
@@ -502,7 +507,7 @@ async function converse() {
     save();
     const ok = await aiTurn(reading ? 'reading' : S.phase);
     if (!ok) { userTurns--; continue; }
-    if (reading) { S.phase = 'companion'; save(); track('reading_received'); await askResonance(); }
+    if (reading) { S.phase = 'companion'; justRead = true; suggestions = []; save(); track('reading_received'); await askResonance(); }
     save();
   }
 }
