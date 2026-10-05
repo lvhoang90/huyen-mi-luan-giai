@@ -1,9 +1,11 @@
 // API tài khoản, theo dõi hành trình, đồng bộ trạng thái và trang quản trị.
+import { clientIp } from './ip.js';
 import crypto from 'node:crypto';
 import { createAuth, parseCookies, cookie, sendMail } from './auth.js';
 import { ingest } from './events.js';
 import { computeMetrics } from './admin.js';
 import { assessTurn } from './quality.js';
+import { newToken } from './reminders.js';
 
 const DAY = 86_400_000;
 export const ANON_LIMIT_MS = 32 * 60_000; // 30 phút + 2 phút châm chước
@@ -23,7 +25,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
 
   const json = (res, code, obj, headers = {}) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers }); res.end(JSON.stringify(obj)); };
   const secure = (req) => req.socket.encrypted || req.headers['x-forwarded-proto'] === 'https';
-  const ipOf = (req) => req.socket.remoteAddress ?? '?';
+  const ipOf = (req) => clientIp(req);
   function readBody(req, max = 64 * 1024) {
     return new Promise((resolve, reject) => {
       let size = 0; const chunks = [];
@@ -53,18 +55,20 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
   function chatGate(req, res) {
     const id = identify(req, res), t = now();
     if (accountsOn && !id.user) {
-      const row = db.prepare('SELECT first_chat FROM anon WHERE id = ?').get(id.anon);
+      const row = db.prepare('SELECT first_chat, active_ms, last_chat FROM anon WHERE id = ?').get(id.anon);
       if (!row) db.prepare('INSERT OR IGNORE INTO anon(id, first_seen) VALUES (?,?)').run(id.anon, t);
-      if (!row?.first_chat) db.prepare('UPDATE anon SET first_chat = ? WHERE id = ?').run(t, id.anon);
-      else if (t - row.first_chat > ANON_LIMIT_MS) { json(res, 401, { error: 'Buổi đầu của bạn đã trọn 30 phút. Tạo tài khoản bằng email để My nhớ bạn và hẹn lần sau nhé.', needAuth: true }); return null; }
+      // Chỉ cộng thời gian trò chuyện thực: khoảng cách giữa hai lượt tối đa 5 phút, nên người rời đi rồi quay lại sau vài giờ không bị tính là đã dùng hết buổi.
+      const active = (row?.active_ms ?? 0) + (row?.last_chat ? Math.min(Math.max(t - row.last_chat, 0), 5 * 60_000) : 0);
+      if (row?.first_chat && active > ANON_LIMIT_MS) { json(res, 401, { error: 'Buổi đầu của bạn đã trọn 30 phút. Tạo tài khoản bằng email để My nhớ bạn và hẹn lần sau nhé.', needAuth: true }); return null; }
+      db.prepare('UPDATE anon SET first_chat = COALESCE(first_chat, ?), active_ms = ?, last_chat = ? WHERE id = ?').run(t, active, t, id.anon);
     }
     const today = db.prepare('SELECT COUNT(*) c FROM turns WHERE actor = ? AND ts >= ?').get(id.actor, t - DAY).c;
     if (today >= dailyCap) { json(res, 429, { error: 'Hôm nay My đã trò chuyện khá nhiều với bạn, hẹn bạn ngày mai nhé.' }); return null; }
     return id;
   }
 
-  function recordTurn({ actor, sid, phase, minute, ms, ttft, reply, userMsg, prevReplies, ok }) {
-    const a = ok ? assessTurn({ phase, reply, userMsg, prevReplies }) : { words: 0, q: 0, tags: 0, rep: 0, echo: 0, score: 0, flags: [] };
+  function recordTurn({ actor, sid, phase, minute, ms, ttft, reply, userMsg, userHistory, prevReplies, ok }) {
+    const a = ok ? assessTurn({ phase, reply, userMsg, userHistory, prevReplies }) : { words: 0, q: 0, tags: 0, rep: 0, echo: 0, score: 0, flags: [] };
     db.prepare('INSERT INTO turns(ts, actor, sid, phase, minute, ms, ttft, words, q, tags, rep, echo, score, flags, ok) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(now(), actor, String(sid ?? '').slice(0, 24) || null, phase, Number.isFinite(minute) ? Math.round(minute) : null, ms ?? null, ttft ?? null, a.words, a.q, a.tags, a.rep, a.echo, a.score, a.flags.join(','), ok ? 1 : 0);
     return a;
@@ -87,7 +91,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       let b; try { b = await readBody(req, 2048); } catch (e) { return json(res, 400, { error: e.message }), true; }
       const id = identify(req, res);
       const anonRow = db.prepare('SELECT ref FROM anon WHERE id = ?').get(id.anon);
-      const r = auth.verify(b.email, b.code, { ref: anonRow?.ref ?? null, consentMemory: b.consentMemory === true });
+      const r = auth.verify(b.email, b.code, { ref: anonRow?.ref ?? null, consentMemory: b.consentMemory === true, remind: b.remind === true });
       if (!r.ok) return json(res, r.status, { error: r.error }), true;
       const prev = res.getHeader('Set-Cookie');
       res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [prev] : []), cookie('hm_s', r.token, { maxAgeSec: r.maxAgeSec, secure: secure(req) })]);
@@ -134,6 +138,22 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       try { await send({ to: id.user.email, subject: 'Điều thú vị My vừa kể với bạn', text: `${lines.join('\n\n')}\n\nĐây chỉ là điểm chung để bắt đầu câu chuyện, không phải lời tiên đoán hay số phận.${link}` }); }
       catch (e) { console.error('[mail]', e.message); return json(res, 503, { error: 'My chưa gửi được email lúc này.' }), true; }
       return json(res, 200, { ok: true }), true;
+    }
+    if (pathname === '/api/account/remind' && method === 'POST') {
+      const id = identify(req, res);
+      if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      let b; try { b = await readBody(req, 1024); } catch (e) { return json(res, 400, { error: e.message }), true; }
+      if (b.on === true) db.prepare('UPDATE users SET remind_optin = 1, remind_token = COALESCE(remind_token, ?), remind_count = 0 WHERE id = ?').run(newToken(), id.user.id);
+      else db.prepare('UPDATE users SET remind_optin = 0 WHERE id = ?').run(id.user.id);
+      return json(res, 200, { ok: true, remind: b.on === true }), true;
+    }
+    if (pathname === '/api/unsub' && (method === 'GET' || method === 'POST')) {
+      const t = String(new URL(req.url, 'http://x').searchParams.get('t') ?? '').replace(/[^\w-]/g, '').slice(0, 64);
+      const r = t ? db.prepare('UPDATE users SET remind_optin = 0 WHERE remind_token = ?').run(t) : { changes: 0 };
+      if (method === 'POST') return res.writeHead(r.changes ? 200 : 404).end(), true;
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Huyền My</title><body style="margin:0;background:#0b0912;color:#e9e1cf;font:17px/1.7 system-ui,sans-serif"><main style="max-width:520px;margin:12vh auto;padding:0 20px"><h1 style="font-size:1.4rem">${r.changes ? 'Đã hủy nhận email nhắc' : 'Liên kết này không còn hiệu lực'}</h1><p>${r.changes ? 'My sẽ không gửi thư nhắc nữa. Bạn vẫn có thể quay lại gặp My bất cứ lúc nào.' : 'Có thể bạn đã hủy trước đó. Nếu vẫn nhận được thư, hãy trả lời thư hoặc viết tới luongviethoang.hcm@gmail.com.'}</p><p><a style="color:#e8c46a" href="/">Về Huyền My</a></p></main>`);
+      return true;
     }
     if (pathname === '/api/account/delete' && method === 'POST') {
       const id = identify(req, res);

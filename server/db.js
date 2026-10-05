@@ -9,6 +9,7 @@ export function openDb(file) {
   const db = new DatabaseSync(file);
   db.exec(`
     PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL; -- với WAL vẫn an toàn khi mất điện, nhưng ít ép ghi đĩa hơn: quan trọng khi máy chủ dùng ổ HDD
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, created_at INTEGER NOT NULL, last_login INTEGER,
       role TEXT NOT NULL DEFAULT 'user', consent_memory INTEGER NOT NULL DEFAULT 0, consent_at INTEGER,
@@ -25,5 +26,12 @@ export function openDb(file) {
     );
     CREATE INDEX IF NOT EXISTS tr_ts ON turns(ts);
   `);
+  // di chuyển dữ liệu cũ: thời gian trò chuyện thực (không tính lúc người dùng vắng mặt)
+  const cols = db.prepare('PRAGMA table_info(anon)').all().map((c) => c.name);
+  if (!cols.includes('active_ms')) db.exec('ALTER TABLE anon ADD COLUMN active_ms INTEGER NOT NULL DEFAULT 0');
+  if (!cols.includes('last_chat')) db.exec('ALTER TABLE anon ADD COLUMN last_chat INTEGER');
+  const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  for (const [name, ddl] of [['remind_optin', 'INTEGER NOT NULL DEFAULT 0'], ['remind_token', 'TEXT'], ['remind_last', 'INTEGER'], ['remind_count', 'INTEGER NOT NULL DEFAULT 0']])
+    if (!ucols.includes(name)) db.exec(`ALTER TABLE users ADD COLUMN ${name} ${ddl}`);
   return db;
 }

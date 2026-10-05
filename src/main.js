@@ -4,7 +4,10 @@ import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
 import { shareCard } from './share.js';
-import { parseTagged, stripTags } from './emotion-tags.js';
+import { mountLogo } from './logo.js';
+import { createIntro } from './intro.js';
+import { sound } from './sound.js';
+import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { HANH } from './engine/bazi.js';
@@ -14,6 +17,14 @@ const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
 createLanterns($('#lanterns'));
+mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
+const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n), poke: (x, y) => character.poke(x, y), greeting: () => { const nick = load()?.profile?.nickname; return nick ? `Chào mừng ${nick} trở lại` : ''; } });
+const sndBtn = $('#snd'), sndTop = $('#btn-sound');
+const showSnd = () => { const t = sound.on ? 'Tắt nhạc nền' : 'Bật nhạc nền'; sndBtn.textContent = sound.on ? '♪ Nhạc nền: bật' : '♪ Nhạc nền: tắt'; sndTop.classList.toggle('on', sound.on); sndTop.title = t; sndTop.setAttribute('aria-label', t); for (const b of [sndBtn, sndTop]) b.setAttribute('aria-pressed', String(sound.on)); };
+const toggleSnd = () => { sound.set(!sound.on); showSnd(); track('sound_toggle', { on: sound.on }); };
+showSnd(); sndBtn.onclick = toggleSnd; sndTop.onclick = toggleSnd;
+window.__introStarted = true; requestAnimationFrame(() => intro.start());
+console.info('%cHuyền My Luận Giải 1.0%c © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền.', 'color:#e2c27d;font-weight:700', 'color:inherit');
 const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const stage = {
   setMood: (m) => character.setMood(m), setSpeaking: (v) => character.setSpeaking(v), emo: (n) => character.setEmotion(n),
@@ -138,7 +149,7 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
       const label = kind === 'date' ? v.split('-').reverse().join('/') : kind === 'time' ? `${v}` : v;
       done(v, label);
     };
-    go.onclick = submit; input.onkeydown = (e) => e.key === 'Enter' && submit();
+    go.onclick = submit; input.onkeydown = (e) => { if (e.key === 'Enter') submit(); }; // không để trả về false: sẽ chặn mọi phím gõ
     composer.append(h('div', { className: 'row' }, input, go));
     if (matchMedia('(pointer:fine)').matches) input.focus();
   });
@@ -186,7 +197,9 @@ async function aiTurn(phase) {
   busy = true;
   try { return await aiTurnInner(phase); } finally { busy = false; if (limitHit) closeSession(); }
 }
+let suggestions = []; // gợi ý trả lời do chính My đưa ra ở lượt vừa rồi (chỉ khi hợp ngữ cảnh)
 async function aiTurnInner(phase) {
+  suggestions = [];
   stage.setMood('think'); // suy nghĩ trong lúc chờ
   const b = new Bubble(); let first = true, raw = '';
   try {
@@ -201,24 +214,39 @@ async function aiTurnInner(phase) {
     return false;
   }
   await b.end();
+  suggestions = extractSuggestions(raw);
   S.messages.push({ role: 'assistant', content: stripTags(raw) }); save();
   return true;
 }
 
 // ---------------- giới hạn phiên: mỗi buổi tối đa 30 phút, rồi My nghỉ và hẹn lần sau ----------------
-const SESSION_MIN = 30, WARN_MIN = 25, COOLDOWN_MIN = 180;
+const SESSION_MIN = 30, WARN_MIN = 25, COOLDOWN_MIN = 45, AWAY_MIN = 20; // vắng quá AWAY_MIN phút thì buổi cũ coi như đã khép, lần quay lại là một buổi mới trọn vẹn
 let clockTimer = 0, limitHit = false, closed = false, busy = false;
-const elapsedMin = () => (S.sessionStart ? (Date.now() - S.sessionStart) / 60000 : 0);
+// Chỉ tính thời gian My và bạn thật sự trò chuyện (tab đang mở và có thao tác gần đây), không tính lúc bạn rời đi.
+const elapsedMin = () => (S.sessionStart ? (S.activeMs ?? 0) / 60000 : 0);
+let lastInput = Date.now(), lastTick = Date.now();
+for (const ev of ['pointerdown', 'keydown', 'touchstart', 'input']) addEventListener(ev, () => { lastInput = Date.now(); }, { passive: true, capture: true });
+function accrue() {
+  const n = Date.now(), dt = Math.min(n - lastTick, 10_000); lastTick = n;
+  if (document.hidden || !S.sessionStart) return;
+  if (busy || n - lastInput < 120_000) { S.activeMs = (S.activeMs ?? 0) + dt; S.lastActive = n; }
+}
 const hhmm = (t) => new Date(t).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 function startClock() {
-  if (!S.sessionStart) { S.sessionStart = Date.now(); S.sessions = (S.sessions ?? 0) + 1; save(); }
+  // Quay lại sau khi vắng lâu: buổi cũ đã khép, mở buổi mới. Quay lại sớm hơn: tiếp tục buổi cũ với phần thời gian còn lại.
+  if (S.sessionStart && S.lastActive && (Date.now() - S.lastActive) / 60000 > AWAY_MIN) S.sessionStart = null;
+  if (!S.sessionStart) { S.sessionStart = Date.now(); S.activeMs = 0; S.sessions = (S.sessions ?? 0) + 1; }
+  S.lastActive = Date.now(); lastTick = lastInput = Date.now(); save();
   closed = limitHit = false; clearInterval(clockTimer);
-  const pill = $('#clock'), tick = () => {
+  const pill = $('#clock'); let n = 0;
+  const tick = () => {
+    accrue();
     const left = Math.ceil(SESSION_MIN - elapsedMin());
     if (left <= SESSION_MIN - WARN_MIN) { if (pill.hidden) track('warn_shown'); pill.hidden = false; pill.textContent = `Còn ${Math.max(left, 0)}′`; }
     if (left <= 0) { limitHit = true; if (!busy) closeSession(); }
+    if (++n % 6 === 0) { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} } // lưu cục bộ mỗi 30 giây, không đồng bộ lên máy chủ
   };
-  tick(); clockTimer = setInterval(tick, 15000);
+  tick(); clockTimer = setInterval(tick, 5000);
 }
 /** Những điều My thật sự chưa kể, lấy từ lá số đã tính: mỗi buổi dành một điều cho lần sau. */
 function teasers() {
@@ -242,14 +270,25 @@ async function closeSession() {
   await askNps();
   await signupGate('close');
   await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
-  clearComposer(); composer.append(h('div', { className: 'rest' }, h('span', { textContent: `My nghỉ đến ${hhmm(S.restUntil)}` })));
+  clearComposer(); watchRest(composer, async () => { S.restUntil = null; save(); startClock(); await say(`[[vui]]Chào ${S.profile.nickname}, My nghỉ xong rồi. ${S.teaser ? `Hôm nay My kể về **${S.teaser}** nhé, hay bạn có điều gì muốn nói trước?` : 'Bạn muốn kể gì với My?'}`, 300); S.teaser = null; save(); converse(); });
+}
+/** Hiển thị thời gian nghỉ còn lại và tự mở lối quay lại ngay khi hết giờ: không bắt người dùng phải làm mới trang để biết đã được nói tiếp. */
+function watchRest(host, onBack) {
+  const label = h('span', { className: 'rest-label' }), btn = h('button', { className: 'btn primary', textContent: 'Gặp lại My', hidden: true });
+  const upd = () => {
+    const left = Math.ceil((S.restUntil - Date.now()) / 60000);
+    if (left > 0) { label.textContent = `My nghỉ thêm khoảng ${left} phút nữa (đến ${hhmm(S.restUntil)}). Bạn cứ để trang đó, hết giờ nút gặp lại sẽ hiện.`; return; }
+    clearInterval(timer); label.textContent = 'My nghỉ xong rồi.'; btn.hidden = false; track('rest_over');
+  };
+  btn.onclick = () => { clearInterval(timer); onBack(); };
+  const timer = setInterval(upd, 20000); host.replaceChildren(h('div', { className: 'rest' }, label, btn)); upd();
 }
 function restScreen() {
   track('rest_view');
-  $('#veil').classList.remove('gone'); $('#dialog').hidden = true;
-  $('#veil-actions').replaceChildren(
-    h('p', { className: 'tag', textContent: `My đang nghỉ. Hẹn gặp lại lúc ${hhmm(S.restUntil)}.` }),
-    ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
+  $('#veil').classList.remove('gone'); $('#dialog').hidden = true; intro.showStatic();
+  const box = h('div');
+  $('#veil-actions').replaceChildren(box, ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
+  watchRest(box, () => enter(true));
 }
 
 // ---------------- tài khoản (email), đánh giá, chia sẻ ----------------
@@ -264,6 +303,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
   const msg = h('p', { className: 'su-msg', role: 'alert' });
   const email = h('input', { className: 'field', type: 'email', placeholder: 'Email của bạn', autocomplete: 'email', inputMode: 'email', maxLength: 120, ariaLabel: 'Email' });
   const consent = h('input', { type: 'checkbox', id: 'su-consent' });
+  const remind = h('input', { type: 'checkbox', id: 'su-remind' });
   const go = h('button', { className: 'btn primary', textContent: 'Gửi mã vào email' });
   const skip = h('button', { className: 'btn', textContent: 'Để sau', onclick: () => { track('signup_skip'); done(false); } });
   const code = h('input', { className: 'field', placeholder: 'Mã 6 số', autocomplete: 'one-time-code', inputMode: 'numeric', maxLength: 6, ariaLabel: 'Mã xác nhận' });
@@ -275,6 +315,8 @@ function buildSignup(host, { title, done, canSkip = true }) {
       h('p', { className: 'su-sub', textContent: 'Không cần mật khẩu. My chỉ gửi một mã 6 số để xác nhận email của bạn.' }),
       h('div', { className: 'row' }, email),
       h('label', { className: 'su-consent', htmlFor: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
+      h('label', { className: 'su-consent', htmlFor: 'su-remind' }, remind, h('span', { textContent: 'Gửi cho mình một email nhắc nhẹ khi đến lúc kể tiếp (tối đa một thư mỗi tuần, hủy được bất cứ lúc nào). Không chọn thì My không gửi gì ngoài mã đăng nhập.' })),
+      h('p', { className: 'su-legal' }, 'Khi tiếp tục, bạn đồng ý với ', h('a', { href: '/terms.html', target: '_blank', rel: 'noopener', textContent: 'Điều khoản' }), ' và ', h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener', textContent: 'Chính sách quyền riêng tư' }), '.'),
       msg, h('div', { className: 'su-actions' }, go, ...(canSkip ? [skip] : [])));
     email.focus();
   };
@@ -297,14 +339,14 @@ function buildSignup(host, { title, done, canSkip = true }) {
   const verify = async () => {
     msg.textContent = ''; ok.disabled = true;
     const wantsMemory = consent.checked;
-    const r = await apiJson('/api/auth/verify', 'POST', { email: email.value, code: code.value, consentMemory: wantsMemory });
+    const r = await apiJson('/api/auth/verify', 'POST', { email: email.value, code: code.value, consentMemory: wantsMemory, remind: remind.checked });
     ok.disabled = false;
     if (!r.ok) { msg.textContent = r.error || 'Chưa xác nhận được.'; return; }
     ACCOUNT.user = r.user; track('signup_verified', { isNew: !!r.isNew });
     if (wantsMemory) { ACCOUNT.user.consentMemory = true; scheduleSync(); }
     done(true);
   };
-  ok.onclick = verify; code.onkeydown = (e) => e.key === 'Enter' && verify(); email.onkeydown = (e) => e.key === 'Enter' && go.click();
+  ok.onclick = verify; code.onkeydown = (e) => { if (e.key === 'Enter') verify(); }; email.onkeydown = (e) => { if (e.key === 'Enter') go.click(); };
   step1();
 }
 /** Gắn email sớm, ngay sau điều thú vị đầu tiên: My đề nghị gửi chính điều vừa kể vào hộp thư và nhớ bạn. Không bắt buộc. */
@@ -366,6 +408,7 @@ function openAccount() {
       h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
       h('div', { className: 'su-actions' },
         h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
+        h('button', { className: 'btn', textContent: u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại', onclick: async () => { const r = await apiJson('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) { u.remind = r.remind; render(); } } }),
         h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; close(); } }),
         h('button', { className: 'btn danger', textContent: 'Xóa tài khoản và dữ liệu', onclick: (e) => { if (e.target.dataset.sure) { apiJson('/api/account/delete', 'POST').then(() => { ACCOUNT.user = null; try { localStorage.removeItem(STORE); } catch {} location.reload(); }); } else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa'; } } })));
   };
@@ -381,6 +424,19 @@ const INTRO = [
   '[[nghiem_tuc]]My không nói trước điều chưa đến, cũng không nói điều bạn chỉ muốn nghe. [[chia_se]]My chỉ soi lại tấm bản đồ mà trời đất khẽ đặt vào ngày bạn sinh ra, để bạn nhìn mình rõ hơn.',
 ];
 
+/** Dịch vụ dành cho người từ đủ 16 tuổi. Người dưới 16 chỉ tiếp tục khi có cha mẹ hoặc người giám hộ đồng ý. Trả về false nếu dừng. */
+async function ageGate(y, m, d) {
+  const n = new Date(); let age = n.getFullYear() - y; if (n.getMonth() + 1 < m || (n.getMonth() + 1 === m && n.getDate() < d)) age--;
+  if (age >= 16) return true;
+  track('age_gate', { ageBand: ageBand(y) });
+  await say('[[dong_cam]]My cần dừng lại một chút. Dịch vụ này dành cho người từ đủ 16 tuổi. Nếu bạn chưa đủ 16, My chỉ trò chuyện tiếp khi có cha mẹ hoặc người giám hộ biết, đồng ý và ở cạnh bạn. Có người lớn đang đồng hành cùng bạn không?');
+  const ok = await ask({ kind: 'choice', chips: [{ label: 'Có, người giám hộ đồng ý và ở cạnh mình', value: 'yes' }, { label: 'Không có', value: 'no' }] });
+  track('age_gate_answer', { ok: ok === 'yes' });
+  if (ok === 'yes') return true;
+  await say('[[an_ui]]Không sao đâu. Khi nào có người lớn cùng bạn, hoặc khi bạn đủ 16 tuổi, My rất vui được gặp lại. Chúc bạn một ngày dễ chịu.');
+  clearComposer(); composer.append(h('div', { className: 'rest' }, h('span', { textContent: 'Hẹn gặp lại bạn khi đủ điều kiện.' })));
+  return false;
+}
 async function collect() {
   S.phase = 'collect'; save();
   await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
@@ -396,6 +452,7 @@ async function collect() {
     const date = await ask({ kind: 'date' });
     const [y, m, d] = date.split('-').map(Number);
     track('intake_step', { step: 'date' });
+    if (!(await ageGate(y, m, d))) return;
     await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
     const time = await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] });
     track('intake_step', { step: 'time' });
@@ -454,32 +511,35 @@ async function ritual() {
 }
 
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
-const READ_LENS = [
-  { label: 'Luận theo Tử Vi', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tử Vi Đẩu Số giúp mình.', action: 'read' },
-  { label: 'Luận theo Tứ Trụ', value: 'Mình đã kể xong rồi. Mời My luận giải theo Tứ Trụ giúp mình.', action: 'read' },
-  { label: 'Luận theo Chiêm tinh', value: 'Mình đã kể xong rồi. Mời My luận giải theo chiêm tinh phương Tây giúp mình.', action: 'read' },
-];
 const startChips = () => [
   ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
   { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
   { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },
   { label: 'Một chuyện đang làm mình rối', value: 'Dạo này có một chuyện đang làm mình rối.' },
 ];
-const FOLLOW_CHIPS = ['Về con đường sự nghiệp của mình', 'Về chuyện tình cảm', 'Năm nay của mình có gì đáng lưu tâm?', 'Điều đang làm mình rối nhất'];
+// Lăng kính để soi tiếp: chỉ hiện đúng một lần, ngay sau lần luận giải đầu, để người dùng biết còn lựa chọn khác.
 const LENS_CHIPS = [
-  { label: 'Soi theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
-  { label: 'Soi theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
-  { label: 'Soi theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
-  { label: 'Soi theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
-  { label: 'Kết hợp tất cả', value: 'My kết hợp các phương pháp để soi giúp mình nhé.' },
+  { label: 'Soi thêm theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
+  { label: 'Soi thêm theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
+  { label: 'Soi thêm theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
+  { label: 'Soi thêm theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
 ];
+/** Nút gợi ý theo ngữ cảnh: lượt đầu có lối vào; còn lại chỉ là gợi ý do My tự đưa ra khi hợp, không có thì để trống cho người dùng tự nói. */
+function contextChips(userTurns, justRead) {
+  const mine = suggestions.map((t) => ({ label: t, value: t }));
+  if (S.phase === 'listen') return userTurns === 0 ? startChips() : [...mine, ...(userTurns >= 3 ? [READ_CHIP] : [])]; // đã kể đủ nhiều thì mới nhắc có thể mời luận giải
+  if (S.phase === 'companion') return justRead ? LENS_CHIPS : mine;
+  return [];
+}
 
 async function converse() {
+  if (!S.sessionStart) startClock(); // người mới: đồng hồ chỉ chạy từ lúc bắt đầu trò chuyện, không tính thời gian điền hồ sơ
+  let justRead = false;
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
   for (;;) {
     if (limitHit) return closeSession();
     stage.setMood('listen');
-    const chips = S.phase === 'listen' ? (userTurns >= 1 ? [READ_CHIP, ...READ_LENS] : startChips()) : S.phase === 'companion' ? (userTurns <= 2 ? [...FOLLOW_CHIPS, ...LENS_CHIPS] : LENS_CHIPS) : [];
+    const chips = contextChips(userTurns, justRead); justRead = false;
     const { text, chip } = await askChat(chips);
     const sc = userTurns === 0 && S.phase === 'listen' ? startChips().find((c) => c.value === text) : null;
     if (userTurns === 0) track('first_message', { viaChip: !!sc });
@@ -491,7 +551,7 @@ async function converse() {
     save();
     const ok = await aiTurn(reading ? 'reading' : S.phase);
     if (!ok) { userTurns--; continue; }
-    if (reading) { S.phase = 'companion'; save(); track('reading_received'); await askResonance(); }
+    if (reading) { S.phase = 'companion'; justRead = true; suggestions = []; save(); track('reading_received'); await askResonance(); }
     save();
   }
 }
@@ -605,11 +665,13 @@ const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async
 }).catch(() => {}), meReady]);
 function askCode(then) {
   if ($('.code-box')) return;
-  const input = h('input', { type: 'password', className: 'code-input', placeholder: 'Mã truy cập', autocomplete: 'off', ariaLabel: 'Mã truy cập' });
+  const input = h('input', { type: 'password', className: 'code-input', placeholder: 'Mã truy cập', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, ariaLabel: 'Mã truy cập' });
+  input.setAttribute('autocorrect', 'off');
+  const eye = h('button', { type: 'button', className: 'btn', textContent: 'Hiện mã', onclick: () => { input.type = input.type === 'password' ? 'text' : 'password'; eye.textContent = input.type === 'password' ? 'Hiện mã' : 'Ẩn mã'; } });
   const msg = h('p', { className: 'code-msg', role: 'alert' });
   const submit = async () => { const err = await tryCode(input.value.trim()); if (err) { msg.textContent = err; return; } OPEN = true; $('.code-box').remove(); then(); };
   input.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-  $('#veil-actions').before(h('div', { className: 'code-box' }, h('p', { className: 'code-hint', textContent: 'Phòng này cần mã truy cập.' }), input, h('button', { className: 'btn', textContent: 'Mở cửa', onclick: submit }), msg));
+  $('#veil-actions').before(h('div', { className: 'code-box' }, h('p', { className: 'code-hint', textContent: 'Phòng này cần mã truy cập.' }), input, h('button', { className: 'btn', textContent: 'Mở cửa', onclick: submit }), eye, msg));
   input.focus();
 }
 
@@ -652,7 +714,7 @@ async function enter(resume) {
   if (!OPEN) return askCode(() => enter(resume));
   if (resume && S.restUntil && Date.now() < S.restUntil) return restScreen();
   if (resume && S.restUntil) { S.restUntil = null; save(); }
-  $('#veil').classList.add('gone'); $('#dialog').hidden = false;
+  intro.release(); $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
     chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false; dock();
@@ -663,7 +725,7 @@ async function enter(resume) {
     startClock();
     return converse();
   }
-  S.phase = 'intro'; stage.emo('binh_thuong'); startClock();
+  S.phase = 'intro'; stage.emo('binh_thuong');
   for (const line of INTRO) await say(line, 900, true);
   await collect();
 }

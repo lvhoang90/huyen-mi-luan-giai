@@ -1,3 +1,6 @@
+import { clientIp } from './ip.js';
+import { runReminders } from './reminders.js';
+import { sendMail } from './auth.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -24,7 +27,8 @@ const api = createApi({ db });
 const ACCESS_CODE = (process.env.HUYENMY_ACCESS_CODE || '').trim();   // để trống = ai cũng vào được
 
 // ---- mã truy cập: so sánh hằng thời gian, đếm lần nhập sai theo IP ----
-const sha = (v) => crypto.createHash('sha256').update(String(v)).digest();
+const norm = (v) => String(v ?? '').trim().toLowerCase(); // không phân biệt hoa thường: điện thoại hay tự viết hoa chữ đầu
+const sha = (v) => crypto.createHash('sha256').update(norm(v)).digest();
 const codeOk = (v) => !ACCESS_CODE || crypto.timingSafeEqual(sha(v ?? ''), sha(ACCESS_CODE));
 const fails = new Map();
 const lockedOut = (ip) => (fails.get(ip) ?? []).filter((t) => Date.now() - t < 10 * 60_000).length >= 8;
@@ -68,7 +72,7 @@ function cleanMessages(raw) {
 }
 
 function handleUnlock(req, res) {
-  const ip = req.socket.remoteAddress ?? '?';
+  const ip = clientIp(req);
   if (lockedOut(ip)) return json(res, 429, { error: 'Bạn nhập sai nhiều lần. Hãy thử lại sau ít phút nhé.' });
   return readBody(req, 1024).then((b) => {
     if (codeOk(b.code)) return json(res, 200, { ok: true });
@@ -77,7 +81,7 @@ function handleUnlock(req, res) {
 }
 
 async function handleChat(req, res) {
-  const ip = req.socket.remoteAddress ?? '?';
+  const ip = clientIp(req);
   if (ACCESS_CODE) {
     if (lockedOut(ip)) return json(res, 429, { error: 'Bạn nhập sai nhiều lần. Hãy thử lại sau ít phút nhé.' });
     if (!codeOk(req.headers['x-access-code'])) { noteFail(ip); return json(res, 401, { error: 'Cần mã truy cập để trò chuyện với My.', locked: true }); }
@@ -94,9 +98,9 @@ async function handleChat(req, res) {
   res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
   const t0 = Date.now(); let ttft = null, reply = '';
-  const lastUser = messages[messages.length - 1]?.content ?? '', prevReplies = messages.filter((m) => m.role === 'assistant').map((m) => m.content);
+  const lastUser = messages[messages.length - 1]?.content ?? '', prevReplies = messages.filter((m) => m.role === 'assistant').map((m) => m.content), userHistory = messages.filter((m) => m.role === 'user').map((m) => m.content).join(' ');
   const minute = Number.isFinite(+body.minute) ? Math.min(60, Math.max(0, +body.minute)) : null;
-  const record = (ok) => { try { api.recordTurn({ actor: who.actor, sid: body.sid, phase, minute, ms: Date.now() - t0, ttft, reply, userMsg: lastUser, prevReplies, ok }); } catch (e) { console.error('[turn]', e.message); } };
+  const record = (ok) => { try { api.recordTurn({ actor: who.actor, sid: body.sid, phase, minute, ms: Date.now() - t0, ttft, reply, userMsg: lastUser, userHistory, prevReplies, ok }); } catch (e) { console.error('[turn]', e.message); } };
 
   if (!client) {
     send({ demo: true });
@@ -147,3 +151,11 @@ http.createServer(async (req, res) => {
   if (vite) return vite.middlewares(req, res);
   serveStatic(req, res);
 }).listen(PORT, () => console.log(`Huyền My Luận Giải - http://localhost:${PORT}  (AI: ${hasKey ? MODEL : 'DEMO, chưa có ANTHROPIC_API_KEY'}; mã truy cập: ${ACCESS_CODE ? 'BẬT' : 'tắt'}; tài khoản: ${api.accountsOn ? 'BẬT' : 'tắt'}; quản trị: ${api.adminConfigured ? 'có' : 'chưa đặt ADMIN_EMAILS'})`));
+
+// Email nhắc quay lại (chỉ gửi cho người đã tự chọn nhận): bật bằng HUYENMY_REMINDERS=on và PUBLIC_URL=https://tên-miền
+if (process.env.HUYENMY_REMINDERS === 'on' && api.accountsOn && process.env.PUBLIC_URL && process.env.RESEND_API_KEY) {
+  const tick = () => runReminders({ db, mail: (m) => sendMail(m, process.env), now: Date.now(), baseUrl: process.env.PUBLIC_URL.replace(/\/$/, ''), log: (m) => console.error(m) })
+    .then((n) => n && console.log(`[reminder] đã gửi ${n} thư nhắc`)).catch((e) => console.error('[reminder]', e.message));
+  setTimeout(tick, 2 * 60_000); setInterval(tick, 60 * 60_000);
+  console.log('Email nhắc quay lại: BẬT');
+}

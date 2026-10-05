@@ -100,7 +100,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     latency: { p50: quantile(okTurns.map((t) => t.ms), 0.5), p95: quantile(okTurns.map((t) => t.ms), 0.95), ttftP50: quantile(okTurns.filter((t) => t.ttft != null).map((t) => t.ttft), 0.5) },
     meanQuestions: okTurns.length ? Math.round(mean(okTurns.map((t) => t.q)) * 100) / 100 : null,
     meanWords: okTurns.length ? Math.round(mean(okTurns.map((t) => t.words))) : null,
-    flags: Object.fromEntries(['qua_nhieu_cau_hoi', 'qua_dai', 'lap_lai', 'noi_chac_nich', 'doa_han_hoac_ban_cung', 'thieu_nhan_tang', 'thieu_canh_bao_gioi_han', 'khong_bam_loi_nguoi_dung'].map((f) => [f, pct(flagCount(f), okTurns.length)])),
+    flags: Object.fromEntries(['qua_nhieu_cau_hoi', 'qua_dai', 'lap_lai', 'noi_chac_nich', 'doa_han_hoac_ban_cung', 'thieu_nhan_tang', 'thieu_canh_bao_gioi_han', 'khong_bam_loi_nguoi_dung', 'cum_sao_ron', 'lap_cum_tu', 'vien_dan_nhieu'].map((f) => [f, pct(flagCount(f), okTurns.length)])),
     crisis: { handled: cs, missed: cm, safety: cs + cm ? pct(cs, cs + cm) : null },
   };
 
@@ -113,7 +113,11 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
   const refs = new Map(); for (const e of evs) if (e.name === 'landing_view' && e.p.ref) refs.set(e.p.ref, (refs.get(e.p.ref) ?? 0) + 1);
   const users = db.prepare("SELECT COUNT(*) c, SUM(created_at >= ?) n, SUM(consent_memory) m FROM users WHERE role = 'user'").get(from);
   const sharers = actorsBy(['share_card']).size, readers = funnel[5].actors.size;
+  const introSeen = actorsBy(['intro_view']).size, introSkipped = actorsBy(['intro_skip']).size;
+  const introFull = new Set(evs.filter((e) => e.name === 'intro_view' && e.p.kind === 'full').map((e) => e.actor));
+  const skipFull = new Set(evs.filter((e) => e.name === 'intro_skip' && e.p.kind === 'full').map((e) => e.actor));
   const m = {
+    intro: { skip: wilson(introSkipped, introSeen), skipFirstVisit: wilson(skipFull.size, introFull.size) },
     range: { days, from: new Date(from).toISOString(), to: new Date(now).toISOString() },
     visitors: funnel[0].actors.size || allActors.size, funnel: funnelOut, sessions, retention: { d1: ret(1), d3: ret(3), d7: ret(7), cohorts: cohortRows.slice(-10) },
     satisfaction, quality, series,
@@ -172,8 +176,13 @@ export function insights(m) {
   if (q.errors.p > 0.03 && q.turns >= 20) add('loi', 'critical', 'Tỉ lệ lỗi gọi AI cao', `Lượt lỗi: ${pc(q.errors)}.`, 'Kiểm tra hạn mức API, thêm thử lại một lần có độ trễ, hiển thị thông báo thân thiện và lưu tin nhắn để gửi lại.', 5, q.turns, 2);
   if (q.latency.p95 > 25000) add('do-tre', 'warn', 'Độ trễ trả lời cao', `Trung vị ${Math.round(q.latency.p50 / 1000)} giây, phân vị 95 là ${Math.round(q.latency.p95 / 1000)} giây.`, 'Dùng model nhanh cho giai đoạn lắng nghe, giảm độ dài lời dặn hệ thống, hiển thị "My đang suy nghĩ" có hình động để người dùng đỡ sốt ruột.', 4, q.turns, 2);
   if (q.flags.lap_lai.p > 0.1) add('lap', 'warn', 'My còn lặp ý hoặc lặp lời mở đầu', `Tỉ lệ lượt lặp: ${pc(q.flags.lap_lai)}.`, 'Đưa thêm 5 lời mở đầu gần nhất vào lời dặn kèm yêu cầu khác biệt rõ rệt (đã có cơ chế, tăng số lượng) và theo dõi lại.', 3, q.turns, 1);
+  if (q.flags.cum_sao_ron.p > 0.15) add('sao-ron', 'warn', 'Lời My còn nhiều khuôn nghe như máy viết sẵn', `Tỉ lệ lượt có khuôn sáo ("không phải X mà là Y", "My nghe rồi", "hãy nhớ rằng"…): ${pc(q.flags.cum_sao_ron)}.`, 'Đây là điều người dùng phàn nàn: thêm cụm vừa bắt được vào danh sách cấm của lời dặn, đọc 20 lượt mẫu (khi được đồng ý) để tìm khuôn mới, và đo lại sau mỗi lần sửa.', 4, q.turns, 1);
+  if (q.flags.vien_dan_nhieu.p > 0.15) add('vien-dan', 'warn', 'My viện dẫn tâm lý học, khoa học, lăng kính quá nhiều', `Tỉ lệ lượt viện dẫn dày: ${pc(q.flags.vien_dan_nhieu)}.`, 'Làm giọng My gần gũi hơn: nói như bạn bè, chỉ nêu nguồn khi cần, chia sẻ cảm nhận của chính My thay vì giải thích bằng khung lý thuyết.', 4, q.turns, 1);
+  if (q.flags.lap_cum_tu.p > 0.15) add('lap-cum', 'warn', 'My lặp lại cụm từ giữa các lượt', `Tỉ lệ lượt dùng lại cụm đã nói: ${pc(q.flags.lap_cum_tu)}.`, 'Máy chủ đã đưa danh sách cụm bị lặp vào lời dặn mỗi lượt; nếu vẫn cao, thử model mạnh hơn cho giai đoạn đồng hành hoặc giảm số lượt cố gắng dùng cùng hình ảnh.', 4, q.turns, 2);
   if (q.flags.qua_nhieu_cau_hoi.p > 0.15) add('hoi-nhieu', 'warn', 'My hỏi dồn quá nhiều', `Tỉ lệ lượt hỏi quá mức: ${pc(q.flags.qua_nhieu_cau_hoi)}.`, 'Đúng điều người dùng đã phàn nàn lúc đầu: ràng buộc mỗi lượt tối đa một câu hỏi và luôn tặng một nhận định có giá trị trước khi hỏi.', 4, q.turns, 1);
   if (q.flags.khong_bam_loi_nguoi_dung.p > 0.2) add('khong-bam', 'warn', 'My chưa bám vào chi tiết người dùng kể', `Tỉ lệ lượt không nhắc lại ý nào của người dùng: ${pc(q.flags.khong_bam_loi_nguoi_dung)}.`, 'Nhấn mạnh kỹ thuật phản chiếu: nhắc lại một cụm từ cụ thể của người dùng trong câu đầu.', 4, q.turns, 1);
+  const sk = m.intro?.skipFirstVisit;
+  if (sk && sk.n >= 20 && sk.p > 0.4) add('bo-qua-intro', 'warn', 'Nhiều người bỏ qua màn mở đầu lần đầu', `Tỉ lệ bỏ qua bản dài (lần đầu): ${pc(sk)}.`, 'Rút bản dài từ khoảng 8,4 giây xuống 4-5 giây (bỏ pha cận mặt nhắm mắt hoặc cho lời chào hiện sớm hơn), rồi đo lại. Chạm để bỏ qua luôn có sẵn nên không mất gì.', 3, sk.n, 1);
   const r = m.satisfaction.resonance;
   if (r.n >= 15 && r.good.p < 0.7) add('dong-cam', 'warn', 'Nhiều người cho rằng My nói chưa đúng', `Tỉ lệ "gần đúng" trở lên: ${pc(r.good)}.`, 'Hỏi "đoạn nào chưa đúng" ngay sau khi đánh giá, rồi dùng câu trả lời để huấn luyện lại cách chọn chi tiết (ưu tiên nét hiếm đã tính, tránh nhận định ai cũng thấy đúng). Lưu ý hiệu ứng Barnum: điểm cao chưa chắc là chính xác.', 5, r.n, 3);
   if (m.satisfaction.nps.n >= 20 && m.satisfaction.nps.score < 30) add('nps', 'warn', 'NPS thấp', `NPS ${m.satisfaction.nps.score} (n=${m.satisfaction.nps.n}).`, 'Đọc lý do của người chấm 0-6 (khi có ô ghi chú), kiểm tra với nhóm tuổi và lĩnh vực nào điểm thấp nhất ở bảng phân khúc.', 4, m.satisfaction.nps.n, 3);

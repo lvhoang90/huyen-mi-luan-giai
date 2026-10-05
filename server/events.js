@@ -2,7 +2,7 @@
 export const EVENTS = new Set([
   'landing_view', 'enter_click', 'resume_click', 'intake_step', 'intake_done', 'hook_shown', 'start_choice', 'first_message', 'message_sent',
   'reading_requested', 'reading_received', 'resonance', 'share_card', 'chart_open', 'pace_toggle', 'warn_shown', 'session_close',
-  'nps', 'signup_view', 'signup_submit', 'signup_verified', 'signup_skip', 'return_visit', 'rest_view', 'client_error', 'feedback',
+  'intro_view', 'intro_skip', 'sound_toggle', 'nps', 'signup_view', 'signup_submit', 'signup_verified', 'signup_skip', 'return_visit', 'rest_view', 'rest_over', 'age_gate', 'age_gate_answer', 'client_error', 'feedback',
 ]);
 const KEY_RE = /^[a-zA-Z_]{1,24}$/;
 
@@ -24,11 +24,15 @@ export function ingest(db, { actor, userId, sid, events }, now = Date.now()) {
   const st = db.prepare('INSERT INTO events(ts, actor, user_id, sid, name, props) VALUES (?,?,?,?,?,?)');
   let n = 0;
   const safeSid = String(sid ?? '').replace(/[^\w-]/g, '').slice(0, 24) || null;
+  db.exec('BEGIN'); // cả lô ghi một lần (một lần ép ghi đĩa thay vì tới 50 lần)
+  try {
   for (const e of events.slice(0, 50)) {
     if (!e || !EVENTS.has(e.name)) continue;
     const t = Number.isFinite(e.t) && Math.abs(now - e.t) < 6 * 3_600_000 ? e.t : now; // chấp nhận lệch tối đa 6 giờ
     st.run(t, actor, userId ?? null, safeSid, e.name, JSON.stringify(cleanProps(e.props)));
     n++;
   }
+  db.exec('COMMIT');
+  } catch (err) { try { db.exec('ROLLBACK'); } catch {} throw err; }
   return n;
 }

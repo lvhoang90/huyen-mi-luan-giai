@@ -31,8 +31,8 @@ export function demoReply({ phase, profile, chart, messages }) {
   if (phase === 'reading') {
     return [
       `[[chia_se]]${name}, My đã nghe câu chuyện của bạn, và My muốn đặt nó cạnh bản đồ ngày sinh để soi.`,
-      `Về phần tính toán: Nhật chủ của bạn là ${bazi.dayMaster.can} (${bazi.dayMaster.hanh}), Mặt Trời ở cung ${astro.sun.name}, số chủ đạo là ${n.lifePath} - ${NUMBER_KEYWORDS[n.lifePath]}. Theo truyền thống, đó là những nét gợi một người có khuynh hướng như vậy; đây là lăng kính biểu tượng để soi mình, chứ không phải lời phán về số phận.`,
-      `[[chiem_nghiem]]Về phần tâm lý học: khi một chuyện đè nặng, việc viết ra điều mình lo và tách nó thành những phần nhỏ thường giúp cảm xúc bớt mơ hồ.`,
+      `Nhật chủ của bạn là ${bazi.dayMaster.can} (${bazi.dayMaster.hanh}), Mặt Trời ở cung ${astro.sun.name}, số chủ đạo là ${n.lifePath} - ${NUMBER_KEYWORDS[n.lifePath]}. Theo truyền thống, đó là những nét gợi một người có khuynh hướng như vậy; đây là lăng kính biểu tượng để soi mình, chứ không phải lời phán về số phận.`,
+      `[[chiem_nghiem]]Khi một chuyện đè nặng, thử viết ra điều mình đang lo rồi tách nó thành vài phần nhỏ. Nhìn trên giấy thường đỡ rối hơn trong đầu.`,
       `[[khich_le]]Một việc nhỏ trong 7 ngày tới: mỗi tối, viết ba dòng - điều đã xảy ra, bạn cảm thấy gì, bạn có thể làm gì nhỏ nhất vào ngày mai.`,
       `[[binh_thuong]](Đây là chế độ demo, chưa kết nối AI nên My chưa thể luận giải sâu. Khi cấu hình khóa API, My sẽ nói chuyện trọn vẹn với bạn.) Điều bạn muốn gỡ trước nhất là gì?`,
     ].join('\n\n');

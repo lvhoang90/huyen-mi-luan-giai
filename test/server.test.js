@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { openDb } from '../server/db.js';
 import { createApi } from '../server/routes.js';
 import { assessTurn } from '../server/quality.js';
 import { computeMetrics, wilson, insights } from '../server/admin.js';
 import { cleanProps, ingest } from '../server/events.js';
+import { openDb } from '../server/db.js';
 
 function harness(env = {}) {
   const db = openDb(':memory:'); const mails = []; let t = Date.UTC(2026, 9, 4, 3, 0, 0);
@@ -53,11 +53,20 @@ test('mã hết hạn sau 10 phút', async () => {
   h.close();
 });
 
+test('người vắng mặt rồi quay lại không bị tính là đã hết buổi đầu', async () => {
+  const h = await harness();
+  assert.equal((await h.call('POST', '/__gate')).text, 'ok');
+  h.tick(6 * 3600_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok');
+  h.tick(2 * 24 * 3600_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok');
+  h.close();
+});
+
 test('người ẩn danh chỉ chat được ~30 phút, đăng ký xong thì tiếp tục', async () => {
   const h = await harness();
   assert.equal((await h.call('POST', '/__gate')).text, 'ok');
-  h.tick(20 * 60_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok');
-  h.tick(13 * 60_000); const blocked = await h.call('POST', '/__gate'); assert.equal(blocked.status, 401); assert.equal(blocked.body.needAuth, true);
+  for (let i = 0; i < 7; i++) { h.tick(4 * 60_000); assert.equal((await h.call('POST', '/__gate')).text, 'ok'); } // trò chuyện liên tục tới phút 28
+  h.tick(4 * 60_000); h.tick(1); await h.call('POST', '/__gate'); h.tick(4 * 60_000);
+  const blocked = await h.call('POST', '/__gate'); assert.equal(blocked.status, 401); assert.equal(blocked.body.needAuth, true);
   await h.call('POST', '/api/auth/request', { email: 'a@b.vn' });
   await h.call('POST', '/api/auth/verify', { email: 'a@b.vn', code: codeOf(h.mails[0]) });
   assert.equal((await h.call('POST', '/__gate')).text, 'ok');
@@ -161,5 +170,70 @@ test('gửi điều thú vị vào email: cần đăng nhập, làm sạch nội
   assert.equal(r.status, 200);
   const m = h.mails.at(-1); assert.equal(m.to, 'a@b.vn'); assert.ok(m.text.includes('Reid Hoffman') && !m.text.includes('<b>') && m.text.includes('không phải lời tiên đoán'));
   assert.equal((await h.call('POST', '/api/account/hook', { lines: ['lại'] })).status, 429);
+  h.close();
+});
+
+import { repeatedPhrases, stockHits, pickLinkers, wordsOf } from '../server/voice.js';
+import { voiceBlock } from '../server/persona.js';
+test('giọng người thật: bắt cụm lặp, khuôn sáo, và đổi cách nối mỗi lượt', () => {
+  const prev = ['Nhưng My muốn hỏi thẳng, bạn đã thử ngỏ lời với ai chưa?', 'Nhưng My muốn hỏi thẳng, điều gì làm bạn mệt nhất?', 'Ừ, chỗ đó nghe cũng buồn cười thật.'];
+  const rep = repeatedPhrases(prev);
+  assert.ok(rep.some((g) => g.includes('my muốn hỏi')), 'phải bắt được cụm lặp');
+  assert.ok(!rep.some((g) => g.includes('buồn cười')), 'cụm chỉ xuất hiện một lần thì không bị tính là lặp');
+  assert.deepEqual(stockHits('Mình làm bằng sự tử tế chứ không phải để dội nước lạnh.').sort(), ['doi_lap', 'hoi_thang']);
+  assert.deepEqual(stockHits('Hôm nay trời mát, bạn đi bộ một vòng thử xem.'), []);
+  assert.deepEqual(stockHits('Cảm ơn bạn đã chia sẻ, My nghe rồi.'), ['nghe_roi']);
+  assert.notDeepEqual(pickLinkers('lượt 1'), pickLinkers('lượt 2'));
+  assert.equal(new Set(pickLinkers('x', 3)).size, 3);
+  const msgs = [{ role: 'user', content: 'a' }, ...prev.slice(0, 2).flatMap((c) => [{ role: 'assistant', content: c }, { role: 'user', content: 'b' }])];
+  assert.match(voiceBlock(msgs), /TUYỆT ĐỐI KHÔNG dùng lại/);
+  assert.ok(wordsOf('[[vui]]Xin chào!').join(' ') === 'xin chào');
+});
+test('chấm chất lượng bắt khuôn sáo và lặp cụm', () => {
+  const a = assessTurn({ phase: 'companion', userMsg: 'công việc mệt mỏi', reply: 'Nhưng My muốn hỏi thẳng, bằng sự tử tế chứ không phải để dội nước lạnh: công việc làm bạn mệt thế nào?', prevReplies: ['Nhưng My muốn hỏi thẳng, bạn mệt vì điều gì?', 'Nhưng My muốn hỏi thẳng, bạn đã nói với ai chưa?'] });
+  assert.ok(a.flags.includes('cum_sao_ron') && a.flags.includes('lap_cum_tu'));
+  const b = assessTurn({ phase: 'companion', userMsg: 'công việc mệt mỏi', reply: 'Sáu năm một bàn làm việc, nghe là biết mệt rồi. Hôm nay có chuyện gì thêm không?', prevReplies: ['Ừ, chỗ đó My cũng thấy lạ.'] });
+  assert.ok(!b.flags.includes('cum_sao_ron') && !b.flags.includes('lap_cum_tu'));
+});
+
+test('sendMail: production không có Resend thì báo lỗi, trừ khi bật MAIL_TO_LOG=1', async () => {
+  const { sendMail } = await import('../server/auth.js');
+  await assert.rejects(() => sendMail({ to: 'a@b.vn', subject: 's', text: 't' }, { NODE_ENV: 'production' }));
+  const r = await sendMail({ to: 'a@b.vn', subject: 's', text: 't' }, { NODE_ENV: 'production', MAIL_TO_LOG: '1' });
+  assert.equal(r.sent, false);
+});
+
+import { dueReminders, runReminders, buildReminder } from '../server/reminders.js';
+test('email nhắc: chỉ gửi cho người đồng ý, đúng thời điểm, tối đa 1 thư/tuần, dừng sau 3 thư, hủy được', async () => {
+  const db = openDb(':memory:'), H = 3_600_000, D = 24 * H, T0 = 1_800_000_000_000;
+  const ins = db.prepare('INSERT INTO users(email, created_at, last_login, remind_optin, remind_token) VALUES (?,?,?,?,?)');
+  ins.run('yes@x.vn', T0, T0, 1, 'tok-yes'); ins.run('no@x.vn', T0, T0, 0, 'tok-no');
+  const sent = []; const mail = async (m) => { sent.push(m); };
+  const run = (now) => runReminders({ db, mail, now, baseUrl: 'https://x.app' });
+  assert.equal(await run(T0 + 5 * H), 0);                       // mới dùng, chưa đến 24 giờ
+  assert.equal(await run(T0 + 25 * H), 1);                      // vắng 25 giờ: nhắc người đã đồng ý, không nhắc người chưa đồng ý
+  assert.equal(sent[0].to, 'yes@x.vn'); assert.match(sent[0].text, /api\/unsub\?t=tok-yes/); assert.ok(sent[0].headers['List-Unsubscribe']);
+  assert.equal(await run(T0 + 3 * D), 0);                       // chưa đủ 7 ngày
+  assert.equal(await run(T0 + 9 * D), 1); assert.equal(await run(T0 + 17 * D), 1);   // thư 2, thư 3
+  assert.equal(await run(T0 + 30 * D), 0);                      // đã 3 thư mà chưa quay lại: dừng hẳn
+  db.prepare('UPDATE users SET last_login = ? WHERE email = ?').run(T0 + 31 * D, 'yes@x.vn'); // người dùng quay lại
+  assert.equal(await run(T0 + 33 * D), 1);                      // tính lại từ đầu
+  db.prepare('UPDATE users SET remind_optin = 0 WHERE remind_token = ?').run('tok-yes');       // hủy
+  assert.equal(await run(T0 + 90 * D), 0);
+  assert.match(buildReminder('https://x.app', 'abc').text, /hủy|thôi nhận/i);
+});
+
+test('đăng ký có chọn nhận nhắc, hủy bằng liên kết một chạm, bật tắt trong tài khoản', async () => {
+  const h = await harness();
+  await h.call('POST', '/api/auth/request', { email: 'r@x.vn' });
+  const v = await h.call('POST', '/api/auth/verify', { email: 'r@x.vn', code: codeOf(h.mails[0]), remind: true });
+  assert.equal(v.body.user.remind, true);
+  const tok = h.db.prepare('SELECT remind_token t FROM users').get().t; assert.ok(tok);
+  const un = await h.call('GET', `/api/unsub?t=${tok}`); assert.equal(un.status, 200); assert.match(un.text, /Đã hủy/);
+  assert.equal(h.db.prepare('SELECT remind_optin o FROM users').get().o, 0);
+  assert.equal((await h.call('GET', '/api/unsub?t=sai')).text.includes('không còn hiệu lực'), true);
+  assert.equal((await h.call('POST', '/api/account/remind', { on: true })).body.remind, true);
+  assert.equal(h.db.prepare('SELECT remind_optin o FROM users').get().o, 1);
+  assert.equal((await h.call('POST', '/api/unsub?t=' + tok)).status, 200);  // hủy một chạm theo chuẩn List-Unsubscribe-Post
   h.close();
 });

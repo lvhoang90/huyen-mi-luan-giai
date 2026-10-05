@@ -81,7 +81,7 @@ function cohorts(r) {
   return `<div class="kpis"><div class="kpi"><div class="v">${pct(r.d1)}</div><div class="l">Quay lại sau 1 ngày</div><div class="n">${ci(r.d1)}</div></div><div class="kpi"><div class="v">${pct(r.d3)}</div><div class="l">Sau 3 ngày</div><div class="n">${ci(r.d3)}</div></div><div class="kpi"><div class="v">${pct(r.d7)}</div><div class="l">Sau 7 ngày</div><div class="n">${ci(r.d7)}</div></div></div>
     <div class="scroll" style="margin-top:12px"><table><thead><tr><th>Ngày đầu</th><th class="num">Người</th><th>D1</th><th>D3</th><th>D7</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-const FLAG_LABEL = { qua_nhieu_cau_hoi: 'Hỏi dồn nhiều câu', qua_dai: 'Trả lời quá dài', lap_lai: 'Lặp ý hoặc lặp lời mở đầu', noi_chac_nich: 'Nói chắc nịch, tiên đoán', doa_han_hoac_ban_cung: 'Dọa hạn, gợi ý cúng bái', thieu_nhan_tang: 'Luận giải thiếu nhãn tầng', thieu_canh_bao_gioi_han: 'Luận giải thiếu cảnh báo giới hạn', khong_bam_loi_nguoi_dung: 'Không bám lời người dùng' };
+const FLAG_LABEL = { qua_nhieu_cau_hoi: 'Hỏi dồn nhiều câu', qua_dai: 'Trả lời quá dài', lap_lai: 'Lặp ý hoặc lặp lời mở đầu', noi_chac_nich: 'Nói chắc nịch, tiên đoán', doa_han_hoac_ban_cung: 'Dọa hạn, gợi ý cúng bái', thieu_nhan_tang: 'Luận giải thiếu nhãn tầng', thieu_canh_bao_gioi_han: 'Luận giải thiếu cảnh báo giới hạn', khong_bam_loi_nguoi_dung: 'Không bám lời người dùng', cum_sao_ron: 'Khuôn sáo nghe như máy viết sẵn', lap_cum_tu: 'Lặp cụm từ giữa các lượt', vien_dan_nhieu: 'Viện dẫn tâm lý học, khoa học quá dày' };
 function quality(q) {
   const rows = Object.entries(q.flags).map(([k, w]) => `<tr><td>${esc(FLAG_LABEL[k] ?? k)}</td><td class="num"><b>${pct(w, 1)}</b></td><td class="muted">${ci(w)}</td></tr>`).join('');
   const cr = q.crisis, ms = (v) => (v == null ? '–' : `${(v / 1000).toFixed(1)} giây`);
@@ -92,14 +92,15 @@ function quality(q) {
     <div class="scroll" style="margin-top:12px"><table><thead><tr><th>Dấu hiệu cần xem lại</th><th class="num">Tỉ lệ lượt</th><th>Độ chắc chắn</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="note">Mỗi lượt được chấm bằng quy tắc minh bạch ngay trên máy chủ. Hệ thống không lưu nội dung trò chuyện, chỉ lưu chỉ số: số từ, số câu hỏi, độ lặp, số chi tiết người dùng được nhắc lại và các cờ an toàn. Trung bình ${q.meanQuestions ?? '–'} câu hỏi và ${q.meanWords ?? '–'} từ mỗi lượt.</p>`;
 }
-function satisfaction(s) {
+function satisfaction(s, intro) {
   const r = s.resonance, tot = r.n || 1, cols = ['var(--seq1)', 'var(--seq2)', 'var(--seq4)'], names = ['Chưa đúng lắm', 'Gần đúng', 'Rất đúng'];
   const bar = r.dist.map((v, i) => `<span style="flex:${v};background:${cols[i]}" title="${names[i]}: ${v}"></span>`).join('');
   const key = r.dist.map((v, i) => `<span><i style="background:${cols[i]}"></i>${names[i]} ${Math.round((v / tot) * 100)}% (${v})</span>`).join('');
   const nps = s.nps;
   return `<div class="kpis"><div class="kpi"><div class="v">${pct(r.good)}</div><div class="l">Cho rằng My nói đúng (gần đúng trở lên)</div><div class="n">${ci(r.good)}</div></div>
     <div class="kpi"><div class="v">${pct(r.strong)}</div><div class="l">Cho rằng "rất đúng"</div><div class="n">${ci(r.strong)}</div></div>
-    <div class="kpi"><div class="v">${nps.score ?? '–'}</div><div class="l">NPS (muốn giới thiệu bạn bè)</div><div class="n">n=${nps.n}: ${nps.promoters} ủng hộ, ${nps.passives} trung lập, ${nps.detractors} chưa hài lòng</div></div></div>
+    <div class="kpi"><div class="v">${nps.score ?? '–'}</div><div class="l">NPS (muốn giới thiệu bạn bè)</div><div class="n">n=${nps.n}: ${nps.promoters} ủng hộ, ${nps.passives} trung lập, ${nps.detractors} chưa hài lòng</div></div>
+    <div class="kpi"><div class="v">${pct(intro?.skipFirstVisit)}</div><div class="l">Bỏ qua màn mở đầu (lần đầu)</div><div class="n">${ci(intro?.skipFirstVisit) || 'Chưa có dữ liệu'}. Trên 40% thì nên rút ngắn.</div></div></div>
     <div class="stack" role="img" aria-label="Phân bố đánh giá độ đúng">${bar}</div><div class="stackkey">${key}</div>
     <p class="note">Lưu ý hiệu ứng Barnum: người dùng dễ thấy lời nói chung chung là "đúng với mình". Đừng dùng điểm này một mình để kết luận My chính xác; hãy đọc cùng tỉ lệ "bám lời người dùng" và phản hồi tự do.</p>`;
 }
@@ -131,13 +132,14 @@ function render() {
     <section class="panel"><h2>Hành trình khách hàng</h2><p class="sub">Số người duy nhất đi tới từng bước. "Từ bước trước" là tỉ lệ chuyển đổi, kèm khoảng tin cậy ở bảng bên dưới.</p>${funnel(m.funnel)}</section>
     <section class="panel"><h2>Theo ngày</h2><p class="sub">Người mở trang, người bắt đầu trò chuyện và người đăng ký xong mỗi ngày.</p>${lineChart(m.series)}</section>
     <div class="grid2"><section class="panel"><h2>Giữ chân</h2><p class="sub">Tỉ lệ người mới quay lại đúng ngày thứ 1, 3, 7 sau lần đầu.</p>${cohorts(m.retention)}</section>
-      <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>${satisfaction(m.satisfaction)}</section></div>
+      <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>${satisfaction(m.satisfaction, m.intro)}</section></div>
     <section class="panel" style="margin-top:16px"><h2>Chất lượng tư vấn</h2><p class="sub">An toàn, độ bám người dùng, độ lặp và tốc độ của từng lượt trả lời.</p>${quality(m.quality)}</section>
     <div class="grid2">${segTable('Theo nhóm tuổi', m.segments.age)}${segTable('Theo lĩnh vực làm việc', m.segments.field)}</div>
     <div class="grid2" style="margin-top:16px"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${listTable(m.startChoices, 'name', 'n')}</section><section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}).</p>${listTable(m.growth.referrals, 'ref', 'n')}</section></div>
     <div class="grid2" style="margin-top:16px">${frameworkTable('AARRR (thu hút, kích hoạt, giữ chân, giới thiệu, doanh thu)', m.frameworks.AARRR)}${frameworkTable('HEART (hài lòng, tham gia, tiếp nhận, giữ chân, hoàn thành)', m.frameworks.HEART)}</div>
     <section class="panel" style="margin-top:16px"><h2>Phương pháp và quyền riêng tư</h2>
-      <p class="note">Khung đo: AARRR (McClure, 2007), HEART (Rodden và cộng sự, Google, 2010), NPS (Reichheld, 2003). Mọi tỉ lệ có khoảng tin cậy Wilson 95%; khuyến nghị chỉ kết luận khi đủ cỡ mẫu. Người dùng được nhận diện bằng mã ẩn danh trong cookie; sự kiện chỉ gồm tên bước và vài giá trị ngắn, không chứa nội dung trò chuyện, tên hay ngày sinh. Nội dung trò chuyện chỉ được lưu khi người dùng đã đăng nhập và đồng ý, mã hóa nếu đặt <code>HUYENMY_DATA_KEY</code>, và xóa được cùng tài khoản.</p></section></div>`;
+      <p class="note">Khung đo: AARRR (McClure, 2007), HEART (Rodden và cộng sự, Google, 2010), NPS (Reichheld, 2003). Mọi tỉ lệ có khoảng tin cậy Wilson 95%; khuyến nghị chỉ kết luận khi đủ cỡ mẫu. Người dùng được nhận diện bằng mã ẩn danh trong cookie; sự kiện chỉ gồm tên bước và vài giá trị ngắn, không chứa nội dung trò chuyện, tên hay ngày sinh. Nội dung trò chuyện chỉ được lưu khi người dùng đã đăng nhập và đồng ý, mã hóa nếu đặt <code>HUYENMY_DATA_KEY</code>, và xóa được cùng tài khoản.</p></section>
+    <p class="note" style="text-align:center;margin-top:18px">© 2026 Lương Việt Hoàng. Bảo lưu mọi quyền.</p></div>`;
   app.querySelectorAll('[data-d]').forEach((b) => (b.onclick = () => { days = +b.dataset.d; history.replaceState(null, '', `?days=${days}`); load(); }));
   document.getElementById('out').onclick = async () => { await fetch('/api/auth/logout', { method: 'POST' }); load(); };
   document.getElementById('exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })); a.download = `huyenmy-${days}d.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 3000); };

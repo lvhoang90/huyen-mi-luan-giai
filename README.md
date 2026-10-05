@@ -17,7 +17,7 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 
 ## Mở đầu và nhịp buổi trò chuyện
 
-- **Hook mở đầu:** sau khi tính xong lá số, My kể những người nổi tiếng cùng ngày sinh (hoặc sát ngày), một người cùng lĩnh vực làm việc của bạn và người cùng năm sinh, chọn theo tuổi: người trẻ nhận ngôi sao trẻ, người lớn tuổi nhận danh nhân, nhà khoa học, nhà văn. Dữ liệu ở `src/engine/famous.js` và `famous-more.js` (khoảng 470 người, tự soạn, chưa đối chiếu nguồn mở; `tools/fetch-famous.mjs` dựng bộ đầy đủ từ Wikidata khi có mạng). My luôn nói rõ đó chỉ là điểm chung, không phải số phận.
+- **Hook mở đầu:** sau khi tính xong lá số, My kể những người nổi tiếng cùng ngày sinh (hoặc sát ngày), một người cùng lĩnh vực làm việc của bạn và người cùng năm sinh, chọn theo tuổi: người trẻ nhận ngôi sao trẻ, người lớn tuổi nhận danh nhân, nhà khoa học, nhà văn. Dữ liệu ở `src/engine/famous.js` và `famous-more.js` (khoảng 470 người, tự soạn, chưa đối chiếu nguồn mở; `tools/fetch-famous.mjs` + `tools/merge-famous.mjs` dựng thêm bộ từ Wikidata (CC0) và đối chiếu bộ tự soạn khi chạy ở nơi có mạng; xem đầu tệp). My luôn nói rõ đó chỉ là điểm chung, không phải số phận.
 - **Mỗi buổi tối đa 30 phút:** còn 5 phút thì hiện đồng hồ, hết giờ My tạm biệt, nói điều thật sự chưa kể từ lá số, rồi nghỉ 3 giờ. Chỉnh `SESSION_MIN`, `WARN_MIN`, `COOLDOWN_MIN` trong `src/main.js`.
 
 ## Tài khoản, theo dõi hành trình và trang quản trị
@@ -82,8 +82,16 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 - **Nhân vật 2D** vẽ bằng mã nên nét gọn, kiểu sticker, chưa có độ tinh xảo của tranh họa sĩ vẽ tay. Quay đầu chỉ mô phỏng bằng cách dịch chuyển nét mặt so với tóc và da, không phải góc nhìn 3/4 thật. Muốn nhân vật đẹp hơn, nên nhờ họa sĩ vẽ lại theo cùng cấu trúc bộ phận (xem `tools/rig.py`).
 - Không dùng giọng nói: My chỉ trò chuyện bằng chữ. Không còn thư viện 3D nên ứng dụng gọn nhẹ.
 
+## Bản quyền
+
+© 2026 **Lương Việt Hoàng**. Bảo lưu mọi quyền. Đây là phần mềm độc quyền, không phải nguồn mở: **mọi sử dụng (sao chép, chạy bản công khai, chỉnh sửa, phân phối, thương mại, huấn luyện mô hình) cần có sự cho phép bằng văn bản của tác giả**. Xem [LICENSE](LICENSE) (song ngữ) và [NOTICE](NOTICE) (thành phần bên thứ ba). **Cách xin phép:** gửi email tới luongviethoang.hcm@gmail.com, nêu bạn là ai, định làm gì, ở đâu và trong bao lâu; khi đồng ý, tác giả trả lời theo [mẫu cấp phép](docs/MAU-GIAY-CAP-PHEP.md). Bản quyền tự phát sinh khi sáng tác (Việt Nam là thành viên Công ước Berne); đăng ký tại Cục Bản quyền tác giả là tùy chọn nhưng giúp chứng minh khi có tranh chấp. Đây không phải tư vấn pháp lý.
+
 ## Chất liệu mở và giấy phép
 
 - `astronomy-engine` (MIT), `@anthropic-ai/sdk` (MIT).
 - Nhân vật 2D do dự án tự vẽ bằng mã (`tools/chibi.py`, `tools/rig.py`); không dùng mô hình hay hình ảnh của bên thứ ba.
 - `tuvi-neo` và `lunar-javascript` chỉ dùng để đối chiếu khi kiểm thử, không nằm trong sản phẩm.
+
+Hướng dẫn đưa lên web: [docs/TRIEN-KHAI.md](docs/TRIEN-KHAI.md).
+
+Trang pháp lý (Điều khoản, Quyền riêng tư, Bản quyền) soạn ở `docs/legal/*.md` và `LICENSE`, dựng thành `public/*.html` bằng `node tools/build-legal.mjs`.
