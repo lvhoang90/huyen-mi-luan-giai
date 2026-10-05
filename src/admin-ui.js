@@ -57,3 +57,5 @@ export function stackBar(items, total = items.reduce((s, i) => s + i.n, 0)) {
   return `<div class="stack" role="img" aria-label="Phân bố">${items.map((i) => `<span style="flex:${i.n};background:${i.color}" title="${esc(i.label)}: ${i.n}"></span>`).join('')}</div>
     <div class="stackkey">${items.map((i) => `<span><i style="background:${i.color}"></i>${esc(i.label)} ${Math.round((i.n / t) * 100)}% (${i.n})</span>`).join('')}</div>`;
 }
+
+export const GREET = { goc: 'Gốc: người lữ khách', an_tam: 'An tâm: không cần vội', am_ap: 'Ấm áp: chào theo giờ', minh_bach: 'Minh bạch: My là AI' };

@@ -6,6 +6,7 @@ import { track, sessionId, ageBand } from './track.js';
 import { shareCard } from './share.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
+import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
@@ -18,7 +19,7 @@ const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
 createLanterns($('#lanterns'));
 mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
-const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n), poke: (x, y) => character.poke(x, y), greeting: () => { const nick = load()?.profile?.nickname; return nick ? `Chào mừng ${nick} trở lại` : ''; } });
+const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n), poke: (x, y) => character.poke(x, y), variant: GV, greeting: () => { const nick = load()?.profile?.nickname; return nick ? `Chào mừng ${nick} trở lại` : GREETS[GV].veil(); } });
 const sndBtn = $('#snd'), sndTop = $('#btn-sound');
 const showSnd = () => { const t = sound.on ? 'Tắt nhạc nền' : 'Bật nhạc nền'; sndBtn.textContent = sound.on ? '♪ Nhạc nền: bật' : '♪ Nhạc nền: tắt'; sndTop.classList.toggle('on', sound.on); sndTop.title = t; sndTop.setAttribute('aria-label', t); for (const b of [sndBtn, sndTop]) b.setAttribute('aria-pressed', String(sound.on)); };
 const toggleSnd = () => { sound.set(!sound.on); showSnd(); track('sound_toggle', { on: sound.on }); };
@@ -470,11 +471,7 @@ $('#btn-account').onclick = openAccount;
 $('#veil-login').onclick = () => { track('login_click', { where: 'landing' }); openAccount(); };
 
 // ---------------- hành trình ----------------
-const INTRO = [
-  '[[vui]]Chào bạn, người lữ khách đã tìm đến đây.',
-  '[[chiem_nghiem]]Tôi là Huyền My. Tôi giữ lại những gì còn sót của một dòng truyền thừa xưa: thần số, tinh tượng, âm dương ngũ hành.',
-  '[[nghiem_tuc]]My không nói trước điều chưa đến, cũng không nói điều bạn chỉ muốn nghe. [[chia_se]]My chỉ soi lại tấm bản đồ mà trời đất khẽ đặt vào ngày bạn sinh ra, để bạn nhìn mình rõ hơn.',
-];
+const INTRO = () => GREETS[GV].intro();
 
 /** Dịch vụ dành cho người từ đủ 16 tuổi. Người dưới 16 chỉ tiếp tục khi có cha mẹ hoặc người giám hộ đồng ý. Trả về false nếu dừng. */
 async function ageGate(y, m, d) {
@@ -760,7 +757,7 @@ async function tryCode(code) {
 }
 // Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
 const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/[^\w-]/g, '').slice(0, 20);
-track('landing_view', { ref: urlRef });
+track('landing_view', { ref: urlRef, gv: GV });
 try { const nav = performance.getEntriesByType('navigation')[0]; if (nav && nav.type !== 'navigate') track('page_reload', { type: nav.type, step: load()?.phase ?? 'new' }); } catch {}
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
   ACCOUNT = { accounts: !!me.accounts, user: me.user ?? null, refCode: me.refCode ?? '' };
@@ -837,7 +834,7 @@ async function enter(resume) {
   }
   S.phase = 'intro'; stage.emo('binh_thuong');
   if (S.draft?.fullName) return collect(); // điền dở từ lần trước: bỏ qua lời chào, nối tiếp luôn
-  for (const line of INTRO) await say(line, 900, true);
+  for (const line of INTRO()) await say(line, 900, true);
   await collect();
 }
 

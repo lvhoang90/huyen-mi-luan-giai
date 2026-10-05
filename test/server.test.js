@@ -318,3 +318,21 @@ test('một lăng kính mỗi lượt: cờ trộn nhiều hệ và lời dặn 
   assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'none' }), /không dùng thuật ngữ nào/);
   assert.doesNotMatch(buildSystemPrompt('reading', profile, chart, [], {}), /LĂNG KÍNH NGƯỜI NÀY CHỌN:/);
 });
+
+test('thử nghiệm lời chào: gom theo biến thể và chỉ kết luận khi đủ mẫu', async () => {
+  const h = await harness(); const T0 = Date.UTC(2026, 9, 4, 3, 0, 0), N = T0 + 3_600_000;
+  const evt = (a, name, props) => ingest(h.db, { actor: a, sid: `s-${a}`, events: [{ name, props, t: T0 }] }, N);
+  for (let i = 0; i < 6; i++) { // 3 người bỏ qua mở đầu ở biến thể goc, 3 người xem hết ở biến thể an_tam
+    const a = `g${i}`, v = i < 3 ? 'goc' : 'an_tam';
+    evt(a, 'landing_view', { gv: v }); evt(a, 'intro_view', { kind: 'full', gv: v });
+    if (i < 3) evt(a, 'intro_skip', { kind: 'full', gv: v });
+    evt(a, 'enter_click', {}); if (i % 2) { evt(a, 'intake_done', {}); evt(a, 'first_message', {}); }
+  }
+  const j = computeJourney(h.db, { now: N });
+  const goc = j.greetTest.find((g) => g.variant === 'goc'), at = j.greetTest.find((g) => g.variant === 'an_tam');
+  assert.equal(goc.n, 3); assert.equal(goc.skip.p, 1); assert.equal(at.skip.p, 0);
+  assert.equal(at.chat.p, 2 / 3);
+  assert.match(j.greetVerdict, /Chưa đủ dữ liệu/);
+  assert.ok(listParticipants(h.db, { now: N }).rows.every((r) => r.greet), 'mỗi người có lời chào được gán');
+  h.close();
+});

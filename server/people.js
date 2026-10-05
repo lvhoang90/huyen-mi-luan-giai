@@ -66,6 +66,8 @@ export const COLUMNS = [
   { key: 'os', label: 'Hệ điều hành', type: 'cat', group: 'Kỹ thuật' },
   { key: 'browser', label: 'Trình duyệt', type: 'cat', group: 'Kỹ thuật' },
   { key: 'ref', label: 'Nguồn giới thiệu', type: 'cat', group: 'Kỹ thuật' },
+  { key: 'greet', label: 'Lời chào mở đầu (thử nghiệm)', type: 'cat', group: 'Kỹ thuật' },
+  { key: 'skipIntro', label: 'Bỏ qua màn mở đầu', type: 'bool', group: 'Kỹ thuật' },
   { key: 'moodStart', label: 'Tâm trạng lúc đầu (1-5)', type: 'num', group: 'Cảm xúc', def: true },
   { key: 'moodEnd', label: 'Tâm trạng lúc sau (1-5)', type: 'num', group: 'Cảm xúc', def: true },
   { key: 'moodDelta', label: 'Thay đổi tâm trạng', type: 'num', group: 'Cảm xúc', def: true },
@@ -141,6 +143,8 @@ function buildRow(p, b) {
     ageBand: intake.ageBand ?? null, gender: intake.gender ?? null, field: intake.field && intake.field !== 'none' ? intake.field : null, hasTime: intake.hasTime ?? null, hasPlace: intake.hasPlace ?? null,
     device: u?.device ?? anonRec?.device ?? null, os: u?.os ?? anonRec?.os ?? null, browser: u?.browser ?? anonRec?.browser ?? null,
     ref: firstEv('landing_view')?.p.ref || u?.ref || null,
+    greet: allEv('landing_view').map((e) => e.p.gv).find(Boolean) ?? null,
+    sawFullIntro: p.evs.some((e) => e.name === 'intro_view' && e.p.kind === 'full'), skipIntro: p.evs.some((e) => e.name === 'intro_skip' && e.p.kind === 'full'),
     moodStart, moodEnd, moodDelta: moodStart != null && moodEnd != null ? moodEnd - moodStart : null,
     valFirst: r2(firstH.length ? mean(firstH) : null), valLast: r2(lastH.length ? mean(lastH) : null), valDelta: r2(valDelta), trend: CLASS_LABEL[classify(valDelta)] ?? null,
     valMean: r2(mean(vals.map((t) => t.u_val))), valSlope: r2(sl), domEmo: mode(vals.filter((t) => t.u_emo !== 'trung_tinh').map((t) => t.u_emo)) ?? (vals.length ? 'trung_tinh' : null),
@@ -262,6 +266,27 @@ export function computeJourney(db, { days = 0, now = Date.now() } = {}) {
   const both = persons.filter((x) => x.row.moodDelta != null && x.row.valDelta != null);
   const validity = { n: both.length, r: both.length >= 8 ? r2(pearson(both.map((x) => x.row.moodDelta), both.map((x) => x.row.valDelta))) : null };
 
+  // ---- thử nghiệm lời chào mở đầu: mỗi người mới được gán ngẫu nhiên một biến thể ----
+  const gv = new Map();
+  for (const x of persons) { const k = x.row.greet; if (k) { const a = gv.get(k) ?? []; a.push(x.row); gv.set(k, a); } }
+  const greetTest = [...gv].map(([v, rows]) => {
+    const full = rows.filter((r) => r.sawFullIntro), moodD = rows.map((r) => r.moodDelta).filter((d) => d != null);
+    return {
+      variant: v, n: rows.length,
+      skip: wilson(full.filter((r) => r.skipIntro).length, full.length),
+      enter: wilson(rows.filter((r) => r.stageNo >= 1).length, rows.length), intake: wilson(rows.filter((r) => r.stageNo >= 2).length, rows.length),
+      chat: wilson(rows.filter((r) => r.stageNo >= 4).length, rows.length), closed: wilson(rows.filter((r) => r.stageNo >= 6).length, rows.length),
+      moodStart: r2(mean(rows.map((r) => r.moodStart).filter((d) => d != null))), moodDelta: meanCi(moodD),
+      valDelta: meanCi(rows.map((r) => r.valDelta).filter((d) => d != null)), nps: r1(mean(rows.map((r) => r.nps).filter((d) => d != null))),
+    };
+  }).sort((a, c) => c.n - a.n);
+  const ready = greetTest.filter((g) => g.chat.n >= 20);
+  let greetVerdict = greetTest.length < 2 ? 'Cần ít nhất hai biến thể có người dùng.' : ready.length < 2 ? 'Chưa đủ dữ liệu: cần từ 20 người mỗi biến thể trở lên mới so sánh.' : null;
+  if (!greetVerdict) {
+    const best = [...ready].sort((a, c) => c.chat.p - a.chat.p)[0], clear = ready.filter((g) => g !== best && g.chat.hi < best.chat.lo);
+    greetVerdict = clear.length ? `"${best.variant}" dẫn đầu rõ rệt về tỉ lệ bắt đầu trò chuyện (khoảng tin cậy không chồng lên ${clear.map((g) => `"${g.variant}"`).join(', ')}).` : 'Chưa có biến thể nào dẫn đầu rõ rệt: các khoảng tin cậy còn chồng nhau. Cứ để chạy thêm.';
+  }
+
   // ---- an toàn ----
   const crisisPeople = persons.filter((x) => x.row.crisis > 0).length;
   const notes = [];
@@ -279,7 +304,7 @@ export function computeJourney(db, { days = 0, now = Date.now() } = {}) {
     range: { days, from: b.from ? new Date(b.from).toISOString() : null },
     coverage: { people: persons.length, withTurns: withTurns.length, turns: allTurns.length, selfReportPairs: pairs.length },
     selfReport, byTurn, byMinute, trend, emoShare, overall, transitions, recovery, readingEffect, toneEffect, validity,
-    crisis: { people: crisisPeople }, notes,
+    greetTest, greetVerdict, crisis: { people: crisisPeople }, notes,
     emotions: Object.fromEntries(Object.entries(EMO).map(([k, v]) => [k, v.label])),
   };
 }
