@@ -1,6 +1,6 @@
 # Mẫu trả lời cấp phép / Permission grant template
 
-Tác giả dán đoạn này vào issue (hoặc gửi qua email riêng) khi đồng ý. Cấp phép chỉ có hiệu lực khi nêu rõ phạm vi, thời hạn và điều kiện.
+Tác giả dán đoạn này vào email (chủ yếu gửi qua email riêng) khi đồng ý. Cấp phép chỉ có hiệu lực khi nêu rõ phạm vi, thời hạn và điều kiện.
 The author pastes this into the issue (or sends it privately) when granting permission.
 
 ---

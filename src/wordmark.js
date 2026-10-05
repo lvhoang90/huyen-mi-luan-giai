@@ -1,6 +1,6 @@
 // Chữ riêng của logo "HUYỀN MY LUẬN GIẢI": nét đơn đều, chân hairline và hạt kim cương, vẽ bằng đường dẫn nên không phụ thuộc phông.
 // Mỗi chữ cái cao 100 đơn vị (đỉnh y=0, chân y=100); dấu thanh vẽ riêng ở trên (y âm) hoặc dưới (y > 100).
-// Bản quyền © 2026 Lương Việt Hoàng. Xem LICENSE.
+// Bản quyền © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền. Xem LICENSE.
 const T = 12, H = 3.6; // nét chính, nét chân (hairline)
 const S = (d, w = T) => ({ d, w });
 const serif = (x1, x2, y) => S(`M${x1} ${y}H${x2}`, H);

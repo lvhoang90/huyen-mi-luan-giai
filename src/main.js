@@ -19,7 +19,7 @@ createLanterns($('#lanterns'));
 mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
 const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n) });
 window.__introStarted = true; requestAnimationFrame(() => intro.start());
-console.info('%cHuyền My Luận Giải 1.0%c © 2026 Lương Việt Hoàng. Bản quyền mở, mọi sử dụng cần có sự cho phép của tác giả.', 'color:#e2c27d;font-weight:700', 'color:inherit');
+console.info('%cHuyền My Luận Giải 1.0%c © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền, mọi sử dụng cần có sự cho phép bằng văn bản của tác giả.', 'color:#e2c27d;font-weight:700', 'color:inherit');
 const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const stage = {
   setMood: (m) => character.setMood(m), setSpeaking: (v) => character.setSpeaking(v), emo: (n) => character.setEmotion(n),

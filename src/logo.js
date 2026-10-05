@@ -1,5 +1,5 @@
 // Logo "Huyền My Luận Giải 1.0": huy hiệu tròn, HUYỀN MY uốn trên cung, LUẬN GIẢI uốn dưới cung, quả cầu pha lê xoay ở tâm.
-// Chữ là nét vẽ riêng (wordmark.js), ánh vàng chạy và quầng sáng đập nhẹ. Bản quyền © 2026 Lương Việt Hoàng. Xem LICENSE.
+// Chữ là nét vẽ riêng (wordmark.js), ánh vàng chạy và quầng sáng đập nhẹ. Bản quyền © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền. Xem LICENSE.
 import { arc, straight } from './wordmark.js';
 let n = 0;
 

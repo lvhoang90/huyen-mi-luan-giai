@@ -1,6 +1,6 @@
 // Mở màn: Huyền My xuất hiện ở tâm huy hiệu (ngay quả cầu), rồi dời lên (màn dọc) hoặc sang trái (màn ngang).
 // Lần đầu tiên: cận mặt nhắm mắt, mở mắt, lùi ra toàn thân, huy hiệu hiện lên, rồi dời về chỗ. Các lần sau: bản ngắn.
-// Bản quyền © 2026 Lương Việt Hoàng. Xem LICENSE.
+// Bản quyền © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền. Xem LICENSE.
 const SEEN = 'huyenmy.seen';
 const flag = { get: () => { try { return localStorage.getItem(SEEN) === '1'; } catch { return false; } }, set: () => { try { localStorage.setItem(SEEN, '1'); } catch {} } };
 
