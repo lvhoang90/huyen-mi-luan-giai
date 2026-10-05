@@ -1,5 +1,6 @@
 // Dựng src/engine/famous-wikidata.js từ kết quả của fetch-famous.mjs, hoặc đối chiếu bộ tự soạn.
 // Dùng:  node tools/merge-famous.mjs data/wikidata-raw.json [--per-day 8] [--per-field 3]
+//        node tools/merge-famous.mjs data/wikidata-raw.json --out /đường/dẫn/famous-wikidata.js   (ghi ra nơi khác)
 //        node tools/merge-famous.mjs data/wikidata-raw.json --audit      (không ghi tệp, chỉ in chỗ lệch)
 import fs from 'node:fs';
 import { normalizeRow, selectPerDay, dedupe, audit, renderModule } from './famous-lib.mjs';
@@ -17,5 +18,6 @@ if (process.argv.includes('--audit')) {
 }
 const rows = raws.map(normalizeRow).filter(Boolean);
 const picked = dedupe(selectPerDay(rows, +arg('per-day', 8), +arg('per-field', 3)), own.map((e) => e.name));
-fs.writeFileSync(new URL('../src/engine/famous-wikidata.js', import.meta.url), renderModule(picked, { date: new Date().toISOString().slice(0, 10) }));
-console.log(`Đọc ${raws.length} dòng, hợp lệ ${rows.length}, ghi ${picked.length} người mới vào src/engine/famous-wikidata.js`);
+const outFile = arg('out', null);
+fs.writeFileSync(outFile ?? new URL('../src/engine/famous-wikidata.js', import.meta.url), renderModule(picked, { date: new Date().toISOString().slice(0, 10) }));
+console.log(`Đọc ${raws.length} dòng, hợp lệ ${rows.length}, ghi ${picked.length} người mới vào ${outFile ?? 'src/engine/famous-wikidata.js'}`);

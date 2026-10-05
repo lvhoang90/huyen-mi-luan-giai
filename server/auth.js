@@ -29,7 +29,8 @@ export async function sendMail({ to, subject, text }, env = process.env, fetchIm
     if (!r.ok) throw new Error(`mail ${r.status}`);
     return { sent: true };
   }
-  if (env.NODE_ENV === 'production') throw new Error('Chưa cấu hình gửi email (RESEND_API_KEY)');
+  // MAIL_TO_LOG=1: chỉ để thử riêng khi chưa có Resend; mã đăng nhập sẽ nằm trong nhật ký máy chủ (ai đọc được nhật ký đều thấy). Đừng bật khi đã mở công khai.
+  if (env.NODE_ENV === 'production' && env.MAIL_TO_LOG !== '1') throw new Error('Chưa cấu hình gửi email (RESEND_API_KEY)');
   console.log(`\n[email thử nghiệm] gửi tới ${to}\n${subject}\n${text}\n`);
   return { sent: false, dev: true };
 }

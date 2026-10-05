@@ -195,3 +195,10 @@ test('chấm chất lượng bắt khuôn sáo và lặp cụm', () => {
   const b = assessTurn({ phase: 'companion', userMsg: 'công việc mệt mỏi', reply: 'Sáu năm một bàn làm việc, nghe là biết mệt rồi. Hôm nay có chuyện gì thêm không?', prevReplies: ['Ừ, chỗ đó My cũng thấy lạ.'] });
   assert.ok(!b.flags.includes('cum_sao_ron') && !b.flags.includes('lap_cum_tu'));
 });
+
+test('sendMail: production không có Resend thì báo lỗi, trừ khi bật MAIL_TO_LOG=1', async () => {
+  const { sendMail } = await import('../server/auth.js');
+  await assert.rejects(() => sendMail({ to: 'a@b.vn', subject: 's', text: 't' }, { NODE_ENV: 'production' }));
+  const r = await sendMail({ to: 'a@b.vn', subject: 's', text: 't' }, { NODE_ENV: 'production', MAIL_TO_LOG: '1' });
+  assert.equal(r.sent, false);
+});
