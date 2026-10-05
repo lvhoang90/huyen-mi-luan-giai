@@ -41,7 +41,21 @@ const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } cat
 function scheduleSync() {
   if (!ACCOUNT.user?.consentMemory || !S.profile) return;
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: S }) }).catch(() => {}), 8000);
+  syncTimer = setTimeout(pushState, 8000);
+}
+const pushState = () => { if (ACCOUNT.user?.consentMemory && S.profile) fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state: S }), keepalive: true }).catch(() => {}); };
+// Đóng tab hoặc chuyển ứng dụng trong lúc còn chờ 8 giây: đẩy ngay để thiết bị khác không thấy bản cũ.
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && syncTimer) { clearTimeout(syncTimer); syncTimer = 0; pushState(); } });
+addEventListener('pagehide', () => { if (syncTimer) { clearTimeout(syncTimer); syncTimer = 0; pushState(); } });
+/** Lấy lại cuộc trò chuyện đã lưu trên máy chủ nếu nó đầy đủ hơn bản trên thiết bị này. Trả về true khi đã thay trạng thái. */
+async function restoreFromServer() {
+  const r = await apiJson('/api/state');
+  if (!r.state?.profile) return false;
+  const local = load();
+  if (local?.profile && (local.messages?.length ?? 0) >= (r.state.messages?.length ?? 0)) return false;
+  try { S = { ...r.state, profile: normalizeProfile(r.state.profile) }; } catch { return false; }
+  try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {}
+  return true;
 }
 const load = () => { try { return JSON.parse(localStorage.getItem(STORE)); } catch { return null; } };
 let chart = null;
@@ -302,8 +316,8 @@ function buildSignup(host, { title, done, canSkip = true }) {
   host.replaceChildren();
   const msg = h('p', { className: 'su-msg', role: 'alert' });
   const email = h('input', { className: 'field', type: 'email', placeholder: 'Email của bạn', autocomplete: 'email', inputMode: 'email', maxLength: 120, ariaLabel: 'Email' });
-  const consent = h('input', { type: 'checkbox', id: 'su-consent' });
-  const remind = h('input', { type: 'checkbox', id: 'su-remind' });
+  const consent = h('input', { type: 'checkbox' });
+  const remind = h('input', { type: 'checkbox' });
   const go = h('button', { className: 'btn primary', textContent: 'Gửi mã vào email' });
   const skip = h('button', { className: 'btn', textContent: 'Để sau', onclick: () => { track('signup_skip'); done(false); } });
   const code = h('input', { className: 'field', placeholder: 'Mã 6 số', autocomplete: 'one-time-code', inputMode: 'numeric', maxLength: 6, ariaLabel: 'Mã xác nhận' });
@@ -314,8 +328,8 @@ function buildSignup(host, { title, done, canSkip = true }) {
       h('p', { className: 'su-title', textContent: title }),
       h('p', { className: 'su-sub', textContent: 'Không cần mật khẩu. My chỉ gửi một mã 6 số để xác nhận email của bạn.' }),
       h('div', { className: 'row' }, email),
-      h('label', { className: 'su-consent', htmlFor: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
-      h('label', { className: 'su-consent', htmlFor: 'su-remind' }, remind, h('span', { textContent: 'Gửi cho mình một email nhắc nhẹ khi đến lúc kể tiếp (tối đa một thư mỗi tuần, hủy được bất cứ lúc nào). Không chọn thì My không gửi gì ngoài mã đăng nhập.' })),
+      h('label', { className: 'su-consent' }, consent, h('span', { textContent: 'Cho My nhớ cuộc trò chuyện của mình để tiếp tục trên mọi thiết bị (lưu trên máy chủ, bạn xóa được bất cứ lúc nào). Không chọn thì My chỉ nhớ trên thiết bị này.' })),
+      h('label', { className: 'su-consent' }, remind, h('span', { textContent: 'Gửi cho mình một email nhắc nhẹ khi đến lúc kể tiếp (tối đa một thư mỗi tuần, hủy được bất cứ lúc nào). Không chọn thì My không gửi gì ngoài mã đăng nhập.' })),
       h('p', { className: 'su-legal' }, 'Khi tiếp tục, bạn đồng ý với ', h('a', { href: '/terms.html', target: '_blank', rel: 'noopener', textContent: 'Điều khoản' }), ' và ', h('a', { href: '/privacy.html', target: '_blank', rel: 'noopener', textContent: 'Chính sách quyền riêng tư' }), '.'),
       msg, h('div', { className: 'su-actions' }, go, ...(canSkip ? [skip] : [])));
     email.focus();
@@ -343,6 +357,8 @@ function buildSignup(host, { title, done, canSkip = true }) {
     ok.disabled = false;
     if (!r.ok) { msg.textContent = r.error || 'Chưa xác nhận được.'; return; }
     ACCOUNT.user = r.user; track('signup_verified', { isNew: !!r.isNew });
+    // Tài khoản cũ đăng nhập trên thiết bị mới: nạp lại hồ sơ và cuộc trò chuyện đã lưu, không hỏi lại từ đầu. Phải xong trước khi máy này kịp ghi đè bản đã lưu.
+    if (!r.isNew && r.user.consentMemory && await restoreFromServer()) { msg.textContent = 'My nhận ra bạn rồi, đang lấy lại cuộc trò chuyện…'; setTimeout(() => location.reload(), 600); return; }
     if (wantsMemory) { ACCOUNT.user.consentMemory = true; scheduleSync(); }
     done(true);
   };
@@ -413,9 +429,10 @@ function openAccount() {
         h('button', { className: 'btn danger', textContent: 'Xóa tài khoản và dữ liệu', onclick: (e) => { if (e.target.dataset.sure) { apiJson('/api/account/delete', 'POST').then(() => { ACCOUNT.user = null; try { localStorage.removeItem(STORE); } catch {} location.reload(); }); } else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa'; } } })));
   };
   render();
-  document.body.append(h('div', { className: 'modal', onclick: (e) => e.target.classList.contains('modal') && close() }, card));
+  document.body.append(h('div', { className: 'modal', onclick: (e) => { if (e.target.classList.contains('modal')) close(); } }, card));
 }
 $('#btn-account').onclick = openAccount;
+$('#veil-login').onclick = () => { track('login_click', { where: 'landing' }); openAccount(); };
 
 // ---------------- hành trình ----------------
 const INTRO = [
@@ -653,11 +670,9 @@ track('landing_view', { ref: urlRef });
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
   ACCOUNT = { accounts: !!me.accounts, user: me.user ?? null, refCode: me.refCode ?? '' };
   $('#btn-account').hidden = !ACCOUNT.accounts;
+  $('#veil-login').hidden = !ACCOUNT.accounts || !!ACCOUNT.user;
   // Đăng nhập trên thiết bị mới: lấy lại cuộc trò chuyện đã lưu nếu người dùng đã đồng ý.
-  if (ACCOUNT.user?.consentMemory && !load()?.profile) {
-    const r = await apiJson('/api/state');
-    if (r.state?.profile) { try { S = { ...r.state, profile: normalizeProfile(r.state.profile) }; save(); offerResume(); } catch {} }
-  }
+  if (ACCOUNT.user?.consentMemory && await restoreFromServer()) offerResume();
 }).catch(() => {});
 const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async (s) => {
   $('#demo-badge').hidden = s.ai;

@@ -181,7 +181,8 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
 .su-title { margin: 0; font-family: var(--read); font-size: 16.5px; line-height: 1.5; color: #fbeecb; }
 .su-sub { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--dim); }
 .su-consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--dim); }
-.su-consent input { margin-top: 3px; accent-color: var(--gold); }
+.su-consent { cursor: pointer; }
+.su-consent input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; cursor: pointer; accent-color: var(--gold); }
 .su-msg { margin: 0; min-height: 1.2em; font-size: 13px; color: #ffb4a8; }
 .su-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn.danger { border-color: rgba(255, 138, 138, .5); color: #ffc9c0; }
@@ -280,3 +281,5 @@ body.no-trans .veil-inner, body.no-trans .v-char { transition: none !important; 
 body.veil-on .topbar { opacity: 0; visibility: hidden; pointer-events: none; }
 .topbar { transition: opacity .8s ease .3s; }
 .su-legal { margin: 8px 2px 0; font-size: 12px; line-height: 1.5; color: #9a92bd; } .su-legal a { color: #e2c27d; text-underline-offset: 3px; }
+
+.veil-login { margin-top: 14px; padding: 6px 10px; border: 0; background: none; color: #e2c27d; font: inherit; font-size: 13.5px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
