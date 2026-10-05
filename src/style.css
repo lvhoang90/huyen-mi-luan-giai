@@ -15,7 +15,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---- veil ---- */
 #veil { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; overflow-y: auto; text-align: center; padding: 24px;
-  background: radial-gradient(ellipse at 50% 40%, rgba(40, 30, 110, .55), rgba(5, 5, 20, .96) 70%); backdrop-filter: blur(6px); transition: opacity 1.4s ease, visibility 1.4s; }
+  background: radial-gradient(ellipse at 50% 40%, rgba(40, 30, 110, .42), rgba(5, 5, 20, .5) 75%); transition: opacity 1.4s ease, visibility 1.4s; }
 #veil.gone { opacity: 0; visibility: hidden; pointer-events: none; }
 .veil-inner > * { opacity: 1; }
 @keyframes rise { to { opacity: 1; transform: none; } }
@@ -277,3 +277,5 @@ body.no-trans .veil-inner, body.no-trans .v-char { transition: none !important; 
   #veil[data-intro="0"] .veil-inner, #veil[data-intro="1"] .veil-inner, #veil[data-intro="2"] .veil-inner { grid-template-columns: 0px minmax(0, 1fr); column-gap: 0; }
 }
 #btn-sound.on { color: #ffe9a8; text-shadow: 0 0 10px rgba(255,214,120,.7); }
+body.veil-on .topbar { opacity: 0; visibility: hidden; pointer-events: none; }
+.topbar { transition: opacity .8s ease .3s; }

@@ -24,7 +24,7 @@ const showSnd = () => { const t = sound.on ? 'Tắt nhạc nền' : 'Bật nhạ
 const toggleSnd = () => { sound.set(!sound.on); showSnd(); track('sound_toggle', { on: sound.on }); };
 showSnd(); sndBtn.onclick = toggleSnd; sndTop.onclick = toggleSnd;
 window.__introStarted = true; requestAnimationFrame(() => intro.start());
-console.info('%cHuyền My Luận Giải 1.0%c © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền, mọi sử dụng cần có sự cho phép bằng văn bản của tác giả.', 'color:#e2c27d;font-weight:700', 'color:inherit');
+console.info('%cHuyền My Luận Giải 1.0%c © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền.', 'color:#e2c27d;font-weight:700', 'color:inherit');
 const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const stage = {
   setMood: (m) => character.setMood(m), setSpeaking: (v) => character.setSpeaking(v), emo: (n) => character.setEmotion(n),

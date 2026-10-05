@@ -34,8 +34,11 @@ export const EMOTIONS = {
 export const EMOTION_NAMES = Object.keys(EMOTIONS);
 const MOOD_MAP = { idle: 'binh_thuong', listen: 'lang_nghe', think: 'suy_nghi' };
 
-const pointer = { x: 0, y: 0 };
-addEventListener('pointermove', (e) => { pointer.x = (e.clientX / innerWidth) * 2 - 1; pointer.y = (e.clientY / innerHeight) * 2 - 1; }, { passive: true });
+const pointer = { px: null, py: null, at: -1e9 };
+const track = (x, y) => { pointer.px = x; pointer.py = y; pointer.at = performance.now(); };
+addEventListener('pointermove', (e) => track(e.clientX, e.clientY), { passive: true });
+addEventListener('pointerdown', (e) => track(e.clientX, e.clientY), { passive: true });
+addEventListener('touchmove', (e) => { const t = e.touches[0]; if (t) track(t.clientX, t.clientY); }, { passive: true });
 
 export function createCharacter(host, { follow = true, crop = false } = {}) {
   host.innerHTML = rigSvg;
@@ -46,6 +49,22 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
   let emo = 'binh_thuong', cfg = EMOTIONS[emo], speaking = false, castUntil = 0, tint = null;
   const cur = { tilt: 0, yaw: 0, gx: 0, gy: 0, droop: 0, lean: 0, ox: 0, oy: 0, os: 1, cast: 0 };
   const sac = { x: 0, y: 0, next: 1.5 };
+  // Năm viên ngọc ngũ hành trên nón: ánh sáng chạy vòng theo chiều tương sinh Hỏa → Thổ → Kim → Thủy → Mộc.
+  const NS = 'http://www.w3.org/2000/svg', mk = (tag, a, parent, before) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); parent.insertBefore(e, before ?? null); return e; };
+  const gemEls = [...svg.querySelectorAll('#hat circle[r="8.5"][stroke="#6b4414"]')].slice(0, 5);
+  const sectors = [...svg.querySelectorAll('#hat polygon[fill-opacity=".17"]')].slice(0, 5);
+  const hatDash = svg.querySelector('#hat circle[stroke-dasharray="2 5"]');
+  let defs = svg.querySelector('defs'); if (!defs) defs = mk('defs', {}, svg, svg.firstChild);
+  const blurF = mk('filter', { id: 'hm-blur', x: '-80%', y: '-80%', width: '260%', height: '260%' }, defs); mk('feGaussianBlur', { stdDeviation: 4.5 }, blurF);
+  const gems = gemEls.map((el) => {
+    const cx = +el.getAttribute('cx'), cy = +el.getAttribute('cy');
+    const glow = mk('circle', { cx, cy, r: 17, fill: el.getAttribute('fill'), opacity: 0, filter: 'url(#hm-blur)' }, el.parentNode, el);
+    return { el, glow, cx, cy, spark: el.nextElementSibling };
+  });
+  const orbG = svg.querySelector('#orb'), orbCircles = orbG ? [...orbG.querySelectorAll('circle')] : [];
+  const orbHalo = orbCircles[0], orbRing = orbG?.querySelector('circle[stroke-dasharray]');
+  const orbGlow = orbG ? mk('circle', { cx: 300, cy: 552, r: 46, fill: '#c9b0ff', opacity: 0.3, filter: 'url(#hm-blur)' }, orbG, orbCircles[1]) : null;
+  const orbSparks = orbG ? Array.from({ length: 6 }, (_, i) => ({ el: mk('circle', { r: 1.8, fill: '#fff6c8', opacity: 0 }, orbG), a: (i / 6) * 6.283, sp: 0.6 + (i % 3) * 0.25, rad: 44 + (i % 2) * 8 })) : [];
   const mouth = { o: 0.3, w: 1, to: 0.3, tw: 1, fedAt: -9 };
   let pokeUntil = 0, blinkAt = 2, blinkEnd = 0, raf = 0, last = performance.now(), t = 0;
 
@@ -57,19 +76,24 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
   }
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.05); last = now; t += dt;
-    const k = REDUCED ? 0.3 : 1, f = follow ? (t < pokeUntil ? Math.max(cfg.follow, 0.95) : cfg.follow) : 0;
+    const k = REDUCED ? 0.3 : 1, engaged = performance.now() - pointer.at < 4500 || t < pokeUntil;
+    const f = follow ? (engaged ? Math.max(cfg.follow, 0.95) : cfg.follow) : 0;
+    // hướng nhìn tính từ đầu nhân vật tới con trỏ (không phải từ giữa màn hình), nên nhân vật đứng bên trái vẫn nhìn đúng vào con trỏ
+    const hb = host.getBoundingClientRect(), hx = hb.left + hb.width / 2, hy = hb.top + hb.height * 0.34;
+    const pointerX = pointer.px == null ? 0 : clamp((pointer.px - hx) / Math.max(180, innerWidth * 0.32)), pointerY = pointer.py == null ? 0 : clamp((pointer.py - hy) / Math.max(160, innerHeight * 0.3));
+    const pointerRef = { x: pointerX, y: pointerY };
     // ánh mắt thoáng đảo nhẹ cho có hồn
     sac.next -= dt; if (sac.next <= 0) { sac.x = (Math.random() - 0.5) * 0.5; sac.y = (Math.random() - 0.5) * 0.35; sac.next = 1.3 + Math.random() * 2.6; }
-    const gx = clamp(cfg.gaze[0] + pointer.x * 0.95 * f + sac.x * (1 - f * 0.5)), gy = clamp(cfg.gaze[1] + pointer.y * 0.8 * f + sac.y * (1 - f * 0.5));
+    const gx = clamp(cfg.gaze[0] + pointerRef.x * 0.95 * f + sac.x * (1 - f * 0.5)), gy = clamp(cfg.gaze[1] + pointerRef.y * 0.8 * f + sac.y * (1 - f * 0.5));
     // miệng mấp máy theo chữ đang hiện ra; nếu lâu không có chữ mới thì tự nhép nhẹ cho khỏi đứng hình
     if (speaking) { if (t - mouth.fedAt > 0.3) { mouth.to = 0.25 + 0.5 * Math.abs(Math.sin(t * 9)); mouth.tw = 1; }
       mouth.o = damp(mouth.o, mouth.to, 32, dt); mouth.w = damp(mouth.w, mouth.tw, 28, dt);
       svg.style.setProperty('--mo', mouth.o.toFixed(3)); svg.style.setProperty('--mw', mouth.w.toFixed(3)); }
     cur.gx = damp(cur.gx, gx, 9, dt); cur.gy = damp(cur.gy, gy, 9, dt);
-    svg.style.setProperty('--gx', (cur.gx * 6).toFixed(2) + 'px'); svg.style.setProperty('--gy', (cur.gy * 7).toFixed(2) + 'px');
+    svg.style.setProperty('--gx', (cur.gx * 9).toFixed(2) + 'px'); svg.style.setProperty('--gy', (cur.gy * 9).toFixed(2) + 'px');
     // quay đầu: đầu hướng theo ánh nhìn, các nét mặt dịch chuyển nhiều hơn tóc/da để tạo chiều sâu
-    cur.yaw = damp(cur.yaw, clamp(cfg.gaze[0] * 0.35 + pointer.x * 0.5 * f), 4, dt);
-    cur.tilt = damp(cur.tilt, cfg.tilt + pointer.x * 3 * f + Math.sin(t * 0.5) * 0.8 * k, 4, dt);
+    cur.yaw = damp(cur.yaw, clamp(cfg.gaze[0] * 0.35 + pointerRef.x * 0.5 * f), 4, dt);
+    cur.tilt = damp(cur.tilt, cfg.tilt + pointerRef.x * 3 * f + Math.sin(t * 0.5) * 0.8 * k, 4, dt);
     cur.droop = damp(cur.droop, cfg.droop || 0, 3, dt); cur.lean = damp(cur.lean, cfg.lean || 0, 3, dt);
     const bounce = (cfg.bounce ? Math.abs(Math.sin(t * 5)) * cfg.bounce : Math.sin(t * 2.2) * 1.2) * k;
     const breath = Math.sin(t * 1.6) * 1.6 * k, nod = speaking ? Math.sin(t * 6.2) * 2.2 + Math.sin(t * 3.1) * 1.2 : 0;
@@ -85,6 +109,17 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
     cur.ox = damp(cur.ox, cfg.orb[0], 4, dt); cur.oy = damp(cur.oy, cfg.orb[1], 4, dt); cur.os = damp(cur.os, cfg.orb[2], 4, dt);
     const os = cur.os * (1 + 0.04 * Math.sin(t * 2.2) + cur.cast * (0.35 + 0.1 * Math.sin(t * 7)));
     orb.setAttribute('transform', `translate(${300 + cur.ox} ${552 + cur.oy + by + Math.sin(t * 1.3) * 2}) scale(${os.toFixed(3)}) translate(-300 -552)`);
+    // ngọc ngũ hành chạy vòng, quả cầu phát sáng và thở
+    for (let i = 0; i < gems.length; i++) {
+      const g = gems[i], w = Math.max(0, Math.cos(t * 1.25 - i * 1.2566)) ** 3 * (REDUCED ? 0.5 : 1), sc = 1 + 0.2 * w;
+      g.el.setAttribute('transform', `translate(${g.cx} ${g.cy}) scale(${sc.toFixed(3)}) translate(${-g.cx} ${-g.cy})`);
+      g.glow.setAttribute('opacity', (0.12 + 0.75 * w).toFixed(3)); if (g.spark) g.spark.setAttribute('opacity', (0.5 + 0.5 * w).toFixed(3));
+      sectors[(i + 1) % 5]?.setAttribute('fill-opacity', (0.15 + 0.3 * w).toFixed(3));
+    }
+    hatDash?.setAttribute('stroke-dashoffset', (-t * 5).toFixed(1));
+    if (orbHalo) { const pulse = 0.5 + 0.5 * Math.sin(t * 2.1); orbHalo.setAttribute('opacity', (0.75 + 0.25 * pulse + cur.cast * 0.3).toFixed(3)); orbGlow.setAttribute('opacity', (0.22 + 0.3 * pulse + cur.cast * 0.45).toFixed(3)); orbGlow.setAttribute('r', (44 + 5 * pulse + cur.cast * 12).toFixed(1)); }
+    orbRing?.setAttribute('transform', `rotate(${(t * 22).toFixed(1)} 300 552)`);
+    for (const sp of orbSparks) { const a = sp.a + t * sp.sp, tw = 0.5 + 0.5 * Math.sin(t * 3 + sp.a * 5); sp.el.setAttribute('cx', (300 + Math.cos(a) * sp.rad).toFixed(1)); sp.el.setAttribute('cy', (552 + Math.sin(a) * sp.rad * 0.9).toFixed(1)); sp.el.setAttribute('opacity', (tw * 0.9).toFixed(2)); }
     // chớp mắt
     if (t > blinkAt && !blinkEnd) { svg.classList.add('blink'); blinkEnd = t + 0.13; }
     if (blinkEnd && t > blinkEnd) { svg.classList.remove('blink'); blinkEnd = 0; blinkAt = t + 2.2 + Math.random() * 3.4; }
@@ -110,7 +145,7 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
     },
     /** Chạm vào nhân vật hoặc quả cầu: chớp mắt, nhìn theo ngón tay, quả cầu loé lên. */
     poke(cx, cy) {
-      pointer.x = (cx / innerWidth) * 2 - 1; pointer.y = (cy / innerHeight) * 2 - 1;
+      track(cx, cy);
       pokeUntil = t + 1.6; blinkAt = t + 0.05; castUntil = performance.now() + 900;
     },
     setSpeaking(v) { speaking = !!v; svg.classList.toggle('speaking', speaking); },
