@@ -74,9 +74,7 @@ After=network.target
 [Service]
 User=huyenmy
 WorkingDirectory=/opt/huyenmy
-EnvironmentFile=/opt/huyenmy/.env
-Environment=NODE_OPTIONS=--max-old-space-size=384
-ExecStart=/usr/bin/node server/index.js
+ExecStart=/usr/bin/node --max-old-space-size=384 --env-file=/opt/huyenmy/.env server/index.js
 Restart=always
 RestartSec=3
 [Install]

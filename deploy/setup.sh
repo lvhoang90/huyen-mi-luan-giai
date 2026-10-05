@@ -67,11 +67,14 @@ if [ ! -f "$APP_DIR/.env" ]; then
     echo "HUYENMY_DATA_KEY=$(openssl rand -hex 32)"; echo "HUYENMY_PEPPER=$(openssl rand -hex 32)"
     echo "HUYENMY_DAILY_TURNS=100"
   } > "$APP_DIR/.env"
-  chmod 600 "$APP_DIR/.env"
   echo "Đã tạo $APP_DIR/.env (chỉ root đọc được). HÃY SAO LƯU HUYENMY_DATA_KEY ở nơi an toàn: mất khóa này thì dữ liệu mã hóa không đọc lại được."
 else
   echo "Giữ nguyên .env đã có."
 fi
+# Dịch vụ chạy bằng người dùng riêng nên cần đọc được .env; người khác thì không.
+chown root:"$APP_USER" "$APP_DIR/.env" && chmod 640 "$APP_DIR/.env"
+# Kiểm tra .env đọc được bằng chính trình đọc của Node (sẽ dùng khi chạy dịch vụ)
+node --env-file="$APP_DIR/.env" -e 'process.exit(0)' || { echo "!! Tệp .env có dòng sai định dạng. Mở bằng: nano $APP_DIR/.env"; exit 1; }
 ADMIN_MAIL=$(grep -E '^ADMIN_EMAILS=' "$APP_DIR/.env" | head -1 | cut -d= -f2 | cut -d, -f1 || true)
 
 echo "==> 8/9 Dịch vụ systemd và nginx"
@@ -84,9 +87,7 @@ After=network.target
 User=$APP_USER
 Group=$APP_USER
 WorkingDirectory=$APP_DIR
-EnvironmentFile=$APP_DIR/.env
-Environment=NODE_OPTIONS=--max-old-space-size=384
-ExecStart=/usr/bin/node server/index.js
+ExecStart=/usr/bin/node --max-old-space-size=384 --env-file=$APP_DIR/.env server/index.js
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
