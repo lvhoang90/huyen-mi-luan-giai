@@ -6,7 +6,7 @@ Huyền My là một ứng dụng Node.js chạy liên tục (phát chữ trực
 | Mục | Ghi chú |
 |---|---|
 | Tên miền (.com hoặc .vn) | .vn cần giấy tờ xác minh chủ thể; .com đơn giản hơn. Chọn nơi cho tự sửa bản ghi DNS (A, TXT, CNAME). |
-| Cloud Server Linux | Ubuntu 22.04 hoặc 24.04, tối thiểu 1-2 vCPU, 2 GB RAM, 40 GB. Cần quyền root/SSH. SSD tốt hơn HDD; ổ HDD vẫn chạy được ở giai đoạn đầu vì ứng dụng đã ghi cơ sở dữ liệu theo lô (WAL, synchronous=NORMAL). |
+| Cloud Server Linux | Ubuntu 22.04 hoặc 24.04, tối thiểu 1-2 vCPU, 1,5 GB RAM (đủ, nếu bật swap ở bước 2), 40 GB. Cần quyền root/SSH. SSD tốt hơn HDD; ổ HDD vẫn chạy được ở giai đoạn đầu vì ứng dụng đã ghi cơ sở dữ liệu theo lô (WAL, synchronous=NORMAL). |
 | SSL | Không cần mua: dùng Let's Encrypt miễn phí (bước 6). |
 | Email gửi mã đăng nhập | Dùng Resend (có gói miễn phí) với tên miền của bạn. Không cần mua Mail Server. |
 | Khóa Anthropic API | Tạo ở console của Anthropic, nạp tiền trả trước, **đặt hạn mức chi tiêu tối đa**. |
@@ -22,6 +22,9 @@ apt update && apt install -y nginx git ufw certbot python3-certbot-nginx sqlite3
 ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw --force enable
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt install -y nodejs
 node -v   # phải >= 22.5 (cần node:sqlite)
+# Máy ít RAM (1,5 GB): bật 2 GB swap để lúc build web không bị tràn bộ nhớ
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab && sysctl vm.swappiness=20 && echo 'vm.swappiness=20' > /etc/sysctl.d/99-swap.conf
 ```
 
 ## 3. Lấy mã nguồn và dựng
@@ -60,6 +63,7 @@ After=network.target
 User=huyenmy
 WorkingDirectory=/opt/huyenmy
 EnvironmentFile=/opt/huyenmy/.env
+Environment=NODE_OPTIONS=--max-old-space-size=384
 ExecStart=/usr/bin/node server/index.js
 Restart=always
 RestartSec=3
