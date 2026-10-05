@@ -31,14 +31,27 @@ const query = (y1, y2) => `SELECT ?p ?pLabel ?viLabel ?born ?links (GROUP_CONCAT
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function run(y1, y2, raw = false) {
-  for (let t = 0; t < 5; t++) {
+  for (let t = 0; t < 3; t++) {
     const r = await fetch('https://query.wikidata.org/sparql?format=json&query=' + encodeURIComponent(query(y1, y2)), { headers: { 'User-Agent': UA, Accept: 'application/sparql-results+json' } });
     if (raw) return r;
     if (r.ok) return (await r.json()).results.bindings;
-    if (r.status === 429 || r.status >= 500) { const wait = (+r.headers.get('retry-after') || 8 * (t + 1)) * 1000; console.error(`\n${y1}-${y2}: HTTP ${r.status}, chờ ${wait / 1000}s`); await sleep(wait); continue; }
+    if (r.status === 429) { const wait = (+r.headers.get('retry-after') || 10 * (t + 1)) * 1000; console.error(`\n${y1}-${y2}: HTTP 429, chờ ${wait / 1000}s`); await sleep(wait); continue; }
+    if (r.status >= 500) { const text = await r.text().catch(() => ''); throw Object.assign(new Error(`${y1}-${y2}: HTTP ${r.status} ${/timeout/i.test(text) ? '(quá giờ: khoảng này quá nặng)' : ''}`), { heavy: true }); }
     throw new Error(`${y1}-${y2}: HTTP ${r.status}`);
   }
-  throw new Error(`${y1}-${y2}: quá số lần thử (có thể khoảng này quá nặng)`);
+  throw new Error(`${y1}-${y2}: bị giới hạn tốc độ quá lâu`);
+}
+/** Nếu một khoảng năm quá nặng (quá giờ), tự chia đôi rồi lấy từng nửa; tới 1 năm mà vẫn lỗi thì bỏ qua và báo. */
+async function fetchRange(y1, y2) {
+  try { return await run(y1, y2); }
+  catch (e) {
+    if (!e.heavy) throw e;
+    if (y2 - y1 <= 1) { console.error(`\nBỏ qua năm ${y1}: ${e.message}`); return []; }
+    const mid = Math.floor((y1 + y2) / 2);
+    console.error(`\n${y1}-${y2} quá nặng, chia đôi thành ${y1}-${mid} và ${mid}-${y2}`);
+    await sleep(2000);
+    return [...(await fetchRange(y1, mid)), ...(await fetchRange(mid, y2))];
+  }
 }
 
 if (ONLY) {
@@ -54,7 +67,7 @@ let start = RESUME && fs.existsSync(STATE) ? +fs.readFileSync(STATE, 'utf8') || 
 fs.mkdirSync(OUT.split('/').slice(0, -1).join('/') || '.', { recursive: true });
 for (let i = start; i < slices.length; i++) {
   const [y1, y2] = slices[i];
-  const rows = await run(y1, y2);
+  const rows = await fetchRange(y1, y2);
   for (const b of rows) out.push({ qid: b.p.value.split('/').pop(), name: b.pLabel?.value ?? '', nameVi: b.viLabel?.value ?? '', born: b.born.value, links: +b.links.value, occ: b.occ?.value ?? '', country: b.country?.value ?? '' });
   fs.writeFileSync(OUT, JSON.stringify(out)); fs.writeFileSync(STATE, String(i + 1));
   process.stderr.write(`\r[${i + 1}/${slices.length}] năm ${y1}-${y2}: +${rows.length}, tổng ${out.length}      `);
