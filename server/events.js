@@ -24,11 +24,15 @@ export function ingest(db, { actor, userId, sid, events }, now = Date.now()) {
   const st = db.prepare('INSERT INTO events(ts, actor, user_id, sid, name, props) VALUES (?,?,?,?,?,?)');
   let n = 0;
   const safeSid = String(sid ?? '').replace(/[^\w-]/g, '').slice(0, 24) || null;
+  db.exec('BEGIN'); // cả lô ghi một lần (một lần ép ghi đĩa thay vì tới 50 lần)
+  try {
   for (const e of events.slice(0, 50)) {
     if (!e || !EVENTS.has(e.name)) continue;
     const t = Number.isFinite(e.t) && Math.abs(now - e.t) < 6 * 3_600_000 ? e.t : now; // chấp nhận lệch tối đa 6 giờ
     st.run(t, actor, userId ?? null, safeSid, e.name, JSON.stringify(cleanProps(e.props)));
     n++;
   }
+  db.exec('COMMIT');
+  } catch (err) { try { db.exec('ROLLBACK'); } catch {} throw err; }
   return n;
 }

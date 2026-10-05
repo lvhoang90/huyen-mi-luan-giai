@@ -9,6 +9,7 @@ export function openDb(file) {
   const db = new DatabaseSync(file);
   db.exec(`
     PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL; -- với WAL vẫn an toàn khi mất điện, nhưng ít ép ghi đĩa hơn: quan trọng khi máy chủ dùng ổ HDD
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, created_at INTEGER NOT NULL, last_login INTEGER,
       role TEXT NOT NULL DEFAULT 'user', consent_memory INTEGER NOT NULL DEFAULT 0, consent_at INTEGER,

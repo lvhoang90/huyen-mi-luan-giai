@@ -6,7 +6,7 @@ Huyền My là một ứng dụng Node.js chạy liên tục (phát chữ trực
 | Mục | Ghi chú |
 |---|---|
 | Tên miền (.com hoặc .vn) | .vn cần giấy tờ xác minh chủ thể; .com đơn giản hơn. Chọn nơi cho tự sửa bản ghi DNS (A, TXT, CNAME). |
-| Cloud Server Linux | Ubuntu 22.04 hoặc 24.04, tối thiểu 2 vCPU, 2 GB RAM, 40 GB SSD. Cần quyền root/SSH. |
+| Cloud Server Linux | Ubuntu 22.04 hoặc 24.04, tối thiểu 1-2 vCPU, 2 GB RAM, 40 GB. Cần quyền root/SSH. SSD tốt hơn HDD; ổ HDD vẫn chạy được ở giai đoạn đầu vì ứng dụng đã ghi cơ sở dữ liệu theo lô (WAL, synchronous=NORMAL). |
 | SSL | Không cần mua: dùng Let's Encrypt miễn phí (bước 6). |
 | Email gửi mã đăng nhập | Dùng Resend (có gói miễn phí) với tên miền của bạn. Không cần mua Mail Server. |
 | Khóa Anthropic API | Tạo ở console của Anthropic, nạp tiền trả trước, **đặt hạn mức chi tiêu tối đa**. |
