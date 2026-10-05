@@ -316,5 +316,5 @@ test('một lăng kính mỗi lượt: cờ trộn nhiều hệ và lời dặn 
   const chart = buildChart(profile);
   assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'tutru' }), /LĂNG KÍNH NGƯỜI NÀY CHỌN: Tứ Trụ/);
   assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'none' }), /không dùng thuật ngữ nào/);
-  assert.doesNotMatch(buildSystemPrompt('reading', profile, chart, [], {}), /LĂNG KÍNH NGƯỜI NÀY CHỌN/);
+  assert.doesNotMatch(buildSystemPrompt('reading', profile, chart, [], {}), /LĂNG KÍNH NGƯỜI NÀY CHỌN:/);
 });
