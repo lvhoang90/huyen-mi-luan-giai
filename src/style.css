@@ -283,3 +283,4 @@ body.veil-on .topbar { opacity: 0; visibility: hidden; pointer-events: none; }
 .su-legal { margin: 8px 2px 0; font-size: 12px; line-height: 1.5; color: #9a92bd; } .su-legal a { color: #e2c27d; text-underline-offset: 3px; }
 
 .veil-login { margin-top: 14px; padding: 6px 10px; border: 0; background: none; color: #e2c27d; font: inherit; font-size: 13.5px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+a.btn, a.icon { text-decoration: none; color: inherit; display: inline-flex; align-items: center; justify-content: center; }

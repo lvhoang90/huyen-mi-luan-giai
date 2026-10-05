@@ -36,6 +36,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---------------- trạng thái ----------------
 let S = { profile: null, messages: [], phase: 'intro' };
 let ACCOUNT = { accounts: false, user: null, refCode: '' }, syncTimer = 0;
+/** Tài khoản quản trị tự có nút ⚙ ở thanh trên để vào trang quản trị. */
+const showAdmin = () => { const a = document.getElementById('btn-admin'); if (a) a.hidden = ACCOUNT.user?.role !== 'admin'; };
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} scheduleSync(); };
 /** Người dùng đã đăng nhập và đồng ý lưu: đẩy trạng thái lên máy chủ (chỉ hồ sơ, tin nhắn và nhịp buổi), gom 8 giây một lần. */
 function scheduleSync() {
@@ -356,7 +358,7 @@ function buildSignup(host, { title, done, canSkip = true }) {
     const r = await apiJson('/api/auth/verify', 'POST', { email: email.value, code: code.value, consentMemory: wantsMemory, remind: remind.checked });
     ok.disabled = false;
     if (!r.ok) { msg.textContent = r.error || 'Chưa xác nhận được.'; return; }
-    ACCOUNT.user = r.user; track('signup_verified', { isNew: !!r.isNew });
+    ACCOUNT.user = r.user; showAdmin(); track('signup_verified', { isNew: !!r.isNew });
     // Tài khoản cũ đăng nhập trên thiết bị mới: nạp lại hồ sơ và cuộc trò chuyện đã lưu, không hỏi lại từ đầu. Phải xong trước khi máy này kịp ghi đè bản đã lưu.
     if (!r.isNew && r.user.consentMemory && await restoreFromServer()) { msg.textContent = 'My nhận ra bạn rồi, đang lấy lại cuộc trò chuyện…'; setTimeout(() => location.reload(), 600); return; }
     if (wantsMemory) { ACCOUNT.user.consentMemory = true; scheduleSync(); }
@@ -423,9 +425,10 @@ function openAccount() {
     card.append(h('p', { className: 'su-title', textContent: u.email }),
       h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
       h('div', { className: 'su-actions' },
+        ...(u.role === 'admin' ? [h('a', { className: 'btn primary', href: '/admin', textContent: 'Trang quản trị' })] : []),
         h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
         h('button', { className: 'btn', textContent: u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại', onclick: async () => { const r = await apiJson('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) { u.remind = r.remind; render(); } } }),
-        h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; close(); } }),
+        h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; showAdmin(); close(); } }),
         h('button', { className: 'btn danger', textContent: 'Xóa tài khoản và dữ liệu', onclick: (e) => { if (e.target.dataset.sure) { apiJson('/api/account/delete', 'POST').then(() => { ACCOUNT.user = null; try { localStorage.removeItem(STORE); } catch {} location.reload(); }); } else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa'; } } })));
   };
   render();
@@ -669,7 +672,7 @@ const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/
 track('landing_view', { ref: urlRef });
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
   ACCOUNT = { accounts: !!me.accounts, user: me.user ?? null, refCode: me.refCode ?? '' };
-  $('#btn-account').hidden = !ACCOUNT.accounts;
+  $('#btn-account').hidden = !ACCOUNT.accounts; showAdmin();
   $('#veil-login').hidden = !ACCOUNT.accounts || !!ACCOUNT.user;
   // Đăng nhập trên thiết bị mới: lấy lại cuộc trò chuyện đã lưu nếu người dùng đã đồng ý.
   if (ACCOUNT.user?.consentMemory && await restoreFromServer()) offerResume();
