@@ -23,7 +23,7 @@ const mark = {
   circ: (cx) => [S(`M${cx - 15} -13L${cx} -30L${cx + 15} -13`, 5.6)],
   grave: (cx) => [S(`M${cx - 38} -34L${cx - 23} -20`, 5.6)],
   hook: (cx) => [S(`M${cx - 8} -34Q${cx + 9} -45 ${cx + 10} -31Q${cx + 11} -22 ${cx + 1} -20`, 5.4)],
-  dotbelow: (cx) => [{ fill: `M${cx - 4.6} 118a4.6 4.6 0 1 0 9.2 0a4.6 4.6 0 1 0 -9.2 0Z` }],
+  dotbelow: (cx) => [{ fill: `M${cx - 8.4} 123a8.4 8.4 0 1 0 16.8 0a8.4 8.4 0 1 0 -16.8 0Z` }], // chấm to bằng nửa nét chữ trở lên để nhìn rõ ở cỡ nhỏ
 };
 // Chữ có dấu trong hai cụm từ của logo: ký tự -> [chữ gốc, các dấu]
 const ACCENT = { 'Ề': ['E', ['circ', 'grave']], 'Ậ': ['A', ['circ', 'dotbelow']], 'Ả': ['A', ['hook']] };
@@ -53,7 +53,7 @@ export function layout(text) {
 export function straight(text, tint, boost = 1) {
   const { items, width } = layout(text);
   const body = items.map((i) => `<g transform="translate(${i.x} 0)">${glyphSvg(i.ch, tint, boost)}</g>`).join('');
-  const above = /[ỀẬẢ]/.test(text), below = /Ậ/.test(text), top = above ? -48 : -6, bot = below ? 128 : 106;
+  const above = /[ỀẬẢ]/.test(text), below = /Ậ/.test(text), top = above ? -48 : -6, bot = below ? 136 : 106;
   return { body, w: width, vb: `-8 ${top} ${width + 16} ${bot - top}` };
 }
 
