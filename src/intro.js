@@ -6,7 +6,7 @@ import { sound } from './sound.js';
 const SEEN = 'huyenmy.seen';
 const flag = { get: () => { try { return localStorage.getItem(SEEN) === '1'; } catch { return false; } }, set: () => { try { localStorage.setItem(SEEN, '1'); } catch {} } };
 
-export function createIntro({ veil, area, setEmo, poke, greeting }) {
+export function createIntro({ veil, area, setEmo, poke, greeting, variant = '' }) {
   const body = document.body, skipBtn = veil.querySelector('.skip-intro');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let t0 = 0, timers = [], running = false, finished = false, kind = '';
@@ -34,24 +34,26 @@ export function createIntro({ veil, area, setEmo, poke, greeting }) {
   }
   function skip() {
     if (!running) return;
-    track('intro_skip', { kind, at: Math.round(performance.now() - t0) });
+    track('intro_skip', { kind, at: Math.round(performance.now() - t0), gv: variant });
     timers.forEach(clearTimeout); timers = [];
     instant(() => { place(atSlot()); area.style.opacity = 1; }); setEmo('vui'); finish();
   }
   function full() {
-    kind = 'full'; t0 = performance.now(); track('intro_view', { kind });
+    kind = 'full'; t0 = performance.now(); track('intro_view', { kind, gv: variant });
+    const g = greeting?.(); if (greet && g) greet.textContent = g;
     running = true; body.classList.add('veil-on'); phase('0'); if (skipBtn) skipBtn.hidden = false;
     instant(() => { place({ ...atFace(), zoom: 2.3 }); area.style.opacity = 0; });
     setEmo('tinh_tam');
+    // Rút từ 8,4 giây xuống 4,6 giây (53% người dùng lần đầu từng bỏ qua bản dài): mở mắt sớm hơn, lời chào hiện cùng lúc huy hiệu.
     later(80, () => { area.style.opacity = 1; });
-    later(2600, () => { setEmo('binh_thuong'); phase('1'); sound.breath(); });
-    later(3300, () => setEmo('vui'));
-    later(4200, () => { phase('2'); place({ ...atMedal(), zoom: 1 }); sound.chime(); });
-    later(6700, () => { phase('3'); place(atSlot()); if (skipBtn) skipBtn.hidden = true; });
-    later(8400, finish);
+    later(1200, () => { setEmo('binh_thuong'); phase('1'); sound.breath(); });
+    later(1800, () => setEmo('vui'));
+    later(2200, () => { phase('2'); place({ ...atMedal(), zoom: 1 }); sound.chime(); if (greet && g) greet.classList.add('on'); });
+    later(3500, () => { phase('3'); place(atSlot()); if (skipBtn) skipBtn.hidden = true; });
+    later(4600, finish);
   }
   function short() {
-    kind = 'short'; t0 = performance.now(); track('intro_view', { kind });
+    kind = 'short'; t0 = performance.now(); track('intro_view', { kind, gv: variant });
     const g = greeting?.(); if (greet && g) { greet.textContent = g; greet.classList.add('on'); }
     running = true; body.classList.add('veil-on'); phase('2');
     instant(() => { place({ ...atMedal(), zoom: 0.7 }); area.style.opacity = 0; });

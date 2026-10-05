@@ -1,5 +1,5 @@
 // Tab "Hành trình cảm xúc": đo lòng người nhẹ đi hay nặng thêm khi trò chuyện với My, và My làm gì tạo ra khác biệt.
-import { esc, nf, pct, ci, fx, sgn, ciText, bandChart, divergeBars, stackBar, download, EMO_COLOR, MOOD, TONE } from './admin-ui.js';
+import { esc, nf, pct, ci, fx, sgn, ciText, bandChart, divergeBars, stackBar, download, EMO_COLOR, MOOD, TONE, GREET } from './admin-ui.js';
 
 const NOTE_ICON = { good: '✓', warn: '●', crit: '▲', info: '○' };
 const kpi = (v, l, n = '') => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div><div class="n">${n}</div></div>`;
@@ -35,6 +35,14 @@ function transTable(tr, rec) {
     <div class="scroll"><table><thead><tr><th>Từ</th><th></th><th>Sang</th><th class="num">Số lần</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
+function greetPanel(j) {
+  const rows = j.greetTest.map((g) => `<tr><td><b>${esc(GREET[g.variant] ?? g.variant)}</b></td><td class="num">${g.n}</td><td class="num" title="${esc(ci(g.skip))}">${pct(g.skip)}</td><td class="num" title="${esc(ci(g.enter))}">${pct(g.enter)}</td><td class="num" title="${esc(ci(g.intake))}">${pct(g.intake)}</td><td class="num" title="${esc(ci(g.chat))}"><b>${pct(g.chat)}</b></td><td class="num">${g.moodDelta.n ? sgn(g.moodDelta.mean) : '–'} <span class="muted">n=${g.moodDelta.n}</span></td><td class="num">${g.nps == null ? '–' : fx(g.nps, 1)}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">Chưa có người nào được gán lời chào (sau bản cập nhật này mới có).</td></tr>';
+  return `<section class="panel"><h2>Thử nghiệm lời chào mở đầu</h2><p class="sub">Mỗi người mới được gán ngẫu nhiên một trong bốn lời chào (cả dòng chữ trên màn mở đầu lẫn lời My nói đầu tiên) và giữ nguyên ở các lần sau. So sánh theo cùng một thước: bỏ qua màn mở đầu, bước vào, điền xong hồ sơ, bắt đầu trò chuyện, tâm trạng nhẹ đi, điểm giới thiệu.</p>
+    <p class="jn ${j.greetVerdict.startsWith('"') ? 'good' : 'info'}" style="margin:6px 0 10px"><span aria-hidden="true">${j.greetVerdict.startsWith('"') ? '✓' : '○'}</span>${esc(j.greetVerdict)}</p>
+    <div class="scroll"><table><thead><tr><th>Lời chào</th><th class="num">Người</th><th class="num">Bỏ qua mở đầu</th><th class="num">Bước vào</th><th class="num">Điền xong hồ sơ</th><th class="num">Bắt đầu trò chuyện</th><th class="num">Tâm trạng nhẹ đi</th><th class="num">Giới thiệu (TB)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="note">Rê chuột vào tỉ lệ để xem khoảng tin cậy 95%. "Bắt đầu trò chuyện" là thước chính vì đến sớm và ít chịu nhiễu nhất; "Tâm trạng nhẹ đi" cần người đi hết buổi nên mẫu nhỏ hơn nhiều. Mẫu nhỏ thì khác biệt vài điểm phần trăm chỉ là ngẫu nhiên. Xem nhanh một biến thể bằng cách thêm <code>?gv=an_tam</code>, <code>?gv=am_ap</code>, <code>?gv=minh_bach</code> hoặc <code>?gv=goc</code> vào địa chỉ trang.</p></section>`;
+}
+
 export function renderJourney(j) {
   const c = j.coverage, notes = j.notes.map((n) => `<li class="jn ${n.level}"><span aria-hidden="true">${NOTE_ICON[n.level]}</span>${esc(n.text)}</li>`).join('');
   const turnPts = j.byTurn.map((b) => ({ x: b.turn, ...b.val, n: b.n }));
@@ -44,6 +52,7 @@ export function renderJourney(j) {
   return `<section class="panel"><h2>Điều nổi bật</h2><ul class="jlist">${notes || '<li class="muted">Chưa có nhận xét.</li>'}</ul>
       <div class="kpis" style="margin-top:12px">${kpi(nf.format(c.people), 'Người tham gia trong kỳ')}${kpi(nf.format(c.withTurns), 'Người có dữ liệu cảm xúc', 'đã nói ít nhất một lượt')}${kpi(nf.format(c.turns), 'Lượt nói đã phân tích')}${kpi(nf.format(c.selfReportPairs), 'Người có đủ 2 lần tự đánh giá')}</div></section>
 
+    ${greetPanel(j)}
     <section class="panel"><h2>1. Tâm trạng tự báo: nhẹ đi hay nặng thêm?</h2><p class="sub">Câu trả lời thẳng nhất, vì do chính người dùng chọn.</p>${moodPanel(j.selfReport)}</section>
 
     <div class="grid2"><section class="panel"><h2>2. Sắc thái theo lượt nói</h2><p class="sub">Lượt thứ mấy trong cuộc trò chuyện. Đường lên nghĩa là lời người dùng nhẹ dần.</p>${bandChart(turnPts, { label: 'Sắc thái' })}</section>
