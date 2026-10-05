@@ -5,6 +5,7 @@ import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
 import { shareCard } from './share.js';
 import { mountLogo } from './logo.js';
+import { createIntro } from './intro.js';
 import { parseTagged, stripTags } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
@@ -16,6 +17,8 @@ const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
 createLanterns($('#lanterns'));
 mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
+const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n) });
+window.__introStarted = true; requestAnimationFrame(() => intro.start());
 console.info('%cHuyền My Luận Giải 1.0%c © 2026 Lương Việt Hoàng. Bản quyền mở, mọi sử dụng cần có sự cho phép của tác giả.', 'color:#e2c27d;font-weight:700', 'color:inherit');
 const ELEMENT_COLOR = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const stage = {
@@ -249,7 +252,7 @@ async function closeSession() {
 }
 function restScreen() {
   track('rest_view');
-  $('#veil').classList.remove('gone'); $('#dialog').hidden = true;
+  $('#veil').classList.remove('gone'); $('#dialog').hidden = true; intro.showStatic();
   $('#veil-actions').replaceChildren(
     h('p', { className: 'tag', textContent: `My đang nghỉ. Hẹn gặp lại lúc ${hhmm(S.restUntil)}.` }),
     ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
@@ -655,7 +658,7 @@ async function enter(resume) {
   if (!OPEN) return askCode(() => enter(resume));
   if (resume && S.restUntil && Date.now() < S.restUntil) return restScreen();
   if (resume && S.restUntil) { S.restUntil = null; save(); }
-  $('#veil').classList.add('gone'); $('#dialog').hidden = false;
+  intro.release(); $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
     chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false; dock();

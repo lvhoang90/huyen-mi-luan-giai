@@ -16,15 +16,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Literata:ital,wght@0,400;0,500;0,600;1,400&family=Be+Vietnam+Pro:wght@300;400;500&display=swap&subset=vietnamese" rel="stylesheet" />
 </head>
-<body>
+<body class="veil-on">
   <canvas id="stage" aria-hidden="true"></canvas>
   <div id="stage-area"><svg id="wheel"></svg><div id="char" role="img" aria-label="Huyền My"></div></div>
 
   <div id="lanterns" class="lanterns"></div>
 
-  <div id="veil" role="dialog" aria-label="Chào mừng">
+  <div id="veil" role="dialog" aria-label="Chào mừng" data-intro="0">
     <div class="veil-inner">
-      <div class="v-char"><img class="hero-art" src="/art/huyenmy-v2-dong-trong.svg" alt="Huyền My, nhân vật chibi mặc áo dài tím, đội nón lá phủ voan" width="260" height="347" /></div>
+      <div class="v-char"><div class="hero-slot" aria-hidden="true"></div></div>
       <div class="v-main">
       <h1 id="veil-logo"></h1>
       <p class="tag">Soi mình qua thần số, tinh tượng và ngũ hành - <br>cùng một người biết lắng nghe.</p>
@@ -33,6 +33,7 @@
       <p class="copy">© 2026 <b>Lương Việt Hoàng</b>. Bản quyền mở: mọi sử dụng cần có sự cho phép của tác giả. <a href="https://github.com/lvhoang90/huyen-mi-luan-giai/blob/HEAD/LICENSE" target="_blank" rel="noopener">Điều khoản</a></p>
       </div>
     </div>
+    <button type="button" class="skip-intro" hidden>Chạm để bỏ qua</button>
   </div>
 
   <header class="topbar">
@@ -59,6 +60,7 @@
     </div>
   </aside>
 
+  <script>/* Phòng hờ: nếu mã mở màn không chạy được thì vẫn hiện màn chào đầy đủ */ setTimeout(function () { var v = document.getElementById("veil"); if (v && v.dataset.intro === "0" && !window.__introStarted) { v.dataset.intro = "done"; document.body.classList.add("intro-done"); } }, 5000);</script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

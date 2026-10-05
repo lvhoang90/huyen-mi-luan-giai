@@ -40,13 +40,13 @@ function medallion(id) {
     <g transform="translate(220 232)">
       <circle r="214" fill="url(#hg${id})"/>
       <g class="ring-spin" fill="none" stroke="${tint}"><circle r="208" stroke-width="1.6"/><circle r="201" stroke-width=".7" opacity=".7"/><g stroke-width="1" opacity=".75">${ticks}</g></g>
-      <circle r="108" fill="#0d0830" fill-opacity=".55" stroke="${tint}" stroke-width="1.4"/><circle r="102" fill="none" stroke="${tint}" stroke-width=".6" opacity=".6"/>
-      <g class="word-glow" filter="url(#bl${id})" opacity=".75">${arc('HUYỀN MY', { R: 118, k: 0.5, dir: 'top', tint: '#ffd978' })}${arc('LUẬN GIẢI', { R: 169, k: 0.5, dir: 'bottom', tint: '#ffd978' })}</g>
-      <g class="word word-top">${arc('HUYỀN MY', { R: 118, k: 0.5, dir: 'top', tint })}</g>
-      <g class="word word-bot">${arc('LUẬN GIẢI', { R: 169, k: 0.5, dir: 'bottom', tint })}</g>
+      <circle r="101" fill="#0d0830" fill-opacity=".55" stroke="${tint}" stroke-width="1.4"/><circle r="95" fill="none" stroke="${tint}" stroke-width=".6" opacity=".6"/>
+      <g class="word-glow" filter="url(#bl${id})" opacity=".75">${arc('HUYỀN MY', { R: 128, k: 0.42, dir: 'top', tint: '#ffd978' })}${arc('LUẬN GIẢI', { R: 176, k: 0.42, dir: 'bottom', tint: '#ffd978' })}</g>
+      <g class="word word-top">${arc('HUYỀN MY', { R: 128, k: 0.42, dir: 'top', tint })}</g>
+      <g class="word word-bot">${arc('LUẬN GIẢI', { R: 176, k: 0.42, dir: 'bottom', tint })}</g>
       ${side(90)}${side(-90)}
       <g class="stars">${stars}</g>
-      <svg x="-84" y="-80" width="168" height="168" viewBox="0 0 100 100" overflow="visible" class="orb-center">${orbInner(id)}</svg>
+      <svg x="-76" y="-72" width="152" height="152" viewBox="0 0 100 100" overflow="visible" class="orb-center">${orbInner(id)}</svg>
     </g>
     <g class="ver" transform="translate(220 452)"><rect x="-34" y="-16" width="68" height="32" rx="16" fill="#1a1040" stroke="${tint}" stroke-width="1.6"/><text y="7" text-anchor="middle" font-family="Be Vietnam Pro, system-ui, sans-serif" font-size="20" font-weight="600" letter-spacing="2" fill="#fff0c2">1.0</text></g>
   </svg>`;
