@@ -14,6 +14,6 @@ echo "==> 3/4 Dựng bộ mới"
 node tools/merge-famous.mjs "$RAW" --out "$OUT"
 cp "$OUT" src/engine/famous-wikidata.js
 echo "==> 4/4 Build và khởi động lại"
-npx vite build --envDir "$(mktemp -d)"
+npm run build
 systemctl restart huyenmy && sleep 2 && systemctl is-active huyenmy
 echo "Xong."

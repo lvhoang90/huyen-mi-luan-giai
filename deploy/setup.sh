@@ -49,7 +49,7 @@ mkdir -p "$DATA_DIR" && chown "$APP_USER:$APP_USER" "$DATA_DIR" && chmod 750 "$D
 
 echo "==> 6/9 Dựng ứng dụng"
 npm ci --no-audit --no-fund
-npx vite build --envDir "$(mktemp -d)"   # không để Vite đọc .env chứa bí mật
+npm run build
 
 clean() { sed -E 's/\x1b\[[0-9;?]*[ -\/]*[@-~]//g' | tr -cd '\041-\176'; }  # bỏ ký tự điều khiển do dán vào terminal
 echo "==> 7/9 Cấu hình bí mật (.env)"
