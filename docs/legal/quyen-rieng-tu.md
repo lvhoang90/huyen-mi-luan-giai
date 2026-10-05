@@ -33,7 +33,7 @@ Chúng tôi dùng một số nhà cung cấp để dịch vụ chạy được. 
 - **Anthropic** (AI trả lời): nhận hồ sơ, lá số và nội dung trò chuyện trong lượt bạn gửi. Họ xử lý theo chính sách của họ.
 - **Resend** (gửi email): nhận địa chỉ email và nội dung thư chứa mã xác nhận.
 - **Nhà cung cấp máy chủ** (PA Vietnam hoặc đơn vị tương đương): lưu trữ ứng dụng và cơ sở dữ liệu.
-- **Google Fonts**: trình duyệt của bạn tải phông chữ từ Google nên Google có thể thấy địa chỉ IP của bạn.
+- Phông chữ được lưu ngay trên máy chủ của chúng tôi, không tải từ Google hay bên thứ ba nào.
 Chúng tôi không bán hay cho thuê dữ liệu của bạn, và không chia sẻ cho mục đích quảng cáo. Chúng tôi chỉ tiết lộ dữ liệu khi pháp luật yêu cầu.
 
 ## 4. Chuyển dữ liệu ra nước ngoài

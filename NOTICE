@@ -6,7 +6,7 @@ Thành phần của bên thứ ba / Third-party components (giữ giấy phép r
 - astronomy-engine (Don Cross), MIT License, dùng cho thiên văn. https://github.com/cosinekitty/astronomy
 - @anthropic-ai/sdk (Anthropic), MIT License.
 - Vite, MIT License (công cụ build).
-- Phông chữ qua Google Fonts, SIL Open Font License 1.1: Cormorant Garamond, Be Vietnam Pro, Literata.
+- Phông chữ tự lưu trong public/fonts (lấy từ gói @fontsource), SIL Open Font License 1.1: Cormorant Garamond, Be Vietnam Pro, Literata. Giấy phép: public/fonts/licenses/.
 - Chỉ dùng khi kiểm thử (không nằm trong sản phẩm): tuvi-neo, lunar-javascript.
 
 Nhân vật "Huyền My", logo và hình ảnh trong thư mục art/ và public/art/ do tác giả tự thiết kế (xem LICENSE, mục 5).
