@@ -158,17 +158,37 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
     if (hint) composer.append(h('div', { className: 'hint', textContent: hint }));
     if (chips.length) composer.append(chipsRow(chips, (c) => done(c.value ?? c, c.label ?? c)));
     if (kind === 'choice') return;
-    const input = h('input', { className: 'field', type: kind === 'date' ? 'date' : kind === 'time' ? 'time' : 'text', placeholder, maxLength: 80, autocomplete: 'off' });
-    if (kind === 'date') { input.max = new Date().toISOString().slice(0, 10); input.min = '1900-01-01'; }
+    // Ngày và giờ nhập bằng ô số thường: hộp chọn ngày gốc của trình duyệt trong Zalo/Facebook có thể làm trang bị nạp lại giữa chừng.
+    const num = (ph, len, label) => h('input', { className: 'field num', type: 'text', inputMode: 'numeric', pattern: '[0-9]*', placeholder: ph, maxLength: len, autocomplete: 'off', ariaLabel: label, size: len });
+    const fields = kind === 'date' ? [num('Ngày', 2, 'Ngày sinh'), num('Tháng', 2, 'Tháng sinh'), num('Năm', 4, 'Năm sinh')] : kind === 'time' ? [num('Giờ', 2, 'Giờ sinh (0-23)'), num('Phút', 2, 'Phút sinh')] : [];
+    const input = fields[0] ?? h('input', { className: 'field', type: 'text', placeholder, maxLength: 80, autocomplete: 'off' });
     const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
+    const p2 = (v) => String(v).padStart(2, '0');
+    const bad = (el) => { el.style.borderColor = '#ff8a8a'; };
     const submit = () => {
+      fields.forEach((f) => (f.style.borderColor = ''));
+      if (kind === 'date') {
+        const [d, m, y] = fields.map((f) => +f.value), now = new Date().getFullYear();
+        if (!(d >= 1 && d <= 31)) return bad(fields[0]); if (!(m >= 1 && m <= 12)) return bad(fields[1]); if (!(y >= 1900 && y <= now)) return bad(fields[2]);
+        return done(`${y}-${p2(m)}-${p2(d)}`, `${p2(d)}/${p2(m)}/${y}`);
+      }
+      if (kind === 'time') {
+        if (fields.every((f) => !f.value)) return;
+        const [hh, mm] = fields.map((f) => +f.value || 0);
+        if (!(hh >= 0 && hh <= 23)) return bad(fields[0]); if (!(mm >= 0 && mm <= 59)) return bad(fields[1]);
+        return done(`${p2(hh)}:${p2(mm)}`, `${p2(hh)}:${p2(mm)}`);
+      }
       const v = input.value.trim(); if (!v) return;
       if (validate && !validate(v)) { input.style.borderColor = '#ff8a8a'; return; }
-      const label = kind === 'date' ? v.split('-').reverse().join('/') : kind === 'time' ? `${v}` : v;
-      done(v, label);
+      done(v, v);
     };
-    go.onclick = submit; input.onkeydown = (e) => { if (e.key === 'Enter') submit(); }; // không để trả về false: sẽ chặn mọi phím gõ
-    composer.append(h('div', { className: 'row' }, input, go));
+    go.onclick = submit;
+    const all = fields.length ? fields : [input];
+    all.forEach((f, i) => {
+      f.onkeydown = (e) => { if (e.key === 'Enter') submit(); else if (e.key === 'Backspace' && !f.value && i) all[i - 1].focus(); }; // không để trả về false: sẽ chặn mọi phím gõ
+      if (fields.length) f.oninput = () => { f.value = f.value.replace(/\D/g, ''); if (f.value.length >= f.maxLength && all[i + 1]) all[i + 1].focus(); };
+    });
+    composer.append(h('div', { className: 'row' }, ...all, go));
     if (matchMedia('(pointer:fine)').matches) input.focus();
   });
 }
@@ -470,37 +490,46 @@ async function ageGate(y, m, d) {
   return false;
 }
 async function collect() {
-  S.phase = 'collect'; save();
-  await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
-  const fullName = await ask({ placeholder: 'Họ và tên khai sinh', validate: (v) => v.length >= 2 && /\p{L}/u.test(v) });
-  track('intake_step', { step: 'name' });
+  S.phase = 'collect'; const D = (S.draft ??= {}); save();
+  // Hồ sơ điền dở được lưu từng bước: nếu trang bị nạp lại giữa chừng (hay xảy ra trong trình duyệt của Zalo), My nối tiếp đúng chỗ, không hỏi lại.
+  const keep = (k, v) => { D[k] = v; save(); return v; };
+  if (D.fullName) await say('[[vui]]Chào bạn quay lại. My nhớ bạn đang điền dở, mình nối tiếp ngay từ chỗ đó nhé, không phải nhập lại.', 300);
+  else await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
+  const fullName = D.fullName ?? keep('fullName', await ask({ placeholder: 'Họ và tên khai sinh', validate: (v) => v.length >= 2 && /\p{L}/u.test(v) }));
+  if (!D.nameTracked) { track('intake_step', { step: 'name' }); D.nameTracked = true; }
   const nickname = fullName.trim().split(/\s+/).pop(); // My gọi bằng tên cuối, đỡ một câu hỏi
-  await say(`[[e_then]]Rất vui được gặp ${nickname}. [[lang_nghe]]Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
-  const gender = await ask({ kind: 'choice', chips: [{ label: 'Nữ', value: 'nu' }, { label: 'Nam', value: 'nam' }, { label: 'Không muốn nói', value: 'khac' }] });
-  track('intake_step', { step: 'gender' });
+  if (D.gender === undefined) {
+    await say(`[[e_then]]Rất vui được gặp ${nickname}. [[lang_nghe]]Truyền thống Bát Trạch tính cung mệnh khác nhau theo giới tính khi sinh. Bạn cho My biết, hoặc bỏ qua cũng không sao.`);
+    keep('gender', await ask({ kind: 'choice', chips: [{ label: 'Nữ', value: 'nu' }, { label: 'Nam', value: 'nam' }, { label: 'Không muốn nói', value: 'khac' }] }));
+    track('intake_step', { step: 'gender' });
+  }
+  const gender = D.gender;
   let profile;
   for (;;) {
-    await say('[[chia_se]]Ngày tháng năm sinh dương lịch của bạn? Bạn không cần quy ra âm lịch, My sẽ tự đối chiếu theo tiết khí thật của trời đất.');
-    const date = await ask({ kind: 'date' });
-    const [y, m, d] = date.split('-').map(Number);
-    track('intake_step', { step: 'date' });
-    if (!(await ageGate(y, m, d))) return;
-    await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
-    const time = await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] });
-    track('intake_step', { step: 'time' });
-    let hour = null, minute = null; if (time) [hour, minute] = time.split(':').map(Number);
-    let place = null;
-    if (time) {
-      await say('[[chiem_nghiem]]Và nơi bạn chào đời? Giờ sinh chỉ có nghĩa khi gắn với một vùng trời.');
-      place = await askPlace();
+    if (!D.date) {
+      await say('[[chia_se]]Ngày tháng năm sinh dương lịch của bạn? Bạn không cần quy ra âm lịch, My sẽ tự đối chiếu theo tiết khí thật của trời đất.');
+      keep('date', await ask({ kind: 'date' })); track('intake_step', { step: 'date' });
     }
-    track('intake_step', { step: 'place' });
-    const field = await askField();
-    track('intake_step', { step: 'field' });
-    try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place, field }); break; }
-    catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
+    const [y, m, d] = D.date.split('-').map(Number);
+    if (!D.ageOk) { if (!(await ageGate(y, m, d))) { delete D.date; save(); return; } keep('ageOk', true); }
+    if (D.time === undefined) {
+      await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
+      keep('time', await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] })); track('intake_step', { step: 'time' });
+    }
+    let hour = null, minute = null; if (D.time) [hour, minute] = D.time.split(':').map(Number);
+    if (D.place === undefined) {
+      let place = null;
+      if (D.time) {
+        await say('[[chiem_nghiem]]Và nơi bạn chào đời? Giờ sinh chỉ có nghĩa khi gắn với một vùng trời.');
+        place = await askPlace();
+      }
+      keep('place', place); track('intake_step', { step: 'place' });
+    }
+    if (D.field === undefined) { keep('field', await askField()); track('intake_step', { step: 'field' }); }
+    try { profile = normalizeProfile({ fullName, nickname, gender, birth: { y, m, d, hour, minute }, place: D.place, field: D.field }); break; }
+    catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); delete D.date; delete D.ageOk; delete D.time; delete D.place; delete D.field; save(); }
   }
-  S.profile = profile; save();
+  S.profile = profile; delete S.draft; save();
   track('intake_done', { ageBand: ageBand(profile.birth.y), gender: profile.gender ?? 'khac', field: profile.field ?? 'none', hasTime: profile.birth.hour != null, hasPlace: !!profile.place });
   await askMood('start');
   await ritual();
@@ -732,6 +761,7 @@ async function tryCode(code) {
 // Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
 const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/[^\w-]/g, '').slice(0, 20);
 track('landing_view', { ref: urlRef });
+try { const nav = performance.getEntriesByType('navigation')[0]; if (nav && nav.type !== 'navigate') track('page_reload', { type: nav.type, step: load()?.phase ?? 'new' }); } catch {}
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
   ACCOUNT = { accounts: !!me.accounts, user: me.user ?? null, refCode: me.refCode ?? '' };
   $('#btn-account').hidden = !ACCOUNT.accounts; showAdmin();
@@ -806,6 +836,7 @@ async function enter(resume) {
     return converse();
   }
   S.phase = 'intro'; stage.emo('binh_thuong');
+  if (S.draft?.fullName) return collect(); // điền dở từ lần trước: bỏ qua lời chào, nối tiếp luôn
   for (const line of INTRO) await say(line, 900, true);
   await collect();
 }
@@ -820,4 +851,5 @@ const saved = load();
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {
   try { S = { ...saved, profile: normalizeProfile(saved.profile) }; offerResume(); } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);
+if (!S.profile && saved?.draft?.fullName && saved.phase === 'collect') { S = { ...saved }; enter(false); } // trang bị nạp lại giữa lúc điền hồ sơ: vào thẳng, nối tiếp
 try { if (sessionStorage.getItem(AUTORESUME)) { sessionStorage.removeItem(AUTORESUME); if (S.profile && S.messages?.length) enter(true); } } catch {}
