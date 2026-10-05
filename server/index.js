@@ -1,3 +1,4 @@
+import { clientIp } from './ip.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -68,7 +69,7 @@ function cleanMessages(raw) {
 }
 
 function handleUnlock(req, res) {
-  const ip = req.socket.remoteAddress ?? '?';
+  const ip = clientIp(req);
   if (lockedOut(ip)) return json(res, 429, { error: 'Bạn nhập sai nhiều lần. Hãy thử lại sau ít phút nhé.' });
   return readBody(req, 1024).then((b) => {
     if (codeOk(b.code)) return json(res, 200, { ok: true });
@@ -77,7 +78,7 @@ function handleUnlock(req, res) {
 }
 
 async function handleChat(req, res) {
-  const ip = req.socket.remoteAddress ?? '?';
+  const ip = clientIp(req);
   if (ACCESS_CODE) {
     if (lockedOut(ip)) return json(res, 429, { error: 'Bạn nhập sai nhiều lần. Hãy thử lại sau ít phút nhé.' });
     if (!codeOk(req.headers['x-access-code'])) { noteFail(ip); return json(res, 401, { error: 'Cần mã truy cập để trò chuyện với My.', locked: true }); }

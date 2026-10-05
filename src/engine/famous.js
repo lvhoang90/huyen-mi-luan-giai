@@ -1,6 +1,7 @@
 // Người nổi tiếng theo ngày sinh dương lịch: dùng làm "điểm chung" mở đầu cuộc trò chuyện.
 // Mỗi mục: [tháng, ngày, năm, tên, mô tả ngắn, ưu tiên?]. 1 = người Việt, hiện lên trước. Bộ bổ sung có thêm lĩnh vực: xem famous-more.js.
 import { MORE } from './famous-more.js';
+import { WD } from './famous-wikidata.js';
 // Nguồn: tự soạn từ kiến thức phổ thông, chỉ giữ những mốc ngày sinh được ghi nhận rộng rãi (đã bỏ các trường hợp tranh cãi).
 // CHƯA đối chiếu tự động với Wikidata; xem tools/fetch-famous.mjs để dựng bộ đầy đủ khi có mạng.
 const D = [
@@ -29,8 +30,9 @@ FIELD_RULES.push([/nhà văn|nhà thơ|họa sĩ|điêu khắc|kiến trúc sư|
 const fieldOf = (desc) => (FIELD_RULES.find(([re]) => re.test(desc)) ?? [null, 'x'])[1];
 const BASE = D.map(([m, d, y, name, desc, vn]) => ({ m, d, y, name, desc, vn: !!vn, f: fieldOf(desc) }));
 const EXTRA = MORE.map(([m, d, y, name, desc, f, vn]) => ({ m, d, y, name, desc, vn: !!vn, f }));
+const WIKI = WD.map(([m, d, y, name, desc, f, vn, pop]) => ({ m, d, y, name, desc, vn: !!vn, f, pop, wd: true })); // dữ liệu Wikidata, đứng sau bộ tự soạn khi trùng tên
 const seen = new Set();
-const ENTRIES = [...BASE, ...EXTRA].filter((e) => { const k = e.name; if (seen.has(k)) return false; seen.add(k); return true; });
+const ENTRIES = [...BASE, ...EXTRA, ...WIKI].filter((e) => { const k = e.name; if (seen.has(k)) return false; seen.add(k); return true; });
 // Những cái tên gần như ai cũng biết, kể cả người trẻ.
 const ICONS = new Set(['Albert Einstein', 'Isaac Newton', 'Hồ Chí Minh', 'Wolfgang Amadeus Mozart', 'Leonardo da Vinci', 'Steve Jobs', 'Bill Gates', 'Stephen Hawking', 'Marie Curie', 'Walt Disney', 'Elvis Presley', 'Michael Jordan', 'Napoléon Bonaparte', 'Mahatma Gandhi', 'Nelson Mandela', 'Charlie Chaplin', 'Pablo Picasso', 'Vincent van Gogh', 'Lionel Messi', 'Cristiano Ronaldo']);
 
@@ -55,6 +57,7 @@ const fieldMatch = (key, f) => !!key && !!FIELD_OPTIONS.find((o) => o.key === ke
 function score(e, { age, field }) {
   let s = e.vn ? 2 : 0;
   if (fieldMatch(field, e.f)) s += 4;
+  if (e.pop) s += Math.min(2, e.pop / 120);                                  // nhiều ngôn ngữ có bài viết = nổi tiếng hơn
   if (ICONS.has(e.name)) s += 2;
   if (age <= 26) s += e.y >= 1990 ? 3 : e.y >= 1975 ? 1.5 : 0;           // Gen Z: ca sĩ, diễn viên, KOL, cầu thủ thế hệ mình
   else if (age <= 40) s += e.y >= 1960 && e.y <= 2003 ? 2 : 0;
@@ -99,3 +102,5 @@ export function famousFor(m, d, limit = 3) {
   return { exact: r.sameDay, near: r.nearDay };
 }
 export const FAMOUS_COUNT = ENTRIES.length;
+/** Toàn bộ mục (dùng cho công cụ đối chiếu). */
+export const allEntries = () => ENTRIES;

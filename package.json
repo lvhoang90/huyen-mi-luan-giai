@@ -8,7 +8,7 @@
     "dev": "node server/index.js",
     "build": "vite build",
     "start": "NODE_ENV=production node server/index.js",
-    "test": "node --test test/engine.test.js test/lunar-tuvi.test.js test/emotion-tags.test.js test/places.test.js test/famous.test.js test/server.test.js"
+    "test": "node --test test/engine.test.js test/lunar-tuvi.test.js test/emotion-tags.test.js test/places.test.js test/famous.test.js test/famous-tools.test.js test/server.test.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",

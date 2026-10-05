@@ -17,7 +17,7 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 
 ## Mở đầu và nhịp buổi trò chuyện
 
-- **Hook mở đầu:** sau khi tính xong lá số, My kể những người nổi tiếng cùng ngày sinh (hoặc sát ngày), một người cùng lĩnh vực làm việc của bạn và người cùng năm sinh, chọn theo tuổi: người trẻ nhận ngôi sao trẻ, người lớn tuổi nhận danh nhân, nhà khoa học, nhà văn. Dữ liệu ở `src/engine/famous.js` và `famous-more.js` (khoảng 470 người, tự soạn, chưa đối chiếu nguồn mở; `tools/fetch-famous.mjs` dựng bộ đầy đủ từ Wikidata khi có mạng). My luôn nói rõ đó chỉ là điểm chung, không phải số phận.
+- **Hook mở đầu:** sau khi tính xong lá số, My kể những người nổi tiếng cùng ngày sinh (hoặc sát ngày), một người cùng lĩnh vực làm việc của bạn và người cùng năm sinh, chọn theo tuổi: người trẻ nhận ngôi sao trẻ, người lớn tuổi nhận danh nhân, nhà khoa học, nhà văn. Dữ liệu ở `src/engine/famous.js` và `famous-more.js` (khoảng 470 người, tự soạn, chưa đối chiếu nguồn mở; `tools/fetch-famous.mjs` + `tools/merge-famous.mjs` dựng thêm bộ từ Wikidata (CC0) và đối chiếu bộ tự soạn khi chạy ở nơi có mạng; xem đầu tệp). My luôn nói rõ đó chỉ là điểm chung, không phải số phận.
 - **Mỗi buổi tối đa 30 phút:** còn 5 phút thì hiện đồng hồ, hết giờ My tạm biệt, nói điều thật sự chưa kể từ lá số, rồi nghỉ 3 giờ. Chỉnh `SESSION_MIN`, `WARN_MIN`, `COOLDOWN_MIN` trong `src/main.js`.
 
 ## Tài khoản, theo dõi hành trình và trang quản trị
@@ -91,3 +91,5 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 - `astronomy-engine` (MIT), `@anthropic-ai/sdk` (MIT).
 - Nhân vật 2D do dự án tự vẽ bằng mã (`tools/chibi.py`, `tools/rig.py`); không dùng mô hình hay hình ảnh của bên thứ ba.
 - `tuvi-neo` và `lunar-javascript` chỉ dùng để đối chiếu khi kiểm thử, không nằm trong sản phẩm.
+
+Hướng dẫn đưa lên web: [docs/TRIEN-KHAI.md](docs/TRIEN-KHAI.md).

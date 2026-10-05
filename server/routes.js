@@ -1,4 +1,5 @@
 // API tài khoản, theo dõi hành trình, đồng bộ trạng thái và trang quản trị.
+import { clientIp } from './ip.js';
 import crypto from 'node:crypto';
 import { createAuth, parseCookies, cookie, sendMail } from './auth.js';
 import { ingest } from './events.js';
@@ -23,7 +24,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
 
   const json = (res, code, obj, headers = {}) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers }); res.end(JSON.stringify(obj)); };
   const secure = (req) => req.socket.encrypted || req.headers['x-forwarded-proto'] === 'https';
-  const ipOf = (req) => req.socket.remoteAddress ?? '?';
+  const ipOf = (req) => clientIp(req);
   function readBody(req, max = 64 * 1024) {
     return new Promise((resolve, reject) => {
       let size = 0; const chunks = [];
