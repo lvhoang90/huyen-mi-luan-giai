@@ -1,6 +1,7 @@
-// Âm thanh tổng hợp bằng WebAudio (không cần tệp âm thanh): tiếng chuông ngân khẽ và tiếng thở nhẹ.
+// Âm thanh tổng hợp bằng WebAudio (không cần tệp âm thanh): tiếng chuông ngân khẽ, tiếng thở nhẹ và nhạc nền (music.js).
 // Mặc định TẮT. Trình duyệt chỉ cho phát sau khi người dùng chạm, nên âm thanh chỉ vang lên khi đã bật và đã chạm.
 // Bản quyền © 2026 Lương Việt Hoàng. Bảo lưu mọi quyền. Xem LICENSE.
+import { createMusic } from './music.js';
 const KEY = 'huyenmy.sound';
 let on = false; try { on = localStorage.getItem(KEY) === 'on'; } catch {}
 let ctx = null;
@@ -9,6 +10,8 @@ const ensure = () => {
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   return ctx;
 };
+const music = createMusic(() => ctx);
+document.addEventListener('visibilitychange', () => { if (!ctx) return; if (document.hidden) ctx.suspend().catch(() => {}); else if (on) ctx.resume().catch(() => {}); });
 const ready = () => { const a = ensure(); return a && a.state === 'running' ? a : null; };
 
 function note(a, freq, at, dur, vol) {
@@ -20,8 +23,8 @@ function note(a, freq, at, dur, vol) {
 export const sound = {
   get on() { return on; },
   /** Gọi trong một cú chạm của người dùng để mở khóa âm thanh. */
-  unlock() { ensure(); },
-  set(v) { on = !!v; try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch {} if (on) { ensure(); setTimeout(() => this.chime(), 60); } },
+  unlock() { ensure(); if (on && !music.playing) music.start(); },
+  set(v) { on = !!v; try { localStorage.setItem(KEY, on ? 'on' : 'off'); } catch {} if (on) { ensure(); music.start(); setTimeout(() => this.chime(), 60); } else music.stop(); },
   /** Tiếng chuông ngân khi quả cầu sáng lên. */
   chime() {
     if (!on) return; const a = ready(); if (!a) return; const t = a.currentTime + 0.02;

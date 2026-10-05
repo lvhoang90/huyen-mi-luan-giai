@@ -276,3 +276,4 @@ body.no-trans .veil-inner, body.no-trans .v-char { transition: none !important; 
   .veil-inner > .v-char { overflow: hidden; }
   #veil[data-intro="0"] .veil-inner, #veil[data-intro="1"] .veil-inner, #veil[data-intro="2"] .veil-inner { grid-template-columns: 0px minmax(0, 1fr); column-gap: 0; }
 }
+#btn-sound.on { color: #ffe9a8; text-shadow: 0 0 10px rgba(255,214,120,.7); }
