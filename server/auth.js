@@ -98,6 +98,9 @@ export function createAuth({ db, pepper, adminEmails = [], mailer = sendMail, no
   const logout = (token) => { if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha(token)); };
   function deleteAccount(userId) {
     db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM anon_links WHERE user_id = ?').run(userId);
+    db.prepare('DELETE FROM turns WHERE actor = ?').run(`u${userId}`);
+    db.prepare('DELETE FROM events WHERE actor = ?').run(`u${userId}`);
     db.prepare('UPDATE events SET user_id = NULL WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
   }

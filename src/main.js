@@ -283,6 +283,7 @@ async function closeSession() {
   await say(`[[dong_cam]]Đã đến lúc My nghỉ một chút, ${S.profile.nickname}. Mỗi buổi My chỉ trò chuyện tối đa ${SESSION_MIN} phút, để lần nào cũng dành trọn cho bạn.`, 500);
   await say(`[[chiem_nghiem]]Hôm nay ta đã đi được một đoạn. Còn một điều My chưa kể: **${next}**. My để dành cho lần sau, khoảng ${hhmm(S.restUntil)} My lại ngồi đây.`, 500);
   track('session_close', { min: spent });
+  await askMood('end');
   await askNps();
   await signupGate('close');
   await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
@@ -394,6 +395,15 @@ function signupGate(why) {
     });
   });
 }
+const MOODS = [['Nặng nề', 1], ['Hơi chùng', 2], ['Bình thường', 3], ['Khá nhẹ', 4], ['Nhẹ nhõm', 5]];
+/** Tự đánh giá tâm trạng bằng một lần chạm (không bắt buộc). Ba thời điểm: đầu buổi, giữa buổi, cuối buổi, để quản trị đo được lòng người nhẹ đi hay nặng thêm. */
+async function askMood(phase) {
+  const lead = { start: 'Trước khi bắt đầu, hôm nay bạn đang thấy trong người thế nào? Chạm một ô, hoặc bỏ qua cũng được.', mid: 'Hỏi nhỏ một chút thôi: lúc này lòng bạn thấy thế nào so với lúc mới đến?', end: 'Trước khi nghỉ, lòng bạn đang thấy thế nào? Chỉ để My biết mình có làm bạn nhẹ đi chút nào không.' }[phase];
+  await say(`[[lang_nghe]]${lead}`, 300);
+  const v = await ask({ kind: 'choice', chips: [...MOODS.map(([label, value]) => ({ label, value })), { label: 'Bỏ qua', value: '' }] });
+  if (v !== '') track('mood_check', { phase, value: v });
+  return v;
+}
 async function askNps() {
   await say('[[lang_nghe]]Một câu cuối thôi: bạn có muốn giới thiệu My cho bạn bè không? Chọn từ 0 (không) đến 10 (chắc chắn).', 300);
   const v = await ask({ kind: 'choice', chips: [...Array.from({ length: 11 }, (_, i) => ({ label: String(i), value: i })), { label: 'Bỏ qua', value: '' }] });
@@ -489,7 +499,8 @@ async function collect() {
     catch (e) { await say(`[[ngac_nhien]]Hình như có điều gì chưa khớp (${e.message}). Mình thử nhập lại ngày giờ sinh nhé.`); }
   }
   S.profile = profile; save();
-  track('intake_done', { ageBand: ageBand(profile.birth.y), field: profile.field ?? 'none', hasTime: profile.birth.hour != null, hasPlace: !!profile.place });
+  track('intake_done', { ageBand: ageBand(profile.birth.y), gender: profile.gender ?? 'khac', field: profile.field ?? 'none', hasTime: profile.birth.hour != null, hasPlace: !!profile.place });
+  await askMood('start');
   await ritual();
 }
 
@@ -572,6 +583,7 @@ async function converse() {
     const ok = await aiTurn(reading ? 'reading' : S.phase);
     if (!ok) { userTurns--; continue; }
     if (reading) { S.phase = 'companion'; justRead = true; suggestions = []; save(); track('reading_received'); await askResonance(); }
+    else if (userTurns === 8 && !S.moodMid) { S.moodMid = true; save(); await askMood('mid'); }
     save();
   }
 }
