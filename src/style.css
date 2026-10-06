@@ -155,7 +155,6 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
   body.docked #stage-area::before { inset: -20% -45% -10% -45%; opacity: .5; }
   body.docked #wheel { display: none; }
   body.docked #char svg { filter: drop-shadow(0 3px 8px rgba(138, 107, 255, .35)); }
-  body.docked #lanterns { opacity: 0; pointer-events: none; transition: opacity .8s; }
   body.docked .topbar { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; min-height: var(--hdr); padding: calc(8px + env(safe-area-inset-top)) 12px 8px calc(22px + var(--av-h) * .75); }
   body.docked .tools { justify-self: end; }
   body.docked .dialog { top: var(--hdr); }
@@ -166,25 +165,7 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
   body.docked .tools { justify-self: start; }
 }
 
-/* ---- đèn lồng treo ---- */
-.lanterns { position: fixed; z-index: 31; left: 0; top: 0; width: 380px; height: 300px; pointer-events: none; }
-.lanterns .rope { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.lantern { position: absolute; width: 0; height: 0; transform-origin: 0 0; animation: swing var(--dur) ease-in-out var(--delay) infinite alternate; }
-.lantern .cord { position: absolute; left: 0; top: 0; width: 1px; height: var(--len); background: rgba(201, 168, 92, .7); }
-.lantern .lamp { position: absolute; left: calc(var(--w) / -2); top: var(--len); width: var(--w); aspect-ratio: 3 / 5; filter: drop-shadow(0 0 10px rgba(var(--glow), .75)); }
-.lantern .lamp svg { position: relative; width: 100%; height: 100%; display: block; animation: flicker 2.4s ease-in-out var(--delay) infinite; }
-.lantern .halo { position: absolute; left: 50%; top: 40%; width: 230%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(var(--glow), .42), transparent 62%); animation: halo 3.2s ease-in-out var(--delay) infinite; }
-@keyframes swing { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
-@keyframes flicker { 0%, 100% { filter: brightness(1); } 35% { filter: brightness(1.22); } 62% { filter: brightness(.9); } 80% { filter: brightness(1.12); } }
-@keyframes halo { 0%, 100% { opacity: .75; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } }
-@media (max-width: 899px) {
-  .lanterns { width: 100%; height: 190px; top: 62px; }
-  .lanterns .rope { display: none; }
-  .lantern:nth-of-type(n+3) { display: none; }
-  .lantern { --w: 36px; }
-  .lantern:nth-of-type(1) { left: 3% !important; top: 0 !important; } .lantern:nth-of-type(2) { left: 96% !important; top: 0 !important; }
-}
-@media (prefers-reduced-motion: reduce) { .lantern, .lantern .lamp svg, .lantern .halo, .logo * { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .logo * { animation: none !important; } }
 
 #clock { color: #fbeecb; border-color: rgba(226, 194, 125, .55); background: rgba(226, 194, 125, .12); font-variant-numeric: tabular-nums; }
 .rest { text-align: center; color: var(--dim); font-size: 14px; padding: 10px; }
@@ -261,8 +242,6 @@ h1#veil-logo { margin: 0; }
 body.veil-on #stage-area { z-index: 35; }
 body.veil-on #wheel { opacity: 0; }
 body.veil-on #stage-area::before { inset: -6% -22% 0 -22%; }
-body.veil-on:not(.intro-done) .lanterns { opacity: 0; }
-.lanterns { transition: opacity 1.6s ease; }
 body.no-trans #stage-area { transition: none !important; }
 #veil[data-intro] { transition: background .9s ease, opacity 1.4s ease, visibility 1.4s; }
 #veil[data-intro="0"], #veil[data-intro="1"] { background: #03020c; backdrop-filter: none; }
@@ -453,3 +432,4 @@ details.howto ul { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 5px;
 
 /* màn chào trên điện thoại thấp: gọn lại để ít phải cuộn */
 @media (max-width: 640px) and (max-height: 940px) { .logo.medal { --medal: min(72vw, 34vh, 400px); } .hero-slot { height: min(17vh, 44vw, 200px); } .tarot-cta { margin-top: 8px; padding: 9px 12px; } .tcta-ic { width: 40px; height: 40px; } .tcta-tx small { display: none; } a.veil-login { margin-top: 4px; } .veil-inner .fine { margin: 6px 0 0; } }
+.send { display: inline-grid; place-items: center; padding: 0; } .send .ic { width: 20px; height: 20px; vertical-align: 0; stroke-width: 1.9; }

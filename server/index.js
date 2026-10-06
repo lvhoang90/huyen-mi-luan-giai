@@ -3,6 +3,7 @@ import { runReminders } from './reminders.js';
 import { sendMail } from './auth.js';
 import http from 'node:http';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -129,11 +130,20 @@ async function handleChat(req, res) {
 }
 
 // ---- static / vite ----
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
 let vite = null;
 if (!isProd) {
   const { createServer } = await import('vite');
   vite = await createServer({ root, server: { middlewareMode: true }, appType: 'spa' });
+}
+// Nén sẵn (brotli, gzip) và nhớ trong bộ nhớ: tệp tĩnh chỉ đổi khi dựng lại. Nginx của bản cài cũ không nén tệp .js nên máy chủ tự nén, trình duyệt yếu hoặc mạng chậm (như khi mở trong Zalo) tải nhẹ hơn nhiều.
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']), zcache = new Map();
+function compressed(file, ext, acceptEncoding) {
+  if (!COMPRESSIBLE.has(ext)) return null;
+  const enc = /\bbr\b/.test(acceptEncoding) ? 'br' : /\bgzip\b/.test(acceptEncoding) ? 'gzip' : null; if (!enc) return null;
+  const key = `${file}|${fs.statSync(file).mtimeMs}|${enc}`; let buf = zcache.get(key);
+  if (!buf) { const raw = fs.readFileSync(file); buf = enc === 'br' ? zlib.brotliCompressSync(raw, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } }) : zlib.gzipSync(raw, { level: 6 }); zcache.set(key, buf); }
+  return { enc, buf };
 }
 function serveStatic(req, res) {
   const dist = path.join(root, 'dist');
@@ -142,7 +152,10 @@ function serveStatic(req, res) {
   if (!file.startsWith(dist)) { res.writeHead(403); return res.end(); }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(dist, 'index.html');
   const ext = path.extname(file);
-  res.writeHead(200, { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' });
+  const headers = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' };
+  const z = compressed(file, ext, String(req.headers['accept-encoding'] ?? ''));
+  if (z) { res.writeHead(200, { ...headers, 'Content-Encoding': z.enc, 'Content-Length': z.buf.length, Vary: 'Accept-Encoding' }); return res.end(req.method === 'HEAD' ? undefined : z.buf); }
+  res.writeHead(200, headers);
   fs.createReadStream(file).pipe(res);
 }
 

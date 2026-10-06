@@ -52,7 +52,7 @@ function readingHtml(cards, topicKey = null) {
   }
   return `${tag}<h2>Ba lá của bạn</h2><div class="tr-row3">${cards.map((c, i) => `<div class="one"><h3><small>${POS[i][0]}</small>${esc(c.name)}</h3>${keysHtml(c)}<p>${esc(c[POS[i][1]])}</p></div>`).join('')}</div>${actions()}`;
 }
-const actions = () => `<div class="tr-acts"><a class="btn primary" id="tr-ask" href="#">Hỏi My về ${shown.length > 1 ? 'ba lá này' : 'lá bài này'}</a><button type="button" class="btn" id="tr-dl">⬇ Tải ảnh</button><button type="button" class="btn" id="tr-share">⤴ Chia sẻ</button></div>
+const actions = () => `<div class="tr-acts"><a class="btn primary" id="tr-ask" href="#">Hỏi My về ${shown.length > 1 ? 'ba lá này' : 'lá bài này'}</a><button type="button" class="btn" id="tr-dl">${icon('download')} Tải ảnh</button><button type="button" class="btn" id="tr-share">${icon('share')} Chia sẻ</button></div>
   <p class="sub tr-note" id="tr-note" role="status" aria-live="polite" style="margin:0" hidden></p>
   <p class="sub" style="margin:0">Lá bài chỉ là một lăng kính để suy ngẫm, không dự báo điều gì sẽ xảy ra.</p>`;
 

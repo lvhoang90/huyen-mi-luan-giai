@@ -6,6 +6,7 @@ import './tarot.css';
 import './me.css';
 import { mountLogo } from './logo.js';
 import { track } from './track.js';
+import { icon } from './icons.js';
 import { CARDS, cardById } from './tarot/cards.js';
 import { cardArtSvg } from './tarot/art.js';
 import { buildChart } from './engine/index.js';
@@ -63,7 +64,7 @@ function timeCard(d) {
 
 function inviteCard(d) {
   const r = d.referral, link = `${location.origin}/?ref=${d.refCode}`;
-  const slots = Array.from({ length: r.maxRefs }, (_, i) => `<span class="slot${i < r.qualified ? ' on' : ''}" title="${i < r.qualified ? 'Đã nhận +' + r.perMin + ' phút mỗi ngày' : 'Chưa có'}">${i < r.qualified ? '♥' : '♡'}</span>`).join('');
+  const slots = Array.from({ length: r.maxRefs }, (_, i) => `<span class="slot${i < r.qualified ? ' on' : ''}" title="${i < r.qualified ? 'Đã nhận +' + r.perMin + ' phút mỗi ngày' : 'Chưa có'}">${icon('heart')}</span>`).join('');
   const rows = r.list.map((x) => `<li class="${x.qualified ? 'ok' : ''}"><span class="av">${x.n}</span><div><b>Bạn #${x.n}</b><small>${x.qualified ? `Đã đăng ký và trò chuyện đủ ${r.qualifyMin} phút, bạn được +${r.perMin} phút mỗi ngày` : `Đã đăng ký, đang trò chuyện ${x.chatMin}/${r.qualifyMin} phút`}</small>${x.qualified ? '' : `<i class="bar"><u style="width:${Math.round((x.chatMin / r.qualifyMin) * 100)}%"></u></i>`}</div></li>`).join('');
   return `<section class="me-card me-invite"><h2>Mời bạn bè, nhận thêm giờ với My</h2>
     <p>Mỗi người bạn đăng ký bằng email qua liên kết của bạn và trò chuyện với My trên <b>${r.qualifyMin} phút</b>, bạn được thêm <b>${r.perMin} phút mỗi ngày</b>. Cộng dồn, tối đa ${r.maxRefs} người bạn.</p>
@@ -127,7 +128,7 @@ function wireSettings(d) {
 function wire(d) {
   wireSettings(d);
   const link = `${location.origin}/?ref=${d.refCode}`;
-  $('#me-copy').onclick = async (e) => { try { await navigator.clipboard.writeText(link); } catch { $('#me-link').select(); document.execCommand?.('copy'); } e.target.textContent = 'Đã chép ✓'; setTimeout(() => (e.target.textContent = 'Sao chép'), 1800); track('me_copy'); };
+  $('#me-copy').onclick = async (e) => { try { await navigator.clipboard.writeText(link); } catch { $('#me-link').select(); document.execCommand?.('copy'); } e.target.textContent = 'Đã chép'; setTimeout(() => (e.target.textContent = 'Sao chép'), 1800); track('me_copy'); };
   $('#me-share').onclick = async () => { track('me_share'); if (navigator.share) { try { await navigator.share({ title: 'Huyền My Luận Giải', text: 'Mình đang trò chuyện với My, một người bạn đồng hành xem lá số và Tarot. Bạn thử cùng mình nhé.', url: link }); } catch {} } else $('#me-copy').click(); };
 }
 function lazyArt() {

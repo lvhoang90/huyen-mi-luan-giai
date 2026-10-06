@@ -1,7 +1,6 @@
 import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
-import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
 import { shareCard, shareChart } from './share.js';
 import { icon } from './icons.js';
@@ -20,7 +19,6 @@ const $ = (s) => document.querySelector(s);
 const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
-createLanterns($('#lanterns'));
 mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
 const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n), poke: (x, y) => character.poke(x, y), variant: GV, greeting: () => { const nick = load()?.profile?.nickname; return nick ? `Chào mừng ${nick} trở lại` : GREETS[GV].veil(); } });
 const sndBtn = $('#snd'), sndTop = $('#btn-sound');
@@ -186,7 +184,7 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
     let period = 'h24'; const periodRow = kind === 'time' ? h('div', { className: 'periods', role: 'group', ariaLabel: 'Buổi trong ngày' }, ...PERIODS.map(([k, l]) => h('button', { type: 'button', className: 'chip' + (k === period ? ' on' : ''), textContent: l, ariaPressed: String(k === period), onclick: (e) => { period = k; for (const b of periodRow.children) { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-pressed', String(b === e.currentTarget)); } } }))) : null;
     if (periodRow) composer.append(periodRow);
     const input = fields[0] ?? h('input', { className: 'field', type: 'text', placeholder, maxLength: 80, autocomplete: 'off' });
-    const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
+    const go = h('button', { className: 'send', innerHTML: icon('send'), ariaLabel: 'Gửi' });
     const p2 = (v) => String(v).padStart(2, '0');
     const bad = (el) => { el.style.borderColor = '#ff8a8a'; };
     const submit = () => {
@@ -226,7 +224,7 @@ function askChat(chips = []) {
     if (pendingAsk) { const t = pendingAsk; pendingAsk = null; setTimeout(() => send(t), 0); } // câu hỏi bấm từ hình lá số khi My đang bận
     if (chips.length) composer.append(chipsRow(chips, (c) => send(c.value ?? c, c.action ?? false)));
     const ta = h('textarea', { className: 'field', rows: 1, placeholder: 'Kể với My…', maxLength: 2000 });
-    const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
+    const go = h('button', { className: 'send', innerHTML: icon('send'), ariaLabel: 'Gửi' });
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; };
     const submit = () => { const v = ta.value.trim(); if (v) send(v); };
     ta.oninput = grow; go.onclick = submit;
