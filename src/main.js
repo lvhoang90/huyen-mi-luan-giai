@@ -3,7 +3,7 @@ import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
-import { shareCard } from './share.js';
+import { shareCard, shareChart } from './share.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
@@ -635,16 +635,28 @@ const startChips = () => [
 ];
 // Lăng kính để soi tiếp: chỉ hiện đúng một lần, ngay sau lần luận giải đầu, để người dùng biết còn lựa chọn khác.
 /** Trước khi luận giải, hỏi người dùng quen cách xem nào để My chỉ dùng đúng một hệ và nói đúng ngôn ngữ của họ. */
-async function askLens() {
-  if (S.lens) return;
-  await say('[[lang_nghe]]Trước khi My nói, một câu thôi nhé: bạn quen với cách xem nào nhất? My sẽ chỉ dùng đúng cách ấy cho dễ theo dõi, bạn muốn đổi lúc nào cũng được.', 300);
-  const v = await ask({ kind: 'choice', chips: [{ label: 'Tử Vi', value: 'tuvi' }, { label: 'Tứ Trụ (Bát Tự)', value: 'tutru' }, { label: 'Chiêm tinh', value: 'astro' }, { label: 'Thần số học', value: 'thanso' }, { label: 'Mình chưa biết gì, My nói đơn giản thôi', value: 'none' }] });
-  if (v) { S.lens = v; save(); track('lens_pick', { lens: v, via: 'ask' }); }
+async function askLens(early = false) {
+  if (S.lens || S.lensAsked) return;
+  S.lensAsked = true; save();
+  await say(early
+    ? '[[lang_nghe]]Trước khi mình trò chuyện, một câu thôi nhé: bạn quen xem lá số theo cách nào nhất? My sẽ nghiêng về đúng cách ấy và dùng đúng từ bạn đã quen. Muốn đổi lúc nào cũng được.'
+    : '[[lang_nghe]]Trước khi My nói, một câu thôi nhé: bạn quen với cách xem nào nhất? My sẽ chỉ dùng đúng cách ấy cho dễ theo dõi, bạn muốn đổi lúc nào cũng được.', 300);
+  const v = await ask({ kind: 'choice', chips: [
+    { label: 'Tử Vi', value: 'tuvi' }, { label: '12 cung', value: 'cung12' }, { label: 'Thời vận (năm, tháng)', value: 'thoivan' },
+    { label: 'Tứ Trụ (Bát Tự)', value: 'tutru' }, { label: 'Chiêm tinh', value: 'astro' }, { label: 'Thần số học', value: 'thanso' },
+    { label: 'Mình chưa biết gì, My nói đơn giản thôi', value: 'none' }, ...(early ? [{ label: 'Để My chọn giúp', value: '' }] : []),
+  ] });
+  if (v) { S.lens = v; save(); track('lens_pick', { lens: v, via: early ? 'early' : 'ask' }); }
 }
+// Cách xem người dùng chọn quyết định tab mở đầu của hình lá số, để hình và lời My nói cùng một ngôn ngữ.
+const LENS_TAB = { tuvi: 'tuvi', tutru: 'tutru', astro: 'astro', thanso: 'thanso', cung12: 'cung12', thoivan: 'thoivan' };
+const openTab = () => LENS_TAB[S.lens] ?? 'tomtat';
 const CHART_CHIP = { label: '☯ Xem hình lá số', value: '', action: 'chart' };
 const LENS_CHIPS = [
   CHART_CHIP,
   { lens: 'tuvi', label: 'Soi thêm theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
+  { lens: 'cung12', label: 'Soi thêm theo 12 cung', value: 'My soi giúp mình theo 12 cung, từng lĩnh vực một nhé.' },
+  { lens: 'thoivan', label: 'Soi thêm theo thời vận', value: 'My soi giúp mình theo thời vận, năm nay và những tháng tới nhé.' },
   { lens: 'tutru', label: 'Soi thêm theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
   { lens: 'astro', label: 'Soi thêm theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
   { lens: 'thanso', label: 'Soi thêm theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
@@ -661,12 +673,13 @@ async function converse() {
   if (!S.sessionStart) startClock(); // người mới: đồng hồ chỉ chạy từ lúc bắt đầu trò chuyện, không tính thời gian điền hồ sơ
   let justRead = false;
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
+  if (S.phase === 'listen' && userTurns === 0) await askLens(true); // hỏi sớm, ngay sau bước điền hồ sơ, để mọi lời My nói sau đó theo đúng cách người dùng quen
   for (;;) {
     if (limitHit) return closeSession();
     stage.setMood('listen');
     const chips = contextChips(userTurns, justRead); justRead = false;
     const { text, chip } = await askChat(chips);
-    if (chip === 'chart') { track('chart_open', { via: 'chip' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; continue; } // chỉ mở hình lá số, không gửi tin nhắn
+    if (chip === 'chart') { track('chart_open', { via: 'chip' }); sheetTab = openTab(); renderSheet(); sheet.hidden = false; continue; } // chỉ mở hình lá số, không gửi tin nhắn
     const picked = LENS_CHIPS.find((c) => c.lens && c.value === text); if (picked) { S.lens = picked.lens; track('lens_pick', { lens: picked.lens, via: 'chip' }); }
     const sc = userTurns === 0 && S.phase === 'listen' ? startChips().find((c) => c.value === text) : null;
     if (userTurns === 0) track('first_message', { viaChip: !!sc });
@@ -694,12 +707,19 @@ function askFromSheet(text) {
   if (injectAsk) injectAsk(text);
   else { pendingAsk = text; note('My ghi nhớ câu hỏi của bạn, nói xong My trả lời ngay.'); }
 }
+async function chartShare(mode) {
+  const c = chart ?? (chart = buildChart(S.profile));
+  const url = ACCOUNT.refCode ? `${location.origin}/?ref=${ACCOUNT.refCode}` : location.origin; // liên kết giới thiệu: người mới vào qua đây được ghi nhận nguồn
+  const r = await shareChart({ nickname: S.profile.nickname, chart: c, url }, mode);
+  track('share_card', { action: r, via: 'chart', mode });
+}
 function renderSheet() {
   const p = S.profile, c = chart ?? (chart = buildChart(p));
   sheetState.tab = sheetTab;
   renderChart($('#sheet-body'), {
     profile: p, chart: c, state: sheetState, track,
     ask: canAsk() ? askFromSheet : null, cta: canAsk() ? '' : 'My đang nghỉ hoặc chưa sẵn sàng; khi My quay lại, bạn bấm hỏi tiếp nhé.',
+    onShare: chartShare,
     onRate: ({ year, value }) => track('resonance_time', { value, ago: new Date().getFullYear() - year }),
     onLeapRule: (rule) => { S.profile = { ...S.profile, leapRule: rule }; chart = buildChart(S.profile); save(); sheetTab = sheetState.tab; renderSheet(); }, // giữ nguyên tab đang xem
   });
@@ -748,7 +768,7 @@ async function offerUpgrade(where) {
 }
 const openZalo = (via) => { track('zalo_click', { via }); window.open(ZALO, '_blank', 'noopener'); };
 const sheet = $('#sheet');
-$('#btn-chart').onclick = () => { track('chart_open'); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; };
+$('#btn-chart').onclick = () => { track('chart_open'); sheetTab = openTab(); renderSheet(); sheet.hidden = false; };
 $('#sheet-close').onclick = () => (sheet.hidden = true);
 sheet.onclick = (e) => { if (e.target === sheet) sheet.hidden = true; };
 addEventListener('keydown', (e) => e.key === 'Escape' && (sheet.hidden = true));

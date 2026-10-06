@@ -73,7 +73,9 @@ function tabOverview(c) {
   const bars = HANH.map((k) => `<div class="bar"><span class="${k}">${k}</span><i><b style="width:${(b.elements.counts[k] / max) * 100}%;background:${ELC[k]}"></b></i><span>${b.elements.counts[k]}</span></div>`).join('');
   const menh = t ? t.palaces[t.menh] : null;
   const card = (title, hint, body, tab) => `<section class="ov"><div class="ovh"><h4>${title}</h4><button class="btn sm" data-goto="${tab}">Xem chi tiết</button></div><p class="hint">${hint}</p>${body}</section>`;
-  return `<p class="sub">Bốn cách nhìn, mỗi cách một khung. My khuyên chọn <b>một</b> cách bạn thấy gần nhất để theo dõi, đừng cố đọc hết cùng lúc.</p><div class="ovgrid">
+  const fact = (k, v) => `<div class="fact"><span>${k}</span><b>${v}</b></div>`;
+  const facts = `<div class="facts">${fact('Nhật chủ', `${b.dayMaster.can} · ${b.dayMaster.hanh}`)}${fact('Mặt Trời', esc(a.sun.name))}${fact('Cung Mệnh', menh ? (menh.chinh.length ? esc(menh.chinh.join(', ')) : 'vô chính diệu') : 'cần giờ sinh')}${fact('Số chủ đạo', n.lifePath)}</div>`;
+  return `${facts}<p class="sub ovintro">Bốn cách nhìn, mỗi cách một khung. My khuyên chọn <b>một</b> cách bạn thấy gần nhất để theo dõi, đừng cố đọc hết cùng lúc.</p><div class="ovgrid">
     ${card('Tứ Trụ', `Nhật chủ là hành đại diện cho chính bạn: <b>${b.dayMaster.can} (${b.dayMaster.hanh}, ${b.dayMaster.yang ? 'dương' : 'âm'})</b>. Năm hành bên dưới cho thấy hành nào nhiều, hành nào ít.`, `<div class="pillars">${pil('Giờ', b.pillars.hour)}${pil('Ngày', b.pillars.day)}${pil('Tháng', b.pillars.month)}${pil('Năm', b.pillars.year)}</div><div class="bars" style="margin-top:8px">${bars}</div>`, 'tutru')}
     ${card('Chiêm tinh', `Mặt Trời <b>${a.sun.name}</b> (con người bên ngoài), Mặt Trăng <b>${a.moon.name}${a.moonUncertain ? ' ?' : ''}</b> (cảm xúc bên trong)${a.asc ? `, cung mọc <b>${a.asc.name}</b> (ấn tượng đầu tiên)` : ''}.`, zodiacWheel(a), 'astro')}
     ${card('Tử Vi', menh ? `Cung Mệnh (góc nhìn về con người bạn) có ${menh.chinh.length ? `sao <b>${menh.chinh.join(', ')}</b>` : 'chưa có sao chính (vô chính diệu)'}. Trong hình, ô Mệnh có viền sáng.` : 'Cần giờ sinh và giới tính nam/nữ để lập lá số Tử Vi.', menh ? `<div class="tvmini"><b>${menh.can} ${menh.chi}</b> · ${esc(t.cuc.ten)} · ${esc(t.amDuong)}</div>` : '', 'tuvi')}
@@ -243,7 +245,7 @@ const TABS = [['tomtat', 'Tóm tắt'], ['cung12', '12 cung'], ['thoivan', 'Th�
  * ask(text): có thì hiện nút "Hỏi My", gọi khi người dùng bấm. cta: HTML thay cho nút hỏi (trang mẫu không có My).
  * onRate({year, value}): người dùng nói năm đã qua có khớp không. track(name, props): ghi nhận hành vi (có thể bỏ trống).
  */
-export function renderChart(host, { profile, chart, state, ask = null, cta = '', onRate = null, onLeapRule = null, track = () => {}, now = new Date(), title = true }) {
+export function renderChart(host, { profile, chart, state, ask = null, cta = '', onRate = null, onLeapRule = null, onShare = null, track = () => {}, now = new Date(), title = true }) {
   const st = state, a = chart.astro, c = chart;
   st.tab ||= 'tomtat'; st.rated ??= {};
   const ctx = { ask, cta, now, rated: st.rated, onLeapRule };
@@ -251,12 +253,16 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
   const sp = host.closest('.sheet-card:not(.flat)'), top = sp ? sp.scrollTop : (globalThis.scrollY ?? 0);
   host.innerHTML = `${title ? `<h2>Lá số của ${esc(profile.nickname)}</h2>
     <p class="sub">${esc(profile.fullName)} · ${profile.birth.d}/${profile.birth.m}/${profile.birth.y}${profile.birth.hour !== null ? ` · ${String(profile.birth.hour).padStart(2, '0')}:${String(profile.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>` : ''}
-    <div class="tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === st.tab ? 'on' : ''}" aria-selected="${k === st.tab}">${l}</button>`).join('')}</div>
+    ${onShare ? `<div class="cactions"><button type="button" class="btn sm" data-share="download">⬇ Tải ảnh lá số</button><button type="button" class="btn sm primary" data-share="share">⤴ Chia sẻ</button></div>` : ''}
+    <div class="ctabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === st.tab ? 'on' : ''}" aria-selected="${k === st.tab}">${l}</button>`).join('')}</div>
     ${body}
     ${conventionsBox(c, profile, ctx)}
     <div class="src"><b>Minh chứng và giới hạn.</b> Các con số được <b>tính</b> bằng thuật toán thiên văn (astronomy-engine) và quy tắc cổ truyền, không do AI đoán. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b>, là một lăng kính biểu tượng; chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận. Đừng quyết định chuyện lớn chỉ dựa vào lá số.
     <ul>${c.caveats.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
-  const again = () => renderChart(host, { profile, chart, state, ask, cta, onRate, onLeapRule, track, now, title });
+  const again = () => renderChart(host, { profile, chart, state, ask, cta, onRate, onLeapRule, onShare, track, now, title });
+  const tabs = host.querySelector('.ctabs'), on = tabs?.querySelector('button.on'); // giữ tab đang xem ở giữa hàng, không để hàng tab nhảy về đầu
+  if (tabs && on) tabs.scrollLeft = on.offsetLeft - (tabs.clientWidth - on.offsetWidth) / 2;
+  for (const b of host.querySelectorAll('[data-share]')) b.onclick = async () => { b.disabled = true; try { await onShare?.(b.dataset.share); } finally { b.disabled = false; } };
   const go = (tab) => { st.tab = tab; track('chart_tab', { tab }); again(); };
   for (const b of host.querySelectorAll('[data-tab],[data-goto]')) b.onclick = () => go(b.dataset.tab ?? b.dataset.goto);
   for (const b of host.querySelectorAll('[data-year]')) b.onclick = () => { st.year = +b.dataset.year; track('time_year', { offset: st.year - now.getFullYear() }); again(); };

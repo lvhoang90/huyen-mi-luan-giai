@@ -4,6 +4,7 @@ import './explore.css';
 import { mountLogo } from './logo.js';
 import { track } from './track.js';
 import { renderChart, esc } from './chart-view.js';
+import { shareChart } from './share.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, pickFamous } from './engine/index.js';
 import { allEntries } from './engine/famous.js';
 import { computeBazi } from './engine/bazi.js';
@@ -28,7 +29,13 @@ function show(profile, { sample = false, key = null, keep = false } = {}) {
   current = { profile, sample, key };
   if (!keep) for (const k of Object.keys(state)) delete state[k];
   const chart = buildChart(profile), host = $('#ex-chart');
-  renderChart(host, { profile, chart, state, cta: cta(sample), track, onLeapRule: (rule) => show(normalizeProfile({ ...profile, leapRule: rule }), { sample, key, keep: true }) });
+  // Chia sẻ: chỉ khi xem lá số của chính mình (không phải hồ sơ mẫu). Mã giới thiệu chỉ được lấy từ máy chủ khi người dùng bấm chia sẻ.
+  const onShare = sample ? null : async (mode) => {
+    let ref = ''; try { ref = (await (await fetch('/api/me')).json()).refCode ?? ''; } catch {}
+    const r = await shareChart({ nickname: profile.nickname, chart, url: ref ? `${location.origin}/?ref=${ref}` : location.origin }, mode);
+    track('share_card', { action: r, via: 'explore', mode });
+  };
+  renderChart(host, { profile, chart, state, cta: cta(sample), track, onShare, onLeapRule: (rule) => show(normalizeProfile({ ...profile, leapRule: rule }), { sample, key, keep: true }) });
   const fam = $('#ex-famous');
   if (!sample) {
     const f = pickFamous(profile, 3), list = [...f.sameDay, ...f.nearDay];

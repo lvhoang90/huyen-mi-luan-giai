@@ -459,3 +459,12 @@ test('lời chỉ dẫn chia khối để dùng bộ nhớ đệm: hai khối đ
   assert.match(t2[2].text, /LUẬN GIẢI LẦN ĐẦU/); assert.doesNotMatch(t1[0].text + t1[1].text, /NHỊP BUỔI|CỤM TỪ My đã lặp/);
   assert.match(buildSystemPrompt('companion', p1, c1, [u('chào')], {}), /HUYỀN MY/);
 });
+
+test('cách xem người dùng chọn gồm cả 12 cung và thời vận, My nghiêng đúng hướng đó', async () => {
+  const { buildSystemPrompt, LENSES } = await import('../server/persona.js');
+  const { normalizeProfile, buildChart } = await import('../src/engine/index.js');
+  const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } }), chart = buildChart(profile);
+  assert.ok(Object.hasOwn(LENSES, 'cung12') && Object.hasOwn(LENSES, 'thoivan'));
+  assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'cung12' }), /LĂNG KÍNH NGƯỜI NÀY CHỌN: Tử Vi nhìn theo 12 cung/);
+  assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'thoivan' }), /LĂNG KÍNH NGƯỜI NÀY CHỌN: thời vận/);
+});

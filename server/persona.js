@@ -148,7 +148,12 @@ export function voiceBlock(messages, { name = '' } = {}) {
   return lines.join('\n');
 }
 
-export const LENSES = { tuvi: 'Tử Vi Đẩu Số', tutru: 'Tứ Trụ (Bát Tự)', astro: 'chiêm tinh phương Tây', thanso: 'thần số học', none: null };
+export const LENSES = {
+  tuvi: 'Tử Vi Đẩu Số', tutru: 'Tứ Trụ (Bát Tự)', astro: 'chiêm tinh phương Tây', thanso: 'thần số học',
+  cung12: 'Tử Vi nhìn theo 12 cung (mỗi cung là một lĩnh vực đời sống: bản thân, công danh, tình cảm, tiền bạc, gia đạo, bạn bè...); đi từng cung một, nói bằng tên lĩnh vực trước, tên cung sau',
+  thoivan: 'thời vận: năm nay, tháng này và các giai đoạn đời (theo Tử Vi và Tứ Trụ), nói thành "giai đoạn nên chú ý điều gì" dựa vào khối THỜI VẬN',
+  none: null,
+};
 /** Người dùng vừa quay lại: lời chào của giao diện không nằm trong lịch sử trò chuyện, nên báo cho My biết tin ngắn đầu tiên là đáp lại lời chào đó. */
 export function resumeHint(greet, last = '') {
   const clean = (x, n) => String(x ?? '').replace(/[\u0000-\u001f\u007f\\<>{}\[\]"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
