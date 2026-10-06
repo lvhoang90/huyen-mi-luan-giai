@@ -1,4 +1,5 @@
 // Điều khiển nhân vật Huyền My 2D: cảm xúc (mắt, mày, miệng, má, tay, hiệu ứng), ánh nhìn, quay đầu, nghiêng, nảy, thở.
+import { perf } from './perf.js';
 import rigSvg from './assets/huyenmy-rig.svg?raw';
 
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -66,6 +67,8 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
   const orbGlow = orbG ? mk('circle', { cx: 300, cy: 552, r: 46, fill: '#c9b0ff', opacity: 0.3, filter: 'url(#hm-blur)' }, orbG, orbCircles[1]) : null;
   const orbSparks = orbG ? Array.from({ length: 6 }, (_, i) => ({ el: mk('circle', { r: 1.8, fill: '#fff6c8', opacity: 0 }, orbG), a: (i / 6) * 6.283, sp: 0.6 + (i % 3) * 0.25, rad: 44 + (i % 2) * 8 })) : [];
   const mouth = { o: 0.3, w: 1, to: 0.3, tw: 1, fedAt: -9 };
+  // Ánh nhìn và độ há miệng đặt thẳng lên từng phần tử. Đặt biến CSS ở gốc SVG làm trình duyệt tính lại kiểu của TOÀN BỘ nhân vật mỗi khung hình (chiếm phần lớn thời gian trên điện thoại).
+  const pupils = [...svg.querySelectorAll('.pupil-g')], talks = [...svg.querySelectorAll('.m-talk')]; let lastGaze = '', lastMouth = '';
   let pokeUntil = 0, blinkAt = 2, blinkEnd = 0, raf = 0, last = performance.now(), t = 0;
 
   function setEmotion(name) {
@@ -74,7 +77,13 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
     svg.setAttribute('data-eyes', e.eyes); svg.setAttribute('data-brows', e.brows); svg.setAttribute('data-mouth', e.mouth);
     svg.setAttribute('data-pose', e.pose); svg.setAttribute('data-blush', e.blush); svg.setAttribute('data-fx', e.fx.join(' '));
   }
+  // Điện thoại (chạm) và máy yếu: vẽ 30 khung/giây là đủ mượt, giảm một nửa việc tính toán. Nếu vẫn giật thì tự hạ mức hiệu ứng cho cả trang.
+  const coarse = matchMedia('(pointer: coarse)').matches; let drawn = 0, slowN = 0, framesN = 0, fxN = 0;
   function frame(now) {
+    const gap = now - drawn;
+    if ((coarse || perf.low) && gap < 31) { raf = requestAnimationFrame(frame); return; }
+    if (drawn && !document.hidden) { framesN++; if (gap > 55) slowN++; if (framesN >= 60) { if (slowN > 18) perf.downgrade(); framesN = slowN = 0; } }
+    drawn = now;
     const dt = Math.min((now - last) / 1000, 0.05); last = now; t += dt;
     const k = REDUCED ? 0.3 : 1, engaged = performance.now() - pointer.at < 4500 || t < pokeUntil;
     const f = follow ? (engaged ? Math.max(cfg.follow, 0.95) : cfg.follow) : 0;
@@ -88,9 +97,9 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
     // miệng mấp máy theo chữ đang hiện ra; nếu lâu không có chữ mới thì tự nhép nhẹ cho khỏi đứng hình
     if (speaking) { if (t - mouth.fedAt > 0.3) { mouth.to = 0.25 + 0.5 * Math.abs(Math.sin(t * 9)); mouth.tw = 1; }
       mouth.o = damp(mouth.o, mouth.to, 32, dt); mouth.w = damp(mouth.w, mouth.tw, 28, dt);
-      svg.style.setProperty('--mo', mouth.o.toFixed(3)); svg.style.setProperty('--mw', mouth.w.toFixed(3)); }
+      const mv = mouth.w.toFixed(2) + ',' + mouth.o.toFixed(2); if (mv !== lastMouth) { lastMouth = mv; for (const m of talks) m.style.transform = `scale(${mv})`; } }
     cur.gx = damp(cur.gx, gx, 9, dt); cur.gy = damp(cur.gy, gy, 9, dt);
-    svg.style.setProperty('--gx', (cur.gx * 9).toFixed(2) + 'px'); svg.style.setProperty('--gy', (cur.gy * 9).toFixed(2) + 'px');
+    const gv = `translate(${(cur.gx * 9).toFixed(1)}px,${(cur.gy * 9).toFixed(1)}px)`; if (gv !== lastGaze) { lastGaze = gv; for (const p of pupils) p.style.transform = gv; }
     // quay đầu: đầu hướng theo ánh nhìn, các nét mặt dịch chuyển nhiều hơn tóc/da để tạo chiều sâu
     cur.yaw = damp(cur.yaw, clamp(cfg.gaze[0] * 0.35 + pointerRef.x * 0.5 * f), 4, dt);
     cur.tilt = damp(cur.tilt, cfg.tilt + pointerRef.x * 3 * f + Math.sin(t * 0.5) * 0.8 * k, 4, dt);
@@ -109,7 +118,8 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
     cur.ox = damp(cur.ox, cfg.orb[0], 4, dt); cur.oy = damp(cur.oy, cfg.orb[1], 4, dt); cur.os = damp(cur.os, cfg.orb[2], 4, dt);
     const os = cur.os * (1 + 0.04 * Math.sin(t * 2.2) + cur.cast * (0.35 + 0.1 * Math.sin(t * 7)));
     orb.setAttribute('transform', `translate(${300 + cur.ox} ${552 + cur.oy + by + Math.sin(t * 1.3) * 2}) scale(${os.toFixed(3)}) translate(-300 -552)`);
-    // ngọc ngũ hành chạy vòng, quả cầu phát sáng và thở
+    // ngọc ngũ hành chạy vòng, quả cầu phát sáng và thở (các lớp này có bộ lọc làm mờ nên rất tốn sức: máy chạm/máy yếu chỉ cập nhật 10 lần mỗi giây)
+    if (!(coarse || perf.low) || (++fxN % 3) === 0) {
     for (let i = 0; i < gems.length; i++) {
       const g = gems[i], w = Math.max(0, Math.cos(t * 1.25 - i * 1.2566)) ** 3 * (REDUCED ? 0.5 : 1), sc = 1 + 0.2 * w;
       g.el.setAttribute('transform', `translate(${g.cx} ${g.cy}) scale(${sc.toFixed(3)}) translate(${-g.cx} ${-g.cy})`);
@@ -120,6 +130,7 @@ export function createCharacter(host, { follow = true, crop = false } = {}) {
     if (orbHalo) { const pulse = 0.5 + 0.5 * Math.sin(t * 2.1); orbHalo.setAttribute('opacity', (0.75 + 0.25 * pulse + cur.cast * 0.3).toFixed(3)); orbGlow.setAttribute('opacity', (0.22 + 0.3 * pulse + cur.cast * 0.45).toFixed(3)); orbGlow.setAttribute('r', (44 + 5 * pulse + cur.cast * 12).toFixed(1)); }
     orbRing?.setAttribute('transform', `rotate(${(t * 22).toFixed(1)} 300 552)`);
     for (const sp of orbSparks) { const a = sp.a + t * sp.sp, tw = 0.5 + 0.5 * Math.sin(t * 3 + sp.a * 5); sp.el.setAttribute('cx', (300 + Math.cos(a) * sp.rad).toFixed(1)); sp.el.setAttribute('cy', (552 + Math.sin(a) * sp.rad * 0.9).toFixed(1)); sp.el.setAttribute('opacity', (tw * 0.9).toFixed(2)); }
+    }
     // chớp mắt
     if (t > blinkAt && !blinkEnd) { svg.classList.add('blink'); blinkEnd = t + 0.13; }
     if (blinkEnd && t > blinkEnd) { svg.classList.remove('blink'); blinkEnd = 0; blinkAt = t + 2.2 + Math.random() * 3.4; }

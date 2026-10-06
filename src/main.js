@@ -4,6 +4,7 @@ import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
 import { shareCard, shareChart } from './share.js';
+import { icon } from './icons.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
@@ -20,7 +21,8 @@ createLanterns($('#lanterns'));
 mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
 const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n), poke: (x, y) => character.poke(x, y), variant: GV, greeting: () => { const nick = load()?.profile?.nickname; return nick ? `Chào mừng ${nick} trở lại` : GREETS[GV].veil(); } });
 const sndBtn = $('#snd'), sndTop = $('#btn-sound');
-const showSnd = () => { const t = sound.on ? 'Tắt nhạc nền' : 'Bật nhạc nền'; sndBtn.textContent = sound.on ? '♪ Nhạc nền: bật' : '♪ Nhạc nền: tắt'; sndTop.classList.toggle('on', sound.on); sndTop.title = t; sndTop.setAttribute('aria-label', t); for (const b of [sndBtn, sndTop]) b.setAttribute('aria-pressed', String(sound.on)); };
+for (const el of document.querySelectorAll('[data-ic]')) el.outerHTML = icon(el.dataset.ic); // biểu tượng của các nút tĩnh trong index.html
+const showSnd = () => { const t = sound.on ? 'Tắt nhạc nền' : 'Bật nhạc nền'; sndBtn.innerHTML = `${icon(sound.on ? 'soundOn' : 'soundOff')} <span class="snd-t">${sound.on ? 'Nhạc nền: bật' : 'Nhạc nền: tắt'}</span>`; sndTop.innerHTML = icon(sound.on ? 'soundOn' : 'soundOff'); sndTop.classList.toggle('on', sound.on); sndTop.title = t; sndTop.setAttribute('aria-label', t); for (const b of [sndBtn, sndTop]) b.setAttribute('aria-pressed', String(sound.on)); };
 const toggleSnd = () => { sound.set(!sound.on); showSnd(); track('sound_toggle', { on: sound.on }); };
 showSnd(); sndBtn.onclick = toggleSnd; sndTop.onclick = toggleSnd;
 window.__introStarted = true; requestAnimationFrame(() => intro.start());
@@ -36,7 +38,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---------------- trạng thái ----------------
 let S = { profile: null, messages: [], phase: 'intro' };
 let ACCOUNT = { accounts: false, user: null, refCode: '' }, syncTimer = 0;
-/** Tài khoản quản trị tự có nút ⚙ ở thanh trên để vào trang quản trị. */
+/** Tài khoản quản trị tự có nút cài đặt ở thanh trên để vào trang quản trị. */
 const showAdmin = () => { const a = document.getElementById('btn-admin'); if (a) a.hidden = ACCOUNT.user?.role !== 'admin'; };
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} scheduleSync(); };
 /** Người dùng đã đăng nhập và đồng ý lưu: đẩy trạng thái lên máy chủ (chỉ hồ sơ, tin nhắn và nhịp buổi), gom 8 giây một lần. */
@@ -148,7 +150,7 @@ async function say(text, pause = 650, gate = false) {
 }
 log.addEventListener('click', () => current?.skip());
 const paceBtn = $('#btn-pace');
-const showPace = () => { paceBtn.textContent = pace === 'auto' ? '»' : '›'; paceBtn.title = pace === 'auto' ? 'Nhịp: tự động (bấm để chuyển sang chạm Tiếp)' : 'Nhịp: chạm Tiếp (bấm để chuyển sang tự động)'; paceBtn.setAttribute('aria-label', paceBtn.title); };
+const showPace = () => { paceBtn.innerHTML = icon(pace === 'auto' ? 'paceAuto' : 'paceTap'); paceBtn.title = pace === 'auto' ? 'Nhịp: tự động (bấm để chuyển sang chạm Tiếp)' : 'Nhịp: chạm Tiếp (bấm để chuyển sang tự động)'; paceBtn.setAttribute('aria-label', paceBtn.title); };
 showPace();
 paceBtn.onclick = () => { pace = pace === 'auto' ? 'tap' : 'auto'; try { localStorage.setItem(PACE_KEY, pace); } catch {} showPace(); track('pace_toggle', { mode: pace }); note(pace === 'auto' ? 'Nhịp tự động: My sẽ tự nói tiếp sau mỗi câu.' : 'Nhịp chạm: bạn bấm "Tiếp" khi đã đọc xong.'); };
 function showUser(text) { const d = document.createElement('div'); d.className = 'msg me'; d.textContent = text; log.append(d); scrollDown(); }
@@ -362,7 +364,7 @@ function restScreen() {
   $('#veil').classList.remove('gone'); $('#dialog').hidden = true; intro.showStatic();
   const box = h('div');
   $('#veil-actions').replaceChildren(box, ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
-  const viewChart = h('button', { className: 'btn sm', textContent: '☯ Xem lại lá số của bạn (không cần đăng nhập)', onclick: () => { track('static_view', { via: 'rest' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; } });
+  const viewChart = h('button', { className: 'btn sm', textContent: 'Xem lại lá số của bạn (không cần đăng nhập)', onclick: () => { track('static_view', { via: 'rest' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; } });
   $('#veil-actions').append(h('div', { className: 'rest' }, viewChart));
   paintRestZalo();
   watchRest(box, () => enter(true));
@@ -427,20 +429,6 @@ function buildSignup(host, { title, done, canSkip = true }) {
   };
   ok.onclick = verify; code.onkeydown = (e) => { if (e.key === 'Enter') verify(); }; email.onkeydown = (e) => { if (e.key === 'Enter') go.click(); };
   step1();
-}
-/** Gắn email sớm, ngay sau điều thú vị đầu tiên: My đề nghị gửi chính điều vừa kể vào hộp thư và nhớ bạn. Không bắt buộc. */
-async function earlySignup(lines) {
-  if (!ACCOUNT.accounts || ACCOUNT.user) return;
-  await say('[[chia_se]]Điều vừa rồi mới là phần mở đầu thôi. Bạn để lại email, My gửi chính những điều vừa kể vào hộp thư và nhớ bạn cho lần gặp sau nhé? Không cần mật khẩu, và bạn bỏ qua cũng không sao.', 300);
-  track('signup_view', { why: 'hook' });
-  await new Promise((resolve) => {
-    clearComposer();
-    const host = h('div', { className: 'signup' }); composer.append(host);
-    buildSignup(host, {
-      title: 'Nhận điều thú vị này qua email',
-      done: async (created) => { clearComposer(); if (created) { apiJson('/api/account/hook', 'POST', { lines }).then((r) => note(r.ok ? 'My đã gửi vào email của bạn.' : 'My chưa gửi được email, bạn xem lại sau nhé.')); } resolve(created); },
-    });
-  });
 }
 /** Cổng đăng ký sau buổi đầu 30 phút, hoặc khi máy chủ yêu cầu. Trả về promise khi xong hoặc bỏ qua. */
 function signupGate(why) {
@@ -599,27 +587,23 @@ async function ritual() {
   stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
   dock();
   const y = chart.bazi.pillars.year;
-  await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`, 650, true);
+  await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút radar (hình sao sáu cạnh) ở góc phải để xem My đã tính ra sao.`, 650, true);
   // Điểm chung có thật để mở chuyện: cùng ngày sinh, cùng nghề, cùng năm sinh; chọn theo tuổi và lĩnh vực của người dùng.
   const { d, m, y: by } = p.birth;
   const pick = pickFamous(p);
   const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
   const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
   const plain = (t) => stripTags(t).replace(/\*/g, '');
-  const hookLines = [];
   if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
   else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
-  if (same) hookLines.push(plain(`Ngày ${d}/${m} có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''}`)); else if (near) hookLines.push(plain(`Sát ngày ${d}/${m} có: ${near}.`));
   track('hook_shown', { same: pick.sameDay.length, near: pick.nearDay.length, field: !!pick.sameField, year: pick.sameYear.length > 0 });
   const extra = [];
   if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
   if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
-  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); hookLines.push(plain(extra.join(' '))); }
-  note('Hình lá số của bạn nằm ở nút ☯ góc trên bên phải. Bạn bấm xem bất cứ lúc nào để theo dõi cùng My.');
+  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); }
+  note('Hình lá số của bạn nằm ở nút hình sao sáu cạnh (radar) ở góc trên bên phải. Bạn bấm xem bất cứ lúc nào để theo dõi cùng My.');
   hookTrait = distinctiveTraits(p, chart)[0] ?? null;
   if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
-  if (hookTrait) hookLines.push(`Nét hiếm trong lá số của bạn: ${hookTrait}.`);
-  await earlySignup(hookLines);
   const opener = `[[dong_cam]]Bạn muốn bắt đầu từ đâu, ${p.nickname}? Chạm một gợi ý bên dưới, hoặc cứ kể tự do. My ở đây, và My nghe.`;
   await say(opener, 200);
   S.messages = [{ role: 'assistant', content: stripTags(opener) }]; S.phase = 'listen'; save();
@@ -651,7 +635,7 @@ async function askLens(early = false) {
 // Cách xem người dùng chọn quyết định tab mở đầu của hình lá số, để hình và lời My nói cùng một ngôn ngữ.
 const LENS_TAB = { tuvi: 'tuvi', tutru: 'tutru', astro: 'astro', thanso: 'thanso', cung12: 'cung12', thoivan: 'thoivan' };
 const openTab = () => LENS_TAB[S.lens] ?? 'tomtat';
-const CHART_CHIP = { label: '☯ Xem hình lá số', value: '', action: 'chart' };
+const CHART_CHIP = { label: 'Xem hình lá số', value: '', action: 'chart' };
 const LENS_CHIPS = [
   CHART_CHIP,
   { lens: 'tuvi', label: 'Soi thêm theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },

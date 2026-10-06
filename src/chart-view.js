@@ -1,9 +1,10 @@
-// Hình lá số dùng chung cho ứng dụng (bảng ☯) và trang Khám phá mẫu: các tab Tóm tắt, 12 cung, Thời vận, Tử Vi, Tứ Trụ, Chiêm tinh, Thần số.
+// Hình lá số dùng chung cho ứng dụng (bảng lá số) và trang Khám phá mẫu: các tab Tóm tắt, 12 cung, Thời vận, Tử Vi, Tứ Trụ, Chiêm tinh, Thần số.
 // "Mức chú ý" (nhẹ/vừa/nhiều) chỉ đếm số yếu tố đang kích hoạt một lĩnh vực theo quy tắc cổ truyền, không phải điểm tốt xấu (xem src/engine/thoivan.js).
 import { HANH, CHI } from './engine/bazi.js';
 import { conventionsFor, compareTuVi, CUC_OPTIONS, LEAP_RULES } from './engine/doichieu.js';
 import { CUNG_TEN } from './engine/tuvi.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
+import { icon } from './icons.js';
 import { tuViForYou, HOW_TUTRU, HOW_ASTRO, HOW_THANSO } from './chart-explain.js';
 import { natalAttention, lifeStages, timeCycle, timeline, LEVELS, CUNG_DOI_THUONG } from './engine/thoivan.js';
 
@@ -253,7 +254,7 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
   const sp = host.closest('.sheet-card:not(.flat)'), top = sp ? sp.scrollTop : (globalThis.scrollY ?? 0);
   host.innerHTML = `${title ? `<h2>Lá số của ${esc(profile.nickname)}</h2>
     <p class="sub">${esc(profile.fullName)} · ${profile.birth.d}/${profile.birth.m}/${profile.birth.y}${profile.birth.hour !== null ? ` · ${String(profile.birth.hour).padStart(2, '0')}:${String(profile.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>` : ''}
-    ${onShare ? `<div class="cactions"><button type="button" class="btn sm" data-share="download">⬇ Tải ảnh lá số</button><button type="button" class="btn sm primary" data-share="share">⤴ Chia sẻ</button></div>` : ''}
+    ${onShare ? `<div class="cactions"><button type="button" class="btn sm" data-share="download">${icon("download")} Tải ảnh lá số</button><button type="button" class="btn sm primary" data-share="share">${icon("share")} Chia sẻ</button></div>` : ''}
     <div class="ctabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === st.tab ? 'on' : ''}" aria-selected="${k === st.tab}">${l}</button>`).join('')}</div>
     ${body}
     ${conventionsBox(c, profile, ctx)}
