@@ -427,3 +427,26 @@ details.howto ul { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 5px;
 
 /* nút đóng: to, nền sáng, dễ thấy trên mọi nền */
 .icon.close { width: 44px; height: 44px; background: rgba(255, 255, 255, .14); border: 1.5px solid rgba(255, 255, 255, .55); color: #fff; z-index: 3; } .icon.close .ic { width: 22px; height: 22px; stroke-width: 2.2; } .icon.close:hover, .icon.close:focus-visible { background: rgba(226, 194, 125, .35); border-color: var(--gold); }
+
+/* Tarot nổi bật: nút lớn ở màn chào, nút ở thanh trên, hộp nhắc nhẹ cho người quay lại */
+.tarot-cta { display: flex; align-items: center; gap: 14px; width: min(100%, 360px); margin: 14px auto 0; padding: 12px 16px; border-radius: 18px; text-decoration: none; color: #fbeecb; text-align: left; border: 1.5px solid rgba(226, 194, 125, .7); background: linear-gradient(135deg, rgba(138, 107, 255, .3), rgba(226, 194, 125, .16)); box-shadow: 0 0 30px rgba(138, 107, 255, .35), inset 0 0 22px rgba(226, 194, 125, .08); transition: transform .2s, box-shadow .2s; position: relative; overflow: hidden; }
+.tarot-cta::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255, 240, 190, .22) 50%, transparent 65%); transform: translateX(-120%); animation: tshine 5s ease-in-out infinite; pointer-events: none; }
+@keyframes tshine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.tarot-cta:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(138, 107, 255, .55), inset 0 0 22px rgba(226, 194, 125, .12); }
+.tcta-ic { flex: none; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: rgba(10, 8, 40, .55); border: 1px solid rgba(226, 194, 125, .55); color: #f3d98f; } .tcta-ic .ic { width: 28px; height: 28px; stroke-width: 1.6; }
+.tcta-tx { display: grid; gap: 2px; flex: 1; min-width: 0; } .tcta-tx b { font-weight: 600; font-size: 16px; letter-spacing: .01em; } .tcta-tx small { font-size: 12.5px; color: #cfc6ee; line-height: 1.35; }
+.tcta-go { font-size: 26px; color: #f3d98f; line-height: 1; }
+.tool-tarot { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px 0 10px; border-radius: 999px; text-decoration: none; color: #fbeecb; font-size: 14px; letter-spacing: .02em; border: 1.5px solid rgba(226, 194, 125, .75); background: linear-gradient(180deg, rgba(226, 194, 125, .24), rgba(138, 107, 255, .2)); box-shadow: 0 0 18px rgba(226, 194, 125, .3); position: relative; transition: .2s; }
+.tool-tarot:hover { box-shadow: 0 0 26px rgba(226, 194, 125, .55); transform: translateY(-1px); } .tool-tarot .ic { width: 20px; height: 20px; color: #f3d98f; vertical-align: 0; stroke-width: 1.7; }
+.tool-tarot.new::after { content: ''; position: absolute; top: -2px; right: -2px; width: 11px; height: 11px; border-radius: 50%; background: #ff7aa8; border: 2px solid #12103a; animation: tdot 2s ease-in-out infinite; }
+@keyframes tdot { 50% { transform: scale(1.25); } }
+@media (max-width: 520px) { .tool-tarot { height: 34px; padding: 0 9px; } .tool-tarot .tt { display: none; } }
+.nudge-back { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; background: rgba(6, 5, 24, .72); backdrop-filter: blur(6px); animation: fadein .35s ease; }
+@keyframes fadein { from { opacity: 0; } }
+.nudge { width: min(380px, 100%); text-align: center; display: grid; gap: 12px; padding: 26px 22px 20px; border-radius: 26px; border: 1px solid rgba(226, 194, 125, .6); background: linear-gradient(180deg, rgba(34, 26, 96, .97), rgba(12, 10, 38, .98)); box-shadow: 0 20px 70px rgba(0, 0, 0, .6), 0 0 50px rgba(138, 107, 255, .3); }
+.nudge .nd-card { width: 74px; aspect-ratio: 3 / 5; margin: 0 auto 2px; border-radius: 10px; border: 2px solid var(--gold); display: grid; place-items: center; color: #f3d98f; background: radial-gradient(circle at 50% 42%, #4a2aa6, #150d3a); box-shadow: 0 0 26px rgba(138, 107, 255, .5); transform: rotate(-5deg); animation: ndbob 3.2s ease-in-out infinite; } .nudge .nd-card .ic { width: 34px; height: 34px; }
+@keyframes ndbob { 50% { transform: rotate(4deg) translateY(-4px); } }
+.nudge h2 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 24px; color: var(--gold); line-height: 1.25; } .nudge p { margin: 0; font-size: 14.5px; line-height: 1.6; color: #d9d2f2; }
+.nudge .nd-acts { display: grid; gap: 8px; margin-top: 4px; } .nudge .nd-acts .btn { width: 100%; justify-content: center; }
+.nudge .nd-later { background: none; border: 0; color: #a79fc9; font-size: 13.5px; padding: 8px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.nudge .btn.primary { background: linear-gradient(180deg, rgba(243, 217, 143, .95), rgba(226, 194, 125, .85)); color: #1b1240; font-weight: 600; border-color: #f3d98f; box-shadow: 0 0 26px rgba(243, 217, 143, .4); }
