@@ -13,6 +13,7 @@ import { demoReply } from './demo.js';
 import { openDb } from './db.js';
 import { createApi } from './routes.js';
 import { safeZaloUrl } from './zalo.js';
+import { upgradePrices } from './upgrade.js';
 
 try { process.loadEnvFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env')); } catch {}
 
@@ -148,7 +149,7 @@ http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/') && await api.handle(req, res, pathname)) return;
   if (pathname === '/admin' || pathname === '/admin/') { req.url = '/admin.html'; pathname = '/admin.html'; }
   if (pathname === '/kham-pha' || pathname === '/kham-pha/') { req.url = '/kham-pha.html'; pathname = '/kham-pha.html'; }
-  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn, zalo: ZALO_URL });
+  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn, zalo: ZALO_URL, upgrade: upgradePrices() });
   if (pathname === '/api/unlock' && req.method === 'POST') return handleUnlock(req, res);
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });
   if (vite) return vite.middlewares(req, res);

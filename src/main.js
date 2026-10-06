@@ -310,6 +310,7 @@ async function closeSession() {
   await askMood('end');
   const nps = await askNps(); if (nps !== '' && nps != null) await askWhy('nps', nps);
   await offerZalo('close');
+  await offerUpgrade('close');
   await signupGate('close');
   await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
   clearComposer(); watchRest(composer, async () => { S.restUntil = null; save(); startClock(); await say(`[[vui]]Chào ${S.profile.nickname}, My nghỉ xong rồi. ${S.teaser ? `Hôm nay My kể về **${S.teaser}** nhé, hay bạn có điều gì muốn nói trước?` : 'Bạn muốn kể gì với My?'}`, 300); S.teaser = null; save(); converse(); });
@@ -328,8 +329,9 @@ function watchRest(host, onBack) {
 /** Màn nghỉ được vẽ trước khi trạng thái máy chủ về, nên nút Zalo được thêm vào sau nếu cần. */
 function paintRestZalo() {
   const host = document.querySelector('#veil-actions .rest:last-child');
-  if (!ZALO || !host || host.querySelector('.rest-zalo')) return;
-  host.append(h('button', { className: 'btn sm rest-zalo', textContent: 'Vào nhóm Zalo của My', onclick: () => openZalo('rest') }));
+  if (!host) return;
+  if (ZALO && !host.querySelector('.rest-zalo')) host.append(h('button', { className: 'btn sm rest-zalo', textContent: 'Vào nhóm Zalo của My', onclick: () => openZalo('rest') }));
+  if (UPG && !host.querySelector('.rest-upg')) host.append(upgradeButton('rest'));
 }
 function restScreen() {
   track('rest_view');
@@ -679,6 +681,46 @@ function renderSheet() {
   sheetTab = sheetState.tab;
 }
 let ZALO = ''; // liên kết nhóm hoặc OA Zalo do máy chủ cấu hình (ZALO_URL), trống thì không hiện
+// ---- thử giá (UPGRADE_TEST=on): chưa có thanh toán, nói rõ gói chưa mở bán; chỉ đo xem người ta có quan tâm và thấy giá thế nào ----
+let UPG = null; // danh sách mức giá (đồng mỗi tháng) do máy chủ đưa ra
+const UPV_KEY = 'huyenmy.upv';
+const upgradePrice = () => {
+  if (!UPG) return null; let i = NaN; try { i = +localStorage.getItem(UPV_KEY); } catch {}
+  if (!(i >= 0 && i < UPG.length)) { i = Math.floor(Math.random() * UPG.length); try { localStorage.setItem(UPV_KEY, String(i)); } catch {} }
+  return UPG[i];
+};
+const money = (n) => `${n.toLocaleString('vi-VN')}đ`;
+function openUpgrade(where, price) {
+  if ($('.modal')) return;
+  const v = price / 1000, close = () => $('.modal')?.remove();
+  track('upgrade_open', { v, where });
+  const card = h('div', { className: 'modal-card upg', role: 'dialog', ariaLabel: 'Gói Đồng hành' });
+  const x = h('button', { className: 'icon close', textContent: '×', ariaLabel: 'Đóng', onclick: close });
+  const plan = (key, label, sub) => h('button', { className: 'btn primary upg-plan', onclick: () => { track('upgrade_click', { v, where, plan: key }); feel(); } }, h('b', { textContent: label }), h('span', { textContent: sub }));
+  const feel = () => {
+    card.replaceChildren(x, h('p', { className: 'su-title', textContent: 'Cảm ơn bạn.' }),
+      h('p', { className: 'su-sub', textContent: 'Gói này chưa mở bán nên My chưa thu của bạn đồng nào. Việc bạn bấm giúp My biết có nên mở hay không. Khi mở, My sẽ báo ngay trên trang này.' }),
+      h('p', { className: 'su-sub', textContent: `Một câu hỏi nhỏ: với bạn, ${money(price)} mỗi tháng là mức giá…` }),
+      h('div', { className: 'chips' }, ...[['Rẻ', 1], ['Hợp lý', 2], ['Hơi đắt', 3], ['Quá đắt', 4]].map(([l, val]) => h('button', { className: 'chip', textContent: l, onclick: () => { track('upgrade_feel', { v, value: val }); close(); } })), h('button', { className: 'chip', textContent: 'Bỏ qua', onclick: close })));
+  };
+  card.append(x, h('p', { className: 'su-title', textContent: 'Gói Đồng hành' }), h('p', { className: 'upg-tag', textContent: 'Sắp mở · hiện chưa thu tiền' }),
+    h('p', { className: 'su-sub', textContent: 'Dự kiến gồm: gặp My nhiều buổi mỗi ngày mà không phải chờ, và My nhớ cuộc trò chuyện của bạn nếu bạn đồng ý. Lá số, 12 cung, thời vận và buổi đầu tiên vẫn miễn phí.' }),
+    h('div', { className: 'upg-plans' }, plan('month', `${money(price)} mỗi tháng`, 'trả theo tháng'), plan('year', `${money(price * 10)} mỗi năm`, 'tương đương 10 tháng')),
+    h('p', { className: 'su-sub', textContent: 'Bấm chọn gói nghĩa là bạn quan tâm, chưa có khoản thanh toán nào.' }));
+  document.body.append(h('div', { className: 'modal', onclick: (e) => { if (e.target.classList.contains('modal')) close(); } }, card));
+}
+function upgradeButton(where) {
+  const p = upgradePrice(); if (!p) return null;
+  track('upgrade_view', { v: p / 1000, where });
+  return h('button', { className: 'btn sm rest-upg', textContent: 'Gặp My ngay, xem gói Đồng hành (sắp mở)', onclick: () => openUpgrade(where, p) });
+}
+async function offerUpgrade(where) {
+  const p = upgradePrice(); if (!p) return;
+  await say('[[chia_se]]Hiện My miễn phí. My đang cân nhắc một gói để bạn gặp My thoải mái hơn mà không phải chờ giữa các buổi. Bạn có muốn xem thử không? Chưa thu tiền gì cả.', 300);
+  track('upgrade_view', { v: p / 1000, where });
+  const c = await ask({ kind: 'choice', chips: [{ label: 'Xem gói', value: 'open' }, { label: 'Để sau', value: '' }] });
+  if (c === 'open') openUpgrade(where, p);
+}
 const openZalo = (via) => { track('zalo_click', { via }); window.open(ZALO, '_blank', 'noopener'); };
 const sheet = $('#sheet');
 $('#btn-chart').onclick = () => { track('chart_open'); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; };
@@ -710,7 +752,7 @@ const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => 
   if (ACCOUNT.user?.consentMemory && await restoreFromServer()) { offerResume(); enter(true); } // thiết bị mới đã đăng nhập sẵn: vào thẳng đúng phiên (không await: enter chờ chính promise này)
 }).catch(() => {});
 const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async (s) => {
-  $('#demo-badge').hidden = s.ai; ZALO = s.zalo || ''; paintRestZalo();
+  $('#demo-badge').hidden = s.ai; ZALO = s.zalo || ''; UPG = Array.isArray(s.upgrade) && s.upgrade.length ? s.upgrade : null; paintRestZalo();
   LOCKED = !!s.locked; OPEN = !LOCKED || (!!getCode() && (await tryCode(getCode())) === null);
 }).catch(() => {}), meReady]);
 function askCode(then) {

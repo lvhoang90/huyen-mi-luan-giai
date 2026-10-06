@@ -7,6 +7,10 @@ import { TU_HOA } from '../src/engine/tuvi.js';
 import { demoReply } from '../server/demo.js';
 import { EVENTS } from '../server/events.js';
 import { safeZaloUrl } from '../server/zalo.js';
+import { upgradePrices } from '../server/upgrade.js';
+import { computeMetrics } from '../server/admin.js';
+import { ingest } from '../server/events.js';
+import { openDb } from '../server/db.js';
 import { buildReminder } from '../server/reminders.js';
 
 const NOW = new Date('2026-10-05');
@@ -125,4 +129,24 @@ test('Zalo: chỉ nhận liên kết https tới Zalo, có trong email nhắc kh
   for (const bad of ['http://zalo.me/g/x', 'https://evil.com/zalo.me', 'https://zalo.me.evil.com/', 'javascript:alert(1)', 'https://user:pw@zalo.me/x', '', undefined, 'zalo.me']) assert.equal(safeZaloUrl(bad), '', String(bad));
   assert.match(buildReminder('https://x.vn', 'tok', 'https://zalo.me/g/abc').text, /https:\/\/zalo\.me\/g\/abc/);
   assert.doesNotMatch(buildReminder('https://x.vn', 'tok').text, /Zalo/);
+});
+
+test('Thử giá: tắt mặc định, bật bằng UPGRADE_TEST, lọc mức giá sai', () => {
+  assert.equal(upgradePrices({}), null); assert.equal(upgradePrices({ UPGRADE_TEST: 'off' }), null);
+  assert.deepEqual(upgradePrices({ UPGRADE_TEST: 'on' }), [49000, 59000, 79000]);
+  assert.deepEqual(upgradePrices({ UPGRADE_TEST: 'ON', UPGRADE_PRICES: '39000, 59000,59000,abc,5,99000000,79000,89000,99000' }), [39000, 59000, 79000, 89000]);
+  assert.deepEqual(upgradePrices({ UPGRADE_TEST: 'on', UPGRADE_PRICES: 'x,y' }), [49000, 59000, 79000]);
+});
+
+test('Thử giá: số liệu theo từng mức giá, đếm người không trùng', () => {
+  const db = openDb(':memory:'), T0 = 1_800_000_000_000;
+  const add = (actor, name, props) => ingest(db, { actor, userId: null, sid: 's' + actor, events: [{ name, props, t: T0 }] }, T0);
+  for (const a of ['a', 'b', 'c']) add(a, 'upgrade_view', { v: 59, where: 'rest' });
+  add('a', 'upgrade_view', { v: 59, where: 'close' }); // cùng người, không đếm hai lần
+  add('d', 'upgrade_view', { v: 79, where: 'rest' });
+  add('a', 'upgrade_open', { v: 59 }); add('b', 'upgrade_open', { v: 59 }); add('a', 'upgrade_click', { v: 59, plan: 'month' }); add('a', 'upgrade_feel', { v: 59, value: 3 }); add('b', 'upgrade_feel', { v: 59, value: 9 });
+  const rows = computeMetrics(db, { days: 7, now: T0 + 1000 }).upgrade;
+  assert.deepEqual(rows.map((r) => r.price), [59000, 79000]);
+  const r = rows[0]; assert.equal(r.views, 3); assert.equal(r.opens, 2); assert.equal(r.clicks, 1); assert.equal(r.clickRate.p, 0.5); assert.deepEqual(r.feel, [0, 0, 1, 0], 'bỏ qua giá trị ngoài 1-4');
+  assert.equal(rows[1].opens, 0);
 });

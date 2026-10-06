@@ -37,6 +37,7 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 - **Trang `/kham-pha`**: xem lá số, 12 cung, thời vận không cần đăng nhập, mọi phép tính chạy trên trình duyệt. Có ba hồ sơ mẫu hư cấu và phép tính từ ngày sinh công khai của người nổi tiếng (chỉ từ năm 1800, không diễn giải). Nút "Trò chuyện với My" chuyển hồ sơ sang ứng dụng.
 - **Zalo**: đặt `ZALO_URL` (chỉ nhận https tới tên miền Zalo) để hiện lối vào nhóm ở cuối buổi, màn nghỉ, trang Khám phá và email nhắc.
 - **Góp ý có xin phép trích dẫn**: lý do điểm giới thiệu, người dùng chọn ẩn danh, ghi tên hay không cho trích. Xem tab "Góp ý và trích dẫn" ở `/admin`.
+- **Thử giá trước khi thu phí**: đặt `UPGRADE_TEST=on` (và tùy chọn `UPGRADE_PRICES`) để hiện nút "gói Đồng hành (sắp mở)" ở màn nghỉ và cuối buổi. Không có thanh toán, giao diện nói rõ gói chưa mở bán và chưa thu tiền. Mỗi người được gán một mức giá cố định; trang quản trị đếm số người thấy, mở, bấm quan tâm và cảm nhận giá. Đây là ý định chứ chưa phải việc trả tiền.
 - Trước khi thu phí: xem `docs/THU-PHI-VA-PHAP-LY.md` và bản nháp `docs/legal/nhap-thu-phi.md` (chưa áp dụng).
 
 ## Chạy

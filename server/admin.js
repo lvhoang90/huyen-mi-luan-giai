@@ -28,6 +28,19 @@ export const FUNNEL = [
   { key: 'signup_verified', label: 'Xác thực xong', names: ['signup_verified'] },
 ];
 
+/** Bài thử giá: mỗi mức giá, bao nhiêu người thấy nút, mở bảng giá, bấm quan tâm, và họ thấy giá đó thế nào (1 rẻ, 2 hợp lý, 3 hơi đắt, 4 quá đắt). */
+function upgradeRows(evs) {
+  const by = new Map();
+  for (const e of evs) {
+    if (!String(e.name).startsWith('upgrade_') || !Number.isFinite(+e.p.v)) continue;
+    const r = by.get(+e.p.v) ?? { v: +e.p.v, view: new Set(), open: new Set(), click: new Set(), feel: [0, 0, 0, 0] };
+    if (e.name === 'upgrade_view') r.view.add(e.actor); else if (e.name === 'upgrade_open') r.open.add(e.actor); else if (e.name === 'upgrade_click') r.click.add(e.actor);
+    else if (e.name === 'upgrade_feel' && +e.p.value >= 1 && +e.p.value <= 4) r.feel[+e.p.value - 1]++;
+    by.set(+e.p.v, r);
+  }
+  return [...by.values()].sort((a, b) => a.v - b.v).map((r) => ({ price: r.v * 1000, views: r.view.size, opens: r.open.size, clicks: r.click.size, openRate: pct(r.open.size, r.view.size), clickRate: pct(r.click.size, r.open.size), feel: r.feel }));
+}
+
 export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
   const from = now - days * DAY;
   const evs = db.prepare('SELECT ts, actor, sid, name, props FROM events WHERE ts >= ? ORDER BY ts').all(from).map((e) => ({ ...e, p: parse(e.props) }));
@@ -123,6 +136,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     range: { days, from: new Date(from).toISOString(), to: new Date(now).toISOString() },
     visitors: funnel[0].actors.size || allActors.size, funnel: funnelOut, sessions, retention: { d1: ret(1), d3: ret(3), d7: ret(7), cohorts: cohortRows.slice(-10) },
     satisfaction, quality, series,
+    upgrade: upgradeRows(evs),
     explore: { visitors: actorsBy(['sample_view']).size, viewedChart: actorsBy(['static_view']).size, pickedSample: actorsBy(['sample_pick']).size, toChat: new Set(evs.filter((e) => e.name === 'sample_cta' && e.p.via === 'chat').map((e) => e.actor)).size, arrived: actorsBy(['explore_handoff']).size, zalo: actorsBy(['zalo_click']).size },
     thoivan: { openedTab: new Set(evs.filter((e) => e.name === 'chart_tab' && ['thoivan', 'cung12'].includes(e.p.tab)).map((e) => e.actor)).size, monthViews: actorsBy(['time_month']).size, asked: actorsBy(['chart_ask']).size, rated: actorsBy(['resonance_time']).size },
     segments: { age: seg('ageBand'), field: seg('field') }, startChoices: dist('start_choice', 'chip'), pace: dist('pace_toggle', 'mode'),
