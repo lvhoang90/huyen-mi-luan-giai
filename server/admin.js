@@ -126,7 +126,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     latency: { p50: quantile(okTurns.map((t) => t.ms), 0.5), p95: quantile(okTurns.map((t) => t.ms), 0.95), ttftP50: quantile(okTurns.filter((t) => t.ttft != null).map((t) => t.ttft), 0.5) },
     meanQuestions: okTurns.length ? Math.round(mean(okTurns.map((t) => t.q)) * 100) / 100 : null,
     meanWords: okTurns.length ? Math.round(mean(okTurns.map((t) => t.words))) : null,
-    flags: Object.fromEntries(['qua_nhieu_cau_hoi', 'qua_dai', 'lap_lai', 'noi_chac_nich', 'doa_han_hoac_ban_cung', 'thieu_nhan_tang', 'thieu_canh_bao_gioi_han', 'khong_bam_loi_nguoi_dung', 'cum_sao_ron', 'lap_cum_tu', 'vien_dan_nhieu', 'qua_nhieu_he'].map((f) => [f, pct(flagCount(f), okTurns.length)])),
+    flags: Object.fromEntries(['qua_nhieu_cau_hoi', 'qua_dai', 'lap_lai', 'noi_chac_nich', 'doa_han_hoac_ban_cung', 'thieu_nhan_tang', 'thieu_canh_bao_gioi_han', 'khong_bam_loi_nguoi_dung', 'cum_sao_ron', 'lap_cum_tu', 'vien_dan_nhieu', 'qua_nhieu_he', 'tu_truu_tuong', 'ne_cau_hoi'].map((f) => [f, pct(flagCount(f), okTurns.length)])),
     crisis: { handled: cs, missed: cm, safety: cs + cm ? pct(cs, cs + cm) : null },
   };
 

@@ -14,6 +14,9 @@ test('mã QR: kích thước theo phiên bản, ba hình định vị, chuỗi q
   assert.throws(() => qrMatrix('x'.repeat(200)));
 });
 
+// kiểm tra cân thẻ <g> (tính cả thẻ tự đóng) vì ảnh SVG được nạp vào canvas theo XML chặt, khác với SVG chèn thẳng vào trang HTML
+const isBalanced = (svg) => { let d = 0; for (const m of svg.matchAll(/<g\b[^>]*?(\/?)>|<\/g>/g)) { if (m[0] === '</g>') d--; else if (!m[1]) d++; if (d < 0) return false; } return d === 0; };
+
 test('trang phục Tarot: mọi lá có kiểu hợp lệ, bỏ nón thì không còn nón, gradient không trùng giữa các lá', () => {
   const rig = fs.readFileSync(new URL('../src/assets/huyenmy-rig.svg', import.meta.url), 'utf8');
   assert.ok(rig.includes('<g id="hat"'));
@@ -23,6 +26,7 @@ test('trang phục Tarot: mọi lá có kiểu hợp lệ, bỏ nón thì không
     const s = dress(rig, look, `t${c.id}`);
     assert.ok(s.startsWith('<svg') && s.endsWith('</svg>\n') || s.trimEnd().endsWith('</svg>'));
     if (look.hat === false) { off++; assert.ok(!s.includes('<g id="hat"'), `lá ${c.id} còn nón`); } else assert.ok(s.includes('<g id="hat"'));
+    assert.equal(isBalanced(s), true, `lá ${c.id}: SVG phải cân thẻ <g> để tải ảnh được (ảnh SVG đòi XML chặt)`);
     assert.ok(s.includes(`id="adg-t${c.id}"`) && !/id="adg"/.test(s), 'gradient có hậu tố riêng');
   }
   assert.ok(off >= 50 && off < CARDS.length, 'đa số lá bỏ nón nhưng vẫn giữ nón ở một số lá');

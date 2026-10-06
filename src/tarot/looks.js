@@ -74,7 +74,10 @@ export function dress(rigSvg, look = {}, uid = 'x') {
   const hatless = look.hat === false;
   if (hatless) { // bỏ nón cùng quai nón và nơ dưới cằm
     const r = groupRange(s, 'hat'), knot = s.indexOf('<circle cx="300" cy="466" r="7"');
-    if (r && knot > r[0]) s = s.slice(0, r[0]) + HAIR_CAP + s.slice(s.indexOf('/>', knot) + 2);
+    if (r && knot > r[0]) { // nón nằm trong một nhóm bọc ngoài: giữ thẻ đóng của nhóm đó, chỉ bỏ nón, quai nón và nơ dưới cằm
+      const wrapEnd = s.indexOf('</g>', r[1]) + 4;
+      s = s.slice(0, r[0]) + HAIR_CAP + s.slice(r[1], wrapEnd) + s.slice(s.indexOf('/>', knot) + 2);
+    }
   }
   const o = OUTFITS[look.outfit];
   if (o) { s = recolor(s, 'adg', o[0]); s = recolor(s, 'adg2', o[1]); s = s.replaceAll('#8b5fe0', o[2]).replaceAll('#b49cf3', o[3]); }

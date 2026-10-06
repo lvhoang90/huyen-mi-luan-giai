@@ -1,7 +1,6 @@
 import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
-import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
 import { shareCard, shareChart } from './share.js';
 import { icon } from './icons.js';
@@ -13,14 +12,13 @@ import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
-import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
+import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, famousStory, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { renderChart } from './chart-view.js';
 
 const $ = (s) => document.querySelector(s);
 const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
-createLanterns($('#lanterns'));
 mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
 const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n), poke: (x, y) => character.poke(x, y), variant: GV, greeting: () => { const nick = load()?.profile?.nickname; return nick ? `Chào mừng ${nick} trở lại` : GREETS[GV].veil(); } });
 const sndBtn = $('#snd'), sndTop = $('#btn-sound');
@@ -186,7 +184,7 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
     let period = 'h24'; const periodRow = kind === 'time' ? h('div', { className: 'periods', role: 'group', ariaLabel: 'Buổi trong ngày' }, ...PERIODS.map(([k, l]) => h('button', { type: 'button', className: 'chip' + (k === period ? ' on' : ''), textContent: l, ariaPressed: String(k === period), onclick: (e) => { period = k; for (const b of periodRow.children) { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-pressed', String(b === e.currentTarget)); } } }))) : null;
     if (periodRow) composer.append(periodRow);
     const input = fields[0] ?? h('input', { className: 'field', type: 'text', placeholder, maxLength: 80, autocomplete: 'off' });
-    const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
+    const go = h('button', { className: 'send', innerHTML: icon('send'), ariaLabel: 'Gửi' });
     const p2 = (v) => String(v).padStart(2, '0');
     const bad = (el) => { el.style.borderColor = '#ff8a8a'; };
     const submit = () => {
@@ -226,7 +224,7 @@ function askChat(chips = []) {
     if (pendingAsk) { const t = pendingAsk; pendingAsk = null; setTimeout(() => send(t), 0); } // câu hỏi bấm từ hình lá số khi My đang bận
     if (chips.length) composer.append(chipsRow(chips, (c) => send(c.value ?? c, c.action ?? false)));
     const ta = h('textarea', { className: 'field', rows: 1, placeholder: 'Kể với My…', maxLength: 2000 });
-    const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
+    const go = h('button', { className: 'send', innerHTML: icon('send'), ariaLabel: 'Gửi' });
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; };
     const submit = () => { const v = ta.value.trim(); if (v) send(v); };
     ta.oninput = grow; go.onclick = submit;
@@ -589,18 +587,11 @@ async function ritual() {
   dock();
   const y = chart.bazi.pillars.year;
   await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút radar (hình sao sáu cạnh) ở góc phải để xem My đã tính ra sao.`, 650, true);
-  // Điểm chung có thật để mở chuyện: cùng ngày sinh, cùng nghề, cùng năm sinh; chọn theo tuổi và lĩnh vực của người dùng.
-  const { d, m, y: by } = p.birth;
-  const pick = pickFamous(p);
-  const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
-  const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
-  if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
-  else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
-  track('hook_shown', { same: pick.sameDay.length, near: pick.nearDay.length, field: !!pick.sameField, year: pick.sameYear.length > 0 });
-  const extra = [];
-  if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
-  if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
-  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); }
+  // Điểm chung có thật để mở chuyện: MỘT người nổi tiếng gần gũi, cùng ngày hoặc sát ngày sinh, kèm điểm chung trong lá số (nhật chủ, số chủ đạo, tuổi), rồi hỏi lại một câu.
+  const story = famousStory(p, chart);
+  if (story) { await say(`[[hao_hung]]${story.text}`, 650, true); S.famousShown = story.name; }
+  else await say(`[[binh_thuong]]Trong sổ của My chưa có ai trùng ngày sinh với bạn. Cũng không sao, ta đi thẳng vào chuyện của bạn.`, 650, true);
+  track('hook_shown', { found: !!story, ties: story?.ties?.length ?? 0, n: story?.n ?? 0 });
   note('Hình lá số của bạn nằm ở nút hình sao sáu cạnh (radar) ở góc trên bên phải. Bạn bấm xem bất cứ lúc nào để theo dõi cùng My.');
   hookTrait = distinctiveTraits(p, chart)[0] ?? null;
   if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
@@ -614,6 +605,7 @@ const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xon
 const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa rút Tarot ${t.length > 1 ? 'ba lá' : 'lá'} ${t.map((c) => c.name).join(', ')}${topicLabel(S.tarotTopic) ? `, mình đang nghĩ về chuyện ${topicLabel(S.tarotTopic).toLowerCase()}` : ''}. My nói giúp mình nhé.` }] : []; };
 const startChips = () => [
   ...tarotChip(),
+  ...(S.famousShown ? [{ label: 'Còn ai nổi tiếng cùng ngày sinh nữa?', value: 'Còn ai nổi tiếng sinh cùng ngày hoặc sát ngày sinh với mình nữa không, My kể thử xem?' }] : []),
   ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
   { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
   { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },

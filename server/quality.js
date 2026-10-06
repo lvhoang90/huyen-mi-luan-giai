@@ -15,6 +15,10 @@ const DISCLAIM = /(không phải (là )?(lời )?tiên đoán|chưa có bằng c
 
 // Mỗi lượt chỉ nên dựa vào một hệ (tester phản hồi: trộn Tử Vi, Tứ Trụ, chiêm tinh cùng lúc làm người nghe rối).
 const SYSTEMS = [/tử vi|đẩu số|cung mệnh|chính tinh/i, /tứ trụ|bát tự|nhật chủ|dụng thần|nạp âm/i, /chiêm tinh|cung mọc|mặt trăng|mặt trời|cung hoàng đạo/i, /thần số|số chủ đạo|năm cá nhân/i];
+// Chữ trừu tượng, nghe "cao siêu" mà khó hiểu (góp ý người dùng: "chỗ khó hiểu, hơi máy móc"). Hai chữ trở lên trong một lượt thì đáng nghi.
+const ABSTRACT = /(năng lượng|nội lực|tần số|vũ trụ (gửi|mách|nhắn)|dòng chảy|sâu thẳm|hành trình|chuyển hóa nội|thức tỉnh|cộng hưởng|khai mở|chữa lành)/gi;
+// Người dùng xin ý kiến mà lượt trả lời mở đầu bằng một câu hỏi ngược thay vì câu trả lời.
+const ASKS_OPINION = /(?<!\p{L})(nên|có nên|làm sao|làm thế nào|phải làm gì|làm gì|nghĩ sao|thấy sao|khuyên)(?!\p{L})/iu;
 const LIMITS = { listen: { words: 110, q: 1 }, reading: { words: 380, q: 2 }, companion: { words: 230, q: 1 } };
 
 /**
@@ -40,6 +44,8 @@ export function assessTurn({ phase, reply, userMsg = '', userHistory = '', prevR
   // cụm 3-4 từ đã xuất hiện ở các lượt trước và nay lại dùng
   const already = repeatedPhrases([...prevReplies.slice(-6), reply], { last: 7, ignoreText: userHistory + ' ' + userMsg }).filter((g) => words(reply).join(' ').includes(g));
   if (already.length) flags.push('lap_cum_tu');
+  if ((String(reply).match(ABSTRACT) ?? []).length >= 2) flags.push('tu_truu_tuong');
+  if (phase !== 'reading' && !crisisUser && ASKS_OPINION.test(userMsg) && /\?\s*$/.test(String(reply).split(/(?<=[.!?…])\s+/)[0] ?? '') ) flags.push('ne_cau_hoi');
   if (SYSTEMS.filter((re) => re.test(reply)).length >= 3) flags.push('qua_nhieu_he');
   if (ABSOLUTE.test(reply)) flags.push('noi_chac_nich');
   if (FEAR_SELL.test(reply)) flags.push('doa_han_hoac_ban_cung');
@@ -48,7 +54,7 @@ export function assessTurn({ phase, reply, userMsg = '', userHistory = '', prevR
   if (phase === 'reading' && !DISCLAIM.test(reply)) flags.push('thieu_canh_bao_gioi_han');
   if (phase !== 'reading' && !crisisUser && userWords.size >= 3 && echo === 0) flags.push('khong_bam_loi_nguoi_dung');
   let score = 100;
-  const cut = { qua_nhieu_cau_hoi: 15, qua_dai: 8, lap_lai: 20, noi_chac_nich: 25, doa_han_hoac_ban_cung: 30, khung_hoang_THIEU_HO_TRO: 60, thieu_nhan_tang: 8, thieu_canh_bao_gioi_han: 8, khong_bam_loi_nguoi_dung: 10, cum_sao_ron: 12, lap_cum_tu: 15, vien_dan_nhieu: 10, qua_nhieu_he: 10 };
+  const cut = { qua_nhieu_cau_hoi: 15, qua_dai: 8, lap_lai: 20, noi_chac_nich: 25, doa_han_hoac_ban_cung: 30, khung_hoang_THIEU_HO_TRO: 60, thieu_nhan_tang: 8, thieu_canh_bao_gioi_han: 8, khong_bam_loi_nguoi_dung: 10, cum_sao_ron: 12, lap_cum_tu: 15, vien_dan_nhieu: 10, qua_nhieu_he: 10, tu_truu_tuong: 8, ne_cau_hoi: 10 };
   for (const f of flags) score -= cut[f] ?? 0;
   return { words: n, q, tags, rep, echo, stock, flags, score: Math.max(0, score), crisisUser, crisisResource };
 }

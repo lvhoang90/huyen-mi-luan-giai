@@ -74,6 +74,10 @@ export function createBackdrop(canvas, wheelSvg) {
   // mỗi chòm sao trôi ngang với tốc độ riêng, vòng lại khi ra khỏi màn hình; thỉnh thoảng một vệt sáng chạy dọc các nét nối
   const cons = CONSTELLATIONS.slice(0, Q.cons).map((c, i) => ({ ...c, x: Math.random(), y: 0.05 + (i % 3) * 0.13 + Math.random() * 0.05, v: rand(5, 11) * (i % 2 ? 1 : -1) * 0.6, size: rand(0.8, 1.1), p: rand(0, 6.28), shimmer: rand(0, 8) }));
   const zodiac = { rot: rand(0, 6.28) };
+  // Trăng non và sao băng: chỉ ở màn chào, thay cho đèn lồng; một chi tiết tĩnh lặng thay vì nhiều thứ cùng lúc.
+  const moonSprite = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#fff3c9'; g.beginPath(); g.arc(64, 64, 46, 0, 6.283); g.fill(); g.globalCompositeOperation = 'destination-out'; g.beginPath(); g.arc(82, 54, 40, 0, 6.283); g.fill(); return c; })();
+  const moonGlow = glowSprite('#fff0b8'), moon = { a: 0 }, shoot = { at: 4 + Math.random() * 5, life: 0, x: 0, y: 0, dx: 0, dy: 0 };
+  const onVeil = () => document.body.classList.contains('veil-on');
   let zsprites = [];
   function resize() {
     dpr = Math.min(devicePixelRatio || 1, Q.dpr); W = innerWidth; H = innerHeight; canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -144,6 +148,22 @@ export function createBackdrop(canvas, wheelSvg) {
     for (const p of petals) {
       p.y += p.v * dt; p.x += Math.sin(t * 0.8 + p.p) * 0.03 * dt; p.rot += dt * 0.8; if (p.y > 1.06) Object.assign(p, mkPetal(false));
       ctx.save(); ctx.translate(p.x * W, p.y * H); ctx.rotate(p.rot); ctx.fillStyle = '#f9b2cf'; ctx.beginPath(); ctx.ellipse(0, 0, p.s * 0.5, p.s, 0, 0, 6.283); ctx.fill(); ctx.restore();
+    }
+    // trăng non (hơi thở chậm) và thỉnh thoảng một vệt sao băng
+    moon.a += ((onVeil() ? 1 : 0) - moon.a) * Math.min(1, dt * 2);
+    if (moon.a > 0.02) {
+      const r = Math.max(18, Math.min(36, Math.min(W, H) * 0.05)), mx = Math.max(r * 2.4, W * 0.13), my = Math.max(r * 2.2, H * 0.095), br = 0.82 + 0.18 * Math.sin(t * 0.7);
+      ctx.globalAlpha = moon.a * 0.5 * br; ctx.drawImage(moonGlow, mx - r * 3.2, my - r * 3.2, r * 6.4, r * 6.4);
+      ctx.globalAlpha = moon.a * 0.92; ctx.save(); ctx.translate(mx, my); ctx.rotate(-0.35); ctx.drawImage(moonSprite, -r, -r, r * 2, r * 2); ctx.restore();
+      if (!perf.low) {
+        shoot.at -= dt;
+        if (shoot.at <= 0 && shoot.life <= 0) { shoot.life = 1; shoot.x = W * rand(0.35, 0.95); shoot.y = H * rand(0.04, 0.2); const a = rand(0.35, 0.6); shoot.dx = -Math.cos(a) * W * 0.5; shoot.dy = Math.sin(a) * W * 0.5; shoot.at = 9 + Math.random() * 9; }
+        if (shoot.life > 0) {
+          shoot.life -= dt / 0.9; const p = 1 - Math.max(0, shoot.life), hx = shoot.x + shoot.dx * p, hy = shoot.y + shoot.dy * p, len = 0.16, tx = hx - shoot.dx * len, ty = hy - shoot.dy * len;
+          const gr = ctx.createLinearGradient(tx, ty, hx, hy); gr.addColorStop(0, 'rgba(255,243,201,0)'); gr.addColorStop(1, 'rgba(255,243,201,1)');
+          ctx.globalAlpha = moon.a * Math.sin(Math.PI * Math.min(1, p)); ctx.strokeStyle = gr; ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+        }
+      }
     }
     ctx.globalAlpha = 1; raf = requestAnimationFrame(frame);
     // theo dõi: nếu trung bình mỗi khung vẽ tốn quá 9ms hoặc tụt dưới ~25 khung/giây liên tục thì hạ mức hiệu ứng

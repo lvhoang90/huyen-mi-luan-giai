@@ -69,6 +69,13 @@ export function createIntro({ veil, area, setEmo, poke, greeting, variant = '' }
     body.classList.add('veil-on', 'intro-done'); phase('done');
     instant(() => { place(atSlot()); area.style.opacity = 1; }); setEmo('vui'); if (skipBtn) skipBtn.hidden = true;
   }
+  // Màn chào cuộn được khi nội dung dài hơn màn hình (điện thoại thấp): nhân vật nằm ngoài màn chào (cố định), nên phải bám theo chỗ của nó khi cuộn, nếu không sẽ che chữ.
+  let syncRaf = 0;
+  veil.addEventListener('scroll', () => {
+    if (running || !body.classList.contains('veil-on') || !veil.dataset.intro || veil.dataset.intro !== 'done') return;
+    cancelAnimationFrame(syncRaf);
+    syncRaf = requestAnimationFrame(() => instant(() => { const r = rect('.hero-slot'); place({ cx: r.left + r.width / 2, cy: r.top + r.height / 2, h: r.height }); }));
+  }, { passive: true });
   function start() {
     if (reduced) return showStatic();
     flag.get() ? short() : full();

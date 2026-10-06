@@ -118,7 +118,7 @@ server {
   listen [::]:80 default_server;
   server_name $SERVER_NAME;
   client_max_body_size 1m;
-  gzip on; gzip_types text/css application/javascript application/json image/svg+xml;
+  gzip on; gzip_types text/css text/javascript application/javascript application/json image/svg+xml application/manifest+json;
   add_header X-Content-Type-Options nosniff always;
   add_header Referrer-Policy strict-origin-when-cross-origin always;
   location / {

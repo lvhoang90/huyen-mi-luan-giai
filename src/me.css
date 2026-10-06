@@ -31,3 +31,4 @@
 .me-set-in { display: grid; gap: 8px; justify-items: center; padding: 6px 0 4px; } .me-set .em { margin: 0; color: #a79fc9; } .me-set .sm { margin: 0; max-width: 460px; line-height: 1.55; }
 .me-set .links { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: center; } .me-set .links button, .me-set .links a { background: none; border: 0; padding: 4px 0; font-size: 12.5px; color: #a79fc9; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .me-set .del { background: none; border: 0; margin-top: 10px; padding: 4px; font-size: 11.5px; color: #8a5f78; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.me-slots .slot .ic { width: 16px; height: 16px; stroke-width: 1.8; } .me-slots .slot.on .ic { fill: currentColor; }
