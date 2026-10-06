@@ -2,11 +2,12 @@ import './admin.css';
 import { esc, nf, pct, ci, download, toCsv } from './admin-ui.js';
 import { renderJourney, wireJourney } from './admin-journey.js';
 import { loadPeople } from './admin-people.js';
+import { initViz, tile, ring, barList, funnelChart, areaChart, cohortHeat, npsBar, agreeBar, feelBar } from './admin-viz.js';
 
 const app = document.getElementById('app');
 const SEV = { critical: ['▲', 'Nghiêm trọng'], warn: ['●', 'Cần xem'], info: ['○', 'Gợi ý'] };
 let days = +(new URLSearchParams(location.search).get('days')) || 14, data = null, journey = null;
-const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Hành trình cảm xúc'], ['nguoi', 'Người tham gia'], ['tang-truong', 'Tăng trưởng và giữ chân'], ['chat-luong', 'Chất lượng và an toàn'], ['gop-y', 'Góp ý và trích dẫn'], ['phuong-phap', 'Phương pháp']];
+const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Cảm xúc'], ['nguoi', 'Người dùng'], ['tang-truong', 'Tăng trưởng'], ['chat-luong', 'Chất lượng'], ['gop-y', 'Góp ý'], ['phuong-phap', 'Phương pháp']];
 const tabNow = () => { const h = location.hash.replace(/^#\/?/, ''); return TABS.some(([k]) => k === h) ? h : 'tong-quan'; };
 
 async function load() {
@@ -31,133 +32,113 @@ function renderDenied() {
   document.getElementById('out').onclick = async () => { await fetch('/api/auth/logout', { method: 'POST' }); load(); };
 }
 
-/* ---------- thành phần ---------- */
-function insightCard(i) {
-  const [ic, lab] = SEV[i.severity];
-  return `<article class="insight ${i.severity}"><h3><span class="chip ${i.severity}"><span aria-hidden="true">${ic}</span>${lab}</span>${esc(i.title)}</h3>
-    <p class="why">${esc(i.evidence)}</p><p><b>Đề xuất:</b> ${esc(i.action)}</p>
-    <div class="meta"><span>Tác động ${i.impact}/5</span><span>Độ tin cậy dữ liệu ${i.confidence}/5</span><span>Công sức ${i.effort}/5</span><span>Điểm ưu tiên ${i.score}</span></div></article>`;
-}
-function frameworkTable(title, obj) {
-  const rows = Object.entries(obj).map(([k, v]) => `<tr><td>${esc(k.trim())}</td><td class="num"><b>${v.value == null ? '–' : esc(nf.format(v.value)) + (v.unit ?? '')}</b></td><td class="muted">${esc(v.note)}</td></tr>`).join('');
-  return `<div class="panel"><h2>${esc(title)}</h2><div class="scroll"><table><thead><tr><th>Chỉ số</th><th class="num">Giá trị</th><th>Cách đo</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-}
-function funnel(f) {
-  const top = f[0].count || 1;
-  const rows = f.map((s, i) => `<div class="frow"><div>${esc(s.label)}</div><div class="bar" role="img" aria-label="${esc(s.label)}: ${s.count}"><i style="width:${Math.max(1, (s.count / top) * 100)}%"></i></div>
-    <div class="c"><b>${nf.format(s.count)}</b>${i ? ` · ${pct(s.fromPrev)} từ bước trước` : ''}</div></div>`).join('');
-  const table = f.map((s, i) => `<tr><td>${esc(s.label)}</td><td class="num">${nf.format(s.count)}</td><td class="num">${i ? pct(s.fromPrev, 1) : '–'}</td><td class="muted">${i ? ci(s.fromPrev) : ''}</td><td class="num">${pct(s.fromTop, 1)}</td></tr>`).join('');
-  return `${rows}<details><summary>Xem dạng bảng, kèm khoảng tin cậy</summary><div class="scroll"><table><thead><tr><th>Bước</th><th class="num">Người</th><th class="num">Từ bước trước</th><th>Độ chắc chắn</th><th class="num">Từ đầu phễu</th></tr></thead><tbody>${table}</tbody></table></div></details>`;
-}
-/** Biểu đồ đường 3 chuỗi, có chú giải, nhãn cuối đường, đường dóng và chú thích khi rê chuột. */
-function lineChart(series) {
-  const W = 760, H = 240, L = 40, R = 90, T = 14, B = 28, keys = [['visitors', 'Người mở trang', 'var(--s1)'], ['started', 'Bắt đầu trò chuyện', 'var(--s2)'], ['signups', 'Đăng ký xong', 'var(--s3)']];
-  const n = series.length, max = Math.max(5, ...series.flatMap((d) => keys.map(([k]) => d[k]))), nice = Math.ceil(max / 5) * 5;
-  const x = (i) => L + (n <= 1 ? 0 : (i / (n - 1)) * (W - L - R)), y = (v) => T + (1 - v / nice) * (H - T - B);
-  const grid = [0, 0.25, 0.5, 0.75, 1].map((t) => { const v = Math.round(nice * t), yy = y(v); return `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end" fill="var(--muted)" font-size="11">${v}</text>`; }).join('');
-  const lines = keys.map(([k, , c]) => `<polyline fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round" points="${series.map((d, i) => `${x(i)},${y(d[k])}`).join(' ')}"/>`).join('');
-  const ends = keys.map(([k, lab, c], j) => `<circle cx="${x(n - 1)}" cy="${y(series[n - 1][k])}" r="4" fill="${c}" stroke="var(--surface)" stroke-width="2"/><text x="${x(n - 1) + 8}" y="${y(series[n - 1][k]) + 4 + (j === 2 ? 10 : 0)}" fill="var(--ink2)" font-size="11.5">${nf.format(series[n - 1][k])}</text>`).join('');
-  const step = Math.ceil(n / 7), xt = series.map((d, i) => (i % step === 0 || i === n - 1 ? `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" fill="var(--muted)" font-size="11">${esc(d.day.slice(5))}</text>` : '')).join('');
-  const table = series.map((d) => `<tr><td>${esc(d.day)}</td><td class="num">${d.visitors}</td><td class="num">${d.started}</td><td class="num">${d.signups}</td></tr>`).join('');
-  return `<div class="legend">${keys.map(([, lab, c]) => `<span><i style="background:${c}"></i>${lab}</span>`).join('')}</div>
-    <div class="chart" id="lc"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Số người theo ngày"><g>${grid}${xt}${lines}${ends}</g><line id="cross" y1="${T}" y2="${H - B}" stroke="var(--axis)" visibility="hidden"/><rect id="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg><div class="tip" id="tip" hidden></div></div>
-    <details><summary>Xem dạng bảng</summary><div class="scroll"><table><thead><tr><th>Ngày</th><th class="num">Mở trang</th><th class="num">Bắt đầu</th><th class="num">Đăng ký</th></tr></thead><tbody>${table}</tbody></table></div></details>`;
-}
-function wireLine(series) {
-  const box = document.getElementById('lc'); if (!box) return;
-  const svg = box.querySelector('svg'), hit = box.querySelector('#hit'), cross = box.querySelector('#cross'), tip = box.querySelector('#tip');
-  const W = 760, L = 40, R = 90, n = series.length;
-  const move = (ev) => {
-    const rect = svg.getBoundingClientRect(), px = ((ev.clientX - rect.left) / rect.width) * W;
-    const i = Math.max(0, Math.min(n - 1, Math.round(((px - L) / (W - L - R)) * (n - 1)))), xx = L + (n <= 1 ? 0 : (i / (n - 1)) * (W - L - R)), d = series[i];
-    cross.setAttribute('x1', xx); cross.setAttribute('x2', xx); cross.setAttribute('visibility', 'visible');
-    tip.hidden = false; tip.innerHTML = `<b>${esc(d.day)}</b><br>Mở trang ${d.visitors} · Bắt đầu ${d.started} · Đăng ký ${d.signups}`;
-    tip.style.left = `${(xx / W) * rect.width}px`; tip.style.top = `${ev.clientY - rect.top}px`;
-  };
-  hit.addEventListener('pointermove', move); hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); tip.hidden = true; });
-}
-function heat(v) { if (v == null) return '<td class="muted">–</td>'; const a = Math.min(1, v / 0.5); return `<td><div class="heat" style="background:color-mix(in srgb, var(--s1) ${Math.round(a * 70)}%, transparent)">${(v * 100).toFixed(0)}%</div></td>`; }
-function cohorts(r) {
-  const rows = r.cohorts.map((c) => `<tr><td>${esc(c.day)}</td><td class="num">${c.n}</td>${heat(c.d1)}${heat(c.d3)}${heat(c.d7)}</tr>`).join('') || '<tr><td colspan="5" class="muted">Chưa có cohort.</td></tr>';
-  return `<div class="kpis"><div class="kpi"><div class="v">${pct(r.d1)}</div><div class="l">Quay lại sau 1 ngày</div><div class="n">${ci(r.d1)}</div></div><div class="kpi"><div class="v">${pct(r.d3)}</div><div class="l">Sau 3 ngày</div><div class="n">${ci(r.d3)}</div></div><div class="kpi"><div class="v">${pct(r.d7)}</div><div class="l">Sau 7 ngày</div><div class="n">${ci(r.d7)}</div></div></div>
-    <div class="scroll" style="margin-top:12px"><table><thead><tr><th>Ngày đầu</th><th class="num">Người</th><th>D1</th><th>D3</th><th>D7</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-}
 const FLAG_LABEL = { qua_nhieu_cau_hoi: 'Hỏi dồn nhiều câu', qua_dai: 'Trả lời quá dài', lap_lai: 'Lặp ý hoặc lặp lời mở đầu', noi_chac_nich: 'Nói chắc nịch, tiên đoán', doa_han_hoac_ban_cung: 'Dọa hạn, gợi ý cúng bái', thieu_nhan_tang: 'Luận giải thiếu nhãn tầng', thieu_canh_bao_gioi_han: 'Luận giải thiếu cảnh báo giới hạn', khong_bam_loi_nguoi_dung: 'Không bám lời người dùng', cum_sao_ron: 'Khuôn sáo nghe như máy viết sẵn', lap_cum_tu: 'Lặp cụm từ giữa các lượt', qua_nhieu_he: 'Trộn nhiều hệ (Tử Vi, Tứ Trụ, chiêm tinh…) một lượt', vien_dan_nhieu: 'Viện dẫn tâm lý học, khoa học quá dày' };
-function quality(q) {
-  const rows = Object.entries(q.flags).map(([k, w]) => `<tr><td>${esc(FLAG_LABEL[k] ?? k)}</td><td class="num"><b>${pct(w, 1)}</b></td><td class="muted">${ci(w)}</td></tr>`).join('');
-  const cr = q.crisis, ms = (v) => (v == null ? '–' : `${(v / 1000).toFixed(1)} giây`);
-  return `<div class="kpis"><div class="kpi"><div class="v">${q.meanScore ?? '–'}</div><div class="l">Điểm chất lượng trung bình (0-100)</div><div class="n">${nf.format(q.turns)} lượt trả lời</div></div>
-    <div class="kpi"><div class="v">${cr.safety?.p == null ? '–' : pct(cr.safety)}</div><div class="l">An toàn khi khủng hoảng</div><div class="n">${cr.handled} có hỗ trợ · ${cr.missed} thiếu</div></div>
-    <div class="kpi"><div class="v">${ms(q.latency.p50)}</div><div class="l">Thời gian trả lời (trung vị)</div><div class="n">Phân vị 95: ${ms(q.latency.p95)}</div></div>
-    <div class="kpi"><div class="v">${pct(q.errors, 1)}</div><div class="l">Tỉ lệ lỗi gọi AI</div><div class="n">${ci(q.errors)}</div></div></div>
-    <div class="scroll" style="margin-top:12px"><table><thead><tr><th>Dấu hiệu cần xem lại</th><th class="num">Tỉ lệ lượt</th><th>Độ chắc chắn</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="note">Mỗi lượt được chấm bằng quy tắc minh bạch ngay trên máy chủ. Hệ thống không lưu nội dung trò chuyện, chỉ lưu chỉ số: số từ, số câu hỏi, độ lặp, số chi tiết người dùng được nhắc lại và các cờ an toàn. Trung bình ${q.meanQuestions ?? '–'} câu hỏi và ${q.meanWords ?? '–'} từ mỗi lượt.</p>`;
+/* ---------- thành phần (bố cục ưu tiên điện thoại, biểu đồ trong admin-viz.js) ---------- */
+/** Nửa sau kỳ so với nửa đầu kỳ: chỉ nói hướng và độ lớn, không phán tốt xấu. */
+function half(series, k) {
+  const n = series.length; if (n < 6) return null;
+  const a = series.slice(0, n >> 1).reduce((s, d) => s + d[k], 0), b = series.slice(n >> 1).reduce((s, d) => s + d[k], 0);
+  if (!a) return b ? { text: 'mới bắt đầu có', dir: 'up' } : null;
+  const p = Math.round(((b - a) / a) * 100);
+  return { text: `${Math.abs(p)}% so với nửa đầu kỳ`, dir: p > 3 ? 'up' : p < -3 ? 'down' : 'flat' };
 }
-function satisfaction(s, intro) {
-  const r = s.resonance, tot = r.n || 1, cols = ['var(--seq1)', 'var(--seq2)', 'var(--seq4)'], names = ['Chưa đúng lắm', 'Gần đúng', 'Rất đúng'];
-  const bar = r.dist.map((v, i) => `<span style="flex:${v};background:${cols[i]}" title="${names[i]}: ${v}"></span>`).join('');
-  const key = r.dist.map((v, i) => `<span><i style="background:${cols[i]}"></i>${names[i]} ${Math.round((v / tot) * 100)}% (${v})</span>`).join('');
-  const nps = s.nps, tf = s.timeFit;
-  return `<div class="kpis"><div class="kpi"><div class="v">${pct(r.good)}</div><div class="l">Cho rằng My nói đúng (gần đúng trở lên)</div><div class="n">${ci(r.good)}</div></div>
-    <div class="kpi"><div class="v">${pct(r.strong)}</div><div class="l">Cho rằng "rất đúng"</div><div class="n">${ci(r.strong)}</div></div>
-    <div class="kpi"><div class="v">${pct(tf?.good)}</div><div class="l">Lớp thời vận khớp với năm đã qua (một phần trở lên)</div><div class="n">${tf?.n ? ci(tf.good) : 'Chưa có ai trả lời'}. Đây là dữ liệu quyết định có nên thu phí cho lớp thời vận.</div></div>
-    <div class="kpi"><div class="v">${nps.score ?? '–'}</div><div class="l">NPS (muốn giới thiệu bạn bè)</div><div class="n">n=${nps.n}: ${nps.promoters} ủng hộ, ${nps.passives} trung lập, ${nps.detractors} chưa hài lòng</div></div>
-    <div class="kpi"><div class="v">${pct(intro?.skipFirstVisit)}</div><div class="l">Bỏ qua màn mở đầu (lần đầu)</div><div class="n">${ci(intro?.skipFirstVisit) || 'Chưa có dữ liệu'}. Trên 40% thì nên rút ngắn.</div></div></div>
-    <div class="stack" role="img" aria-label="Phân bố đánh giá độ đúng">${bar}</div><div class="stackkey">${key}</div>
-    <p class="note">Lưu ý hiệu ứng Barnum: người dùng dễ thấy lời nói chung chung là "đúng với mình". Đừng dùng điểm này một mình để kết luận My chính xác; hãy đọc cùng tỉ lệ "bám lời người dùng" và phản hồi tự do.</p>`;
+function insightCard(i, open = false) {
+  const [ic, lab] = SEV[i.severity];
+  return `<details class="ins ${i.severity}"${open ? ' open' : ''}><summary><span class="ins-ic" aria-hidden="true">${ic}</span><span class="ins-t">${esc(i.title)}</span><span class="ins-p" title="Điểm ưu tiên">${i.score}</span></summary>
+    <div class="ins-b"><span class="chip ${i.severity}">${lab}</span><p class="why">${esc(i.evidence)}</p><p><b>Đề xuất:</b> ${esc(i.action)}</p>
+    <div class="meta"><span>Tác động ${i.impact}/5</span><span>Độ tin cậy dữ liệu ${i.confidence}/5</span><span>Công sức ${i.effort}/5</span></div></div></details>`;
 }
-function segTable(title, rows) {
-  const body = rows.map((g) => `<tr><td>${esc(g.name)}</td><td class="num">${g.n}</td><td class="num">${pct(g.firstMessage)}</td><td class="num">${g.resonance ? pct(g.resonance) : '–'}</td><td class="num">${pct(g.verified)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Chưa có dữ liệu.</td></tr>';
-  return `<div class="panel"><h2>${esc(title)}</h2><div class="scroll"><table><thead><tr><th>Nhóm</th><th class="num">Người</th><th class="num">Bắt đầu</th><th class="num">Đúng ≥ gần đúng</th><th class="num">Đăng ký</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+function insightsBlock(list) {
+  const c = { critical: 0, warn: 0, info: 0 }; list.forEach((i) => c[i.severity]++);
+  const chips = ['critical', 'warn', 'info'].filter((k) => c[k]).map((k) => `<span class="chip ${k}"><span aria-hidden="true">${SEV[k][0]}</span>${c[k]} ${SEV[k][1].toLowerCase()}</span>`).join('');
+  const first = list.slice(0, 3), rest = list.slice(3);
+  return `<section class="panel"><div class="ph2"><h2>Khuyến nghị ưu tiên</h2><div class="chips">${chips}</div></div>
+    <p class="sub">Tự động từ số liệu, xếp theo mức nghiêm trọng rồi điểm ưu tiên (tác động × độ tin cậy ÷ công sức). Mẫu còn nhỏ thì nói "chưa đủ dữ liệu" thay vì kết luận vội. Chạm một dòng để xem lý do.</p>
+    ${list.length ? first.map((i) => insightCard(i, i.severity === 'critical')).join('') : '<p class="muted">Chưa có khuyến nghị nào. Các chỉ số đang trong ngưỡng.</p>'}
+    ${rest.length ? `<details class="more"><summary>Xem thêm ${rest.length} khuyến nghị</summary>${rest.map((i) => insightCard(i)).join('')}</details>` : ''}</section>`;
 }
-const listTable = (rows, a, b) => `<div class="scroll"><table><tbody>${rows.map((r) => `<tr><td>${esc(r[a])}</td><td class="num">${r[b]}</td></tr>`).join('') || '<tr><td class="muted">Chưa có dữ liệu.</td></tr>'}</tbody></table></div>`;
+function frameworkGrid(title, obj) {
+  const cells = Object.entries(obj).map(([k, v]) => `<div class="fwc"><b>${v.value == null ? '–' : esc(nf.format(v.value)) + (v.unit ?? '')}</b><span>${esc(k.trim())}</span><small>${esc(v.note)}</small></div>`).join('');
+  return `<details class="panel fw"><summary><h2>${esc(title)}</h2></summary><div class="fwg">${cells}</div></details>`;
+}
+const wl = (w) => (w?.p == null ? '' : `KTC ${Math.round(w.lo * 100)}–${Math.round(w.hi * 100)}%, n=${nf.format(w.n)}`);
+
+function overviewTab(m) {
+  const f = (k) => m.funnel.find((x) => x.key === k) ?? { count: 0 }, s = m.series, sp = (k) => s.map((d) => d[k]);
+  const act = f('first_message').fromTop, su = f('signup_verified').fromTop;
+  return `<section class="tiles">
+      ${tile({ label: 'Người mở trang', value: nf.format(m.visitors), sub: `${nf.format(m.accounts.newInRange)} tài khoản mới · ${nf.format(m.accounts.total)} tổng`, spark: sp('visitors'), delta: half(s, 'visitors'), tone: 's1' })}
+      ${tile({ label: 'Bắt đầu trò chuyện', value: nf.format(f('first_message').count), sub: act?.p == null ? '' : `${Math.round(act.p * 100)}% người mở trang`, spark: sp('started'), delta: half(s, 'started'), tone: 's2' })}
+      ${tile({ label: 'Đăng ký xong', value: nf.format(f('signup_verified').count), sub: su?.p == null ? '' : `${(su.p * 100).toFixed(1)}% người mở trang`, spark: sp('signups'), delta: half(s, 'signups'), tone: 's3' })}
+      ${tile({ label: 'Một buổi trò chuyện', value: `${m.sessions.medianMin ?? '–'}′`, sub: `${m.sessions.meanMsgs ?? '–'} tin nhắn mỗi buổi (trung bình)`, tone: 's4', tipText: 'Thời lượng trung vị của một buổi' })}</section>
+    <section class="panel"><h2>Sức khỏe sản phẩm</h2><p class="sub">Bốn tỉ lệ chính. Vòng càng đầy càng tốt; chạm để xem khoảng tin cậy.</p>
+      <div class="rings">${ring(act?.p, { label: 'Kích hoạt', sub: 'nói câu đầu', tone: 's2', w: act })}${ring(m.sessions.reachedCap?.p, { label: 'Đi trọn 30′', sub: 'hết giờ buổi', tone: 's4', w: m.sessions.reachedCap })}${ring(m.retention.d1?.p, { label: 'Quay lại 1 ngày', sub: 'sau lần đầu', tone: 's3', w: m.retention.d1 })}${ring(m.satisfaction.resonance.good?.p, { label: 'My nói đúng', sub: 'gần đúng trở lên', tone: 's1', w: m.satisfaction.resonance.good })}</div></section>
+    ${insightsBlock(m.insights)}
+    <section class="panel"><h2>Hành trình khách hàng</h2><p class="sub">Số người duy nhất đi tới từng bước, và bao nhiêu phần trăm đi tiếp từ bước trước.</p>${funnelChart(m.funnel)}</section>
+    <section class="panel"><h2>Theo ngày</h2><p class="sub">Người mở trang, bắt đầu trò chuyện và đăng ký xong mỗi ngày. Chạm vào biểu đồ để xem từng ngày.</p>${areaChart(s, [['visitors', 'Mở trang', 'var(--s1)'], ['started', 'Bắt đầu trò chuyện', 'var(--s2)'], ['signups', 'Đăng ký xong', 'var(--s3)']], { label: 'Số người theo ngày' })}</section>
+    ${frameworkGrid('AARRR: thu hút, kích hoạt, giữ chân, giới thiệu, doanh thu', m.frameworks.AARRR)}${frameworkGrid('HEART: hài lòng, tham gia, tiếp nhận, giữ chân, hoàn thành', m.frameworks.HEART)}`;
+}
+
+const segList = (rows) => barList(rows.map((g) => ({ label: g.name, value: g.n, sub: `bắt đầu ${pct(g.firstMessage)} · đúng ${g.resonance ? pct(g.resonance) : '–'} · đăng ký ${pct(g.verified)}`, tip: `Bắt đầu ${pct(g.firstMessage)}\nĐúng ≥ gần đúng ${g.resonance ? pct(g.resonance) : '–'}\nĐăng ký ${pct(g.verified)}` })), { fmt: (v) => `${nf.format(v)} người`, empty: 'Chưa có dữ liệu.' });
+const compareBlock = (c) => `<section class="panel"><h2>Đối chiếu lá số với ứng dụng khác</h2>
+  <p class="sub">Người dùng nhập Cục và cung Mệnh từ lá số khác. Khớp là bằng chứng nhất quán; lệch giải thích được cho biết quy ước nào hay gặp; lệch chưa giải thích được là chỗ My còn thiếu.</p>
+  ${c.runs ? '' : '<p class="muted">Chưa có ai đối chiếu.</p>'}
+  <div class="rings">${ring(c.opened ? c.runRate?.p : null, { label: 'Mở rồi đối chiếu', sub: `${c.people}/${c.opened} người`, tone: 's1', w: c.runRate })}${ring(c.giaiThich + c.khongRo ? c.explainedOfDiff?.p : null, { label: 'Lệch được giải thích', sub: `${c.giaiThich} trong ${c.giaiThich + c.khongRo} ca lệch`, tone: 's3', w: c.explainedOfDiff })}</div>
+  <h3>Kết quả (số lần)</h3>${barList([{ label: 'Khớp', value: c.khop }, { label: 'Lệch, giải thích được', value: c.giaiThich }, { label: 'Lệch, chưa giải thích được', value: c.khongRo }, { label: 'Thiếu giờ sinh', value: c.thieuDuLieu }], { empty: '' })}
+  <h3>Vì sao lệch (trong các ca giải thích được)</h3>${barList([{ label: 'Lịch Trung Quốc (UTC+8)', value: c.reasons.cn }, { label: 'Quy ước tháng nhuận', value: c.reasons.leap }, { label: 'Giờ Tý muộn', value: c.reasons.ty }], { tone: 's2', empty: '' })}</section>`;
+const upgradeBlock = (rows) => `<section class="panel"><h2>Thử nút nâng cấp (chưa thu tiền)</h2>
+  <p class="sub">Mỗi người được gán một mức giá và ở lại mức đó. "Mở" là bấm xem gói; "quan tâm" là chọn gói sau khi đã thấy giá. Cần ít nhất 30 người mở mỗi mức mới đáng tin, và đây là ý định chứ chưa phải trả tiền.</p>
+  ${rows.length ? `<div class="pcs">${rows.map((r) => `<article class="pc"><div class="pc-h"><b>${nf.format(r.price)}đ</b><span>mỗi tháng</span></div>
+    <div class="pc-n"><div><b>${r.views}</b><span>thấy nút</span></div><div><b>${r.opens}</b><span>mở xem</span></div><div><b>${r.clicks}</b><span>quan tâm</span></div></div>
+    <div class="rings one">${ring(r.opens ? r.clickRate?.p : null, { label: 'Quan tâm / mở', sub: r.opens >= 30 ? wl(r.clickRate) : `n=${r.opens}, chưa đủ 30`, tone: 's2', w: r.clickRate })}</div>
+    <h3>Cảm nhận giá</h3>${feelBar(r.feel)}</article>`).join('')}</div>` : '<p class="muted">Chưa có dữ liệu. Bật bằng UPGRADE_TEST=on trên máy chủ.</p>'}</section>`;
+
+function growthTab(m) {
+  const r = m.satisfaction.resonance, rt = m.retention, e = m.explore, t = m.thoivan, tf = m.satisfaction.timeFit;
+  return `<section class="panel"><h2>Giữ chân</h2><p class="sub">Người mới quay lại đúng ngày thứ 1, 3, 7 sau lần đầu.</p>
+      <div class="rings">${ring(rt.d1?.p, { label: 'Sau 1 ngày', sub: wl(rt.d1), tone: 's3', w: rt.d1 })}${ring(rt.d3?.p, { label: 'Sau 3 ngày', sub: wl(rt.d3), tone: 's3', w: rt.d3 })}${ring(rt.d7?.p, { label: 'Sau 7 ngày', sub: wl(rt.d7), tone: 's3', w: rt.d7 })}</div>
+      ${cohortHeat(rt.cohorts)}</section>
+    <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>
+      <div class="rings">${ring(r.good?.p, { label: 'My nói đúng', sub: 'gần đúng trở lên', tone: 's1', w: r.good })}${ring(r.strong?.p, { label: 'Rất đúng', sub: wl(r.strong), tone: 's1', w: r.strong })}${ring(tf.n ? tf.good?.p : null, { label: 'Thời vận khớp', sub: tf.n ? `${tf.n} câu trả lời` : 'chưa có ai trả lời', tone: 's7', w: tf.good })}${ring(m.intro?.skipFirstVisit?.p, { label: 'Bỏ qua mở đầu', sub: 'lần đầu, trên 40% thì rút ngắn', tone: 's8', w: m.intro?.skipFirstVisit })}</div>
+      <h3>Độ đúng người dùng đánh giá</h3>${agreeBar(r.dist)}<h3>Điểm giới thiệu</h3>${npsBar(m.satisfaction.nps)}
+      <p class="note">Hiệu ứng Barnum: lời nói chung chung dễ bị thấy là "đúng với mình". Đừng dùng điểm này một mình để kết luận My chính xác; đọc cùng tỉ lệ "bám lời người dùng" ở tab Chất lượng và phản hồi tự do.</p></section>
+    <div class="grid2"><section class="panel"><h2>Trang Khám phá</h2><p class="sub">Xem lá số không cần đăng nhập. Số người, không trùng.</p>${barList([{ label: 'Vào trang', value: e.visitors }, { label: 'Xem một lá số', value: e.viewedChart }, { label: 'Chọn hồ sơ mẫu', value: e.pickedSample }, { label: 'Bấm sang trò chuyện với My', value: e.toChat }, { label: 'Đã đến ứng dụng với hồ sơ', value: e.arrived }, { label: 'Bấm vào Zalo', value: e.zalo }], { tone: 's3', empty: '' })}</section>
+      <section class="panel"><h2>12 cung và thời vận</h2><p class="sub">Số người, không trùng.</p>${barList([{ label: 'Mở tab 12 cung hoặc Thời vận', value: t.openedTab }, { label: 'Xem chi tiết một tháng', value: t.monthViews }, { label: 'Bấm hỏi My từ lá số', value: t.asked }, { label: 'Trả lời năm đã qua có khớp không', value: t.rated }], { tone: 's7', empty: '' })}</section></div>
+    ${compareBlock(m.compare)}${upgradeBlock(m.upgrade)}
+    <div class="grid2"><section class="panel"><h2>Theo nhóm tuổi</h2>${segList(m.segments.age)}</section><section class="panel"><h2>Theo lĩnh vực làm việc</h2>${segList(m.segments.field)}</section></div>
+    <div class="grid2"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${barList(m.startChoices.map((x) => ({ label: x.name, value: x.n })), { tone: 's2', empty: 'Chưa có dữ liệu.' })}</section>
+      <section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}). Mã ref theo từng kênh.</p>${barList(m.growth.referrals.map((x) => ({ label: x.ref, value: x.n })), { tone: 's5', empty: 'Chưa có lượt giới thiệu.' })}</section></div>`;
+}
+
+function qualityTab(m) {
+  const q = m.quality, cr = q.crisis, ms = (v) => (v == null ? '–' : `${(v / 1000).toFixed(1)}s`);
+  const flags = Object.entries(q.flags).map(([k, w]) => ({ label: FLAG_LABEL[k] ?? k, value: w.p == null ? 0 : w.p * 100, tip: wl(w) }));
+  return `<section class="tiles">
+      ${tile({ label: 'Điểm chất lượng', value: q.meanScore ?? '–', sub: `thang 0-100 · ${nf.format(q.turns)} lượt trả lời`, tone: 's1' })}
+      ${tile({ label: 'An toàn khi khủng hoảng', value: cr.safety?.p == null ? '–' : pct(cr.safety), sub: `${cr.handled} có hỗ trợ · ${cr.missed} thiếu`, tone: 's3' })}
+      ${tile({ label: 'Thời gian trả lời', value: ms(q.latency.p50), sub: `trung vị · phân vị 95: ${ms(q.latency.p95)}`, tone: 's4' })}
+      ${tile({ label: 'Lỗi gọi AI', value: pct(q.errors, 1), sub: ci(q.errors) || '', tone: 's8' })}</section>
+    <section class="panel"><h2>Dấu hiệu cần xem lại</h2><p class="sub">Tỉ lệ lượt trả lời có từng dấu hiệu. Thấp là tốt; mục an toàn (nói chắc nịch, dọa hạn, thiếu hỗ trợ khi khủng hoảng) mong muốn gần 0%.</p>
+      ${barList(flags, { tone: 's2', fmt: (v) => `${v.toFixed(1)}%`, max: Math.max(10, ...flags.map((x) => x.value)), empty: 'Chưa có lượt nào được chấm.' })}
+      <p class="note">Mỗi lượt được chấm bằng quy tắc minh bạch ngay trên máy chủ. Hệ thống không lưu nội dung trò chuyện, chỉ lưu chỉ số: số từ, số câu hỏi, độ lặp, số chi tiết người dùng được nhắc lại và các cờ an toàn. Trung bình ${q.meanQuestions ?? '–'} câu hỏi mỗi lượt.</p></section>`;
+}
 
 function render() {
   const m = data, tab = tabNow(), crit = m.insights.filter((i) => i.severity === 'critical').length;
+  const when = new Date(m.range.to).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' });
   app.innerHTML = `<div class="wrap">
-    <header class="top"><div><h1>Quản trị Huyền My</h1><p class="sub" style="margin:2px 0 0">${days ? `Kỳ ${days} ngày` : 'Toàn thời gian'}, tính theo giờ Việt Nam. Cập nhật ${new Date(m.range.to).toLocaleString('vi-VN')}.</p></div>
-      <div class="toolbar"><div class="seg" role="group" aria-label="Khoảng thời gian">${[7, 14, 30, 90].map((d) => `<button data-d="${d}" aria-pressed="${d === days}">${d} ngày</button>`).join('')}<button data-d="365" aria-pressed="${days === 365}">1 năm</button></div>
-        <a class="btn" href="/" title="Mở ứng dụng">Mở app</a><button class="btn" id="out">Đăng xuất</button></div></header>
+    <header class="top"><div class="ttl"><span class="orb" aria-hidden="true"></span><div><h1>Quản trị Huyền My</h1><p class="sub">${days ? `Kỳ ${days} ngày` : 'Toàn thời gian'} · giờ Việt Nam · cập nhật ${when}</p></div></div>
+      <div class="acts"><a class="ib" href="/" aria-label="Mở ứng dụng" title="Mở ứng dụng">↗</a><button class="ib" id="out" aria-label="Đăng xuất" title="Đăng xuất">⎋</button></div></header>
+    <div class="seg period" role="group" aria-label="Khoảng thời gian">${[[7, '7 ngày'], [14, '14 ngày'], [30, '30 ngày'], [90, '90 ngày'], [365, '1 năm']].map(([d, l]) => `<button data-d="${d}" aria-pressed="${d === days}">${l}</button>`).join('')}</div>
     <nav class="tabs" role="tablist" aria-label="Mục quản trị">${TABS.map(([k, l]) => `<a role="tab" href="#/${k}" aria-selected="${k === tab}" class="${k === tab ? 'on' : ''}">${l}${k === 'tong-quan' && crit ? ` <span class="chip critical">▲ ${crit}</span>` : ''}</a>`).join('')}</nav>
     <main id="tabbody"></main>
-    <p class="note" style="text-align:center;margin-top:18px">© 2026 Lương Việt Hoàng. Bảo lưu mọi quyền.</p></div>`;
-  app.querySelectorAll('[data-d]').forEach((b) => (b.onclick = () => { days = +b.dataset.d; history.replaceState(null, '', `?days=${days}${location.hash}`); journey = null; load(); }));
+    <p class="note foot">© 2026 Lương Việt Hoàng. Bảo lưu mọi quyền.</p></div>`;
+  app.querySelectorAll('[data-d]').forEach((b) => (b.onclick = () => { days = +b.dataset.d; history.replaceState(null, '', `?days=${days}${location.hash}`); journey = null; document.getElementById('tabbody')?.classList.add('busy'); load(); }));
   document.getElementById('out').onclick = async () => { await fetch('/api/auth/logout', { method: 'POST' }); load(); };
+  app.querySelector('.tabs a.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   paintTab(tab);
 }
 
-function overviewTab(m) {
-  const f = (k) => m.funnel.find((x) => x.key === k);
-  return `<section class="panel"><h2>Khuyến nghị ưu tiên</h2>
-      <p class="sub">Sinh tự động từ số liệu, xếp theo mức nghiêm trọng rồi điểm ưu tiên (tác động × độ tin cậy dữ liệu ÷ công sức). Khi mẫu còn nhỏ, hệ thống nói rõ "chưa đủ dữ liệu" thay vì kết luận vội.</p>
-      ${m.insights.length ? m.insights.map(insightCard).join('') : '<p class="muted">Chưa có khuyến nghị nào. Các chỉ số đang trong ngưỡng.</p>'}</section>
-    <section class="kpis" style="margin-bottom:16px">
-      <div class="kpi"><div class="v">${nf.format(m.visitors)}</div><div class="l">Người mở trang</div><div class="n">${nf.format(m.accounts.newInRange)} tài khoản mới · ${nf.format(m.accounts.total)} tổng</div></div>
-      <div class="kpi"><div class="v">${pct(f('first_message').fromTop)}</div><div class="l">Kích hoạt (nói câu đầu)</div><div class="n">${ci(f('first_message').fromTop)}</div></div>
-      <div class="kpi"><div class="v">${m.sessions.medianMin ?? '–'}′</div><div class="l">Thời lượng buổi (trung vị)</div><div class="n">${m.sessions.meanMsgs ?? '–'} tin nhắn mỗi buổi</div></div>
-      <div class="kpi"><div class="v">${pct(m.sessions.reachedCap)}</div><div class="l">Đi trọn 30 phút</div><div class="n">${ci(m.sessions.reachedCap)}</div></div>
-      <div class="kpi"><div class="v">${pct(f('signup_verified').fromTop, 1)}</div><div class="l">Đăng ký xong / người mở trang</div><div class="n">${ci(f('signup_verified').fromTop)}</div></div></section>
-    <section class="panel"><h2>Hành trình khách hàng</h2><p class="sub">Số người duy nhất đi tới từng bước. "Từ bước trước" là tỉ lệ chuyển đổi, kèm khoảng tin cậy ở bảng bên dưới.</p>${funnel(m.funnel)}</section>
-    <section class="panel"><h2>Theo ngày</h2><p class="sub">Người mở trang, người bắt đầu trò chuyện và người đăng ký xong mỗi ngày.</p>${lineChart(m.series)}</section>
-    <div class="grid2">${frameworkTable('AARRR (thu hút, kích hoạt, giữ chân, giới thiệu, doanh thu)', m.frameworks.AARRR)}${frameworkTable('HEART (hài lòng, tham gia, tiếp nhận, giữ chân, hoàn thành)', m.frameworks.HEART)}</div>`;
-}
-const comparePanel = (c) => `<section class="panel" style="margin-top:16px"><h2>Đối chiếu lá số với ứng dụng khác</h2>
-  <p class="sub">Người dùng nhập Cục và cung Mệnh từ lá số khác. Đây là thước đo niềm tin: khớp là bằng chứng nhất quán, lệch giải thích được cho thấy quy ước nào người dùng hay gặp, lệch chưa giải thích được là chỗ My còn thiếu.</p>
-  ${c.runs ? '' : '<p class="muted">Chưa có ai đối chiếu.</p>'}
-  <div class="grid2"><div class="scroll"><table><tbody>${[['Mở tab Đối chiếu (người)', c.opened], ['Đã bấm đối chiếu (người)', c.people], ['Tỉ lệ mở rồi đối chiếu', c.opened ? `${pct(c.runRate)} (${ci(c.runRate)})` : '–'], ['Số lần đối chiếu', c.runs]].map(([a, b]) => `<tr><td>${a}</td><td class="num">${b}</td></tr>`).join('')}</tbody></table></div>
-  <div class="scroll"><table><tbody>${[['Khớp', c.khop], ['Lệch, giải thích được', c.giaiThich], ['Lệch, chưa giải thích được', c.khongRo], ['Thiếu dữ liệu (không có giờ sinh)', c.thieuDuLieu], ['Trong số lệch, được giải thích', c.giaiThich + c.khongRo ? `${pct(c.explainedOfDiff)} (${ci(c.explainedOfDiff)})` : '–'], ['Do lịch Trung Quốc / tháng nhuận / giờ Tý muộn', `${c.reasons.cn} / ${c.reasons.leap} / ${c.reasons.ty}`]].map(([a, b]) => `<tr><td>${a}</td><td class="num">${b}</td></tr>`).join('')}</tbody></table></div></div></section>`;
-const upgradePanel = (rows) => `<section class="panel" style="margin-top:16px"><h2>Thử nút nâng cấp (chưa thu tiền)</h2>
-  <p class="sub">Mỗi người được gán ngẫu nhiên một mức giá và ở lại mức đó. "Mở" là bấm vào nút xem gói; "quan tâm" là bấm chọn gói sau khi đã thấy giá. Chỉ có ý nghĩa khi mỗi mức có ít nhất 30 người mở, và đây là ý định chứ chưa phải việc trả tiền (người ta thường nói muốn nhiều hơn số người thật sự trả).</p>
-  ${rows.length ? `<div class="scroll"><table><thead><tr><th>Giá/tháng</th><th class="num">Thấy nút</th><th class="num">Mở xem</th><th class="num">Quan tâm</th><th class="num">Quan tâm / mở</th><th>Cảm nhận giá (rẻ · hợp lý · hơi đắt · quá đắt)</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${nf.format(r.price)}đ</td><td class="num">${r.views}</td><td class="num">${r.opens}</td><td class="num">${r.clicks}</td><td class="num">${pct(r.clickRate)}<br><span class="muted">${ci(r.clickRate)}</span></td><td>${r.feel.join(' · ')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Chưa có dữ liệu. Bật bằng UPGRADE_TEST=on trên máy chủ.</p>'}</section>`;
-const growthTab = (m) => `<div class="grid2"><section class="panel"><h2>Giữ chân</h2><p class="sub">Tỉ lệ người mới quay lại đúng ngày thứ 1, 3, 7 sau lần đầu.</p>${cohorts(m.retention)}</section>
-      <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>${satisfaction(m.satisfaction, m.intro)}</section></div>
-    <div class="grid2" style="margin-top:16px"><section class="panel"><h2>Trang Khám phá (xem lá số không cần đăng nhập)</h2><p class="sub">Số người (không trùng).</p>${listTable([{ n: 'Vào trang', v: m.explore.visitors }, { n: 'Xem một lá số', v: m.explore.viewedChart }, { n: 'Chọn hồ sơ mẫu', v: m.explore.pickedSample }, { n: 'Bấm sang trò chuyện với My', v: m.explore.toChat }, { n: 'Đã đến ứng dụng với hồ sơ', v: m.explore.arrived }, { n: 'Bấm vào Zalo', v: m.explore.zalo }], 'n', 'v')}</section>
-      <section class="panel"><h2>Lớp 12 cung và thời vận</h2><p class="sub">Số người (không trùng).</p>${listTable([{ n: 'Mở tab 12 cung hoặc Thời vận', v: m.thoivan.openedTab }, { n: 'Xem chi tiết một tháng', v: m.thoivan.monthViews }, { n: 'Bấm hỏi My từ lá số', v: m.thoivan.asked }, { n: 'Trả lời năm đã qua có khớp không', v: m.thoivan.rated }], 'n', 'v')}</section></div>
-    ${comparePanel(m.compare)}
-    ${upgradePanel(m.upgrade)}
-    <div class="grid2" style="margin-top:16px">${segTable('Theo nhóm tuổi', m.segments.age)}${segTable('Theo lĩnh vực làm việc', m.segments.field)}</div>
-    <div class="grid2" style="margin-top:16px"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${listTable(m.startChoices, 'name', 'n')}</section><section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}).</p>${listTable(m.growth.referrals, 'ref', 'n')}</section></div>`;
-const qualityTab = (m) => `<section class="panel"><h2>Chất lượng tư vấn</h2><p class="sub">An toàn, độ bám người dùng, độ lặp và tốc độ của từng lượt trả lời.</p>${quality(m.quality)}</section>`;
 const methodTab = () => `<section class="panel"><h2>Phương pháp và quyền riêng tư</h2>
       <p class="note">Khung đo: AARRR (McClure, 2007), HEART (Rodden và cộng sự, Google, 2010), NPS (Reichheld, 2003). Mọi tỉ lệ có khoảng tin cậy Wilson 95%; trung bình dùng khoảng tin cậy t 95%. Khuyến nghị chỉ kết luận khi đủ cỡ mẫu.</p>
       <p class="note"><b>Dữ liệu thu thập.</b> Người dùng được nhận diện bằng mã ẩn danh trong cookie; sự kiện chỉ gồm tên bước và vài giá trị ngắn. Với mỗi lượt trò chuyện, máy chủ tính tại chỗ vài con số (sắc thái, cường độ, nhóm cảm xúc, mức mở lòng, số từ, giọng của My) rồi bỏ nội dung ngay, nên trang này không có nội dung trò chuyện, họ tên hay ngày sinh. Nhóm thiết bị chỉ gồm loại máy, hệ điều hành và trình duyệt.</p>
@@ -167,7 +148,7 @@ const methodTab = () => `<section class="panel"><h2>Phương pháp và quyền r
 
 async function paintTab(tab) {
   const host = document.getElementById('tabbody'); if (!host) return;
-  if (tab === 'tong-quan') host.innerHTML = overviewTab(data), wireLine(data.series);
+  if (tab === 'tong-quan') host.innerHTML = overviewTab(data);
   else if (tab === 'tang-truong') host.innerHTML = growthTab(data);
   else if (tab === 'chat-luong') host.innerHTML = qualityTab(data);
   else if (tab === 'gop-y') await loadFeedback(host);
@@ -192,4 +173,9 @@ async function loadFeedback(host) {
   document.getElementById('fb-csv').onclick = () => download('huyenmy-gop-y.csv', toCsv([{ key: 'date', label: 'Ngày' }, { key: 'kind', label: 'Loại' }, { key: 'rating', label: 'Điểm' }, { key: 'text', label: 'Lời góp ý' }, { key: 'quoteOk', label: 'Được trích dẫn' }, { key: 'display', label: 'Tên hiển thị' }], rows.map((x) => ({ ...x, date: new Date(x.ts).toISOString().slice(0, 10) }))));
 }
 addEventListener('hashchange', () => { if (data) render(); });
+// biểu đồ chọn kích thước theo bề rộng màn hình: vẽ lại khi đổi nhóm (điện thoại, máy gập, máy tính)
+const bucket = () => (document.documentElement.clientWidth < 520 ? 0 : document.documentElement.clientWidth < 860 ? 1 : 2);
+let lastBucket = bucket(), rz = 0;
+addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (data && bucket() !== lastBucket) { lastBucket = bucket(); render(); } }, 200); });
+initViz();
 load();
