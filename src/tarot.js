@@ -53,6 +53,7 @@ function readingHtml(cards, topicKey = null) {
   return `${tag}<h2>Ba lá của bạn</h2><div class="tr-row3">${cards.map((c, i) => `<div class="one"><h3><small>${POS[i][0]}</small>${esc(c.name)}</h3>${keysHtml(c)}<p>${esc(c[POS[i][1]])}</p></div>`).join('')}</div>${actions()}`;
 }
 const actions = () => `<div class="tr-acts"><a class="btn primary" id="tr-ask" href="#">Hỏi My về ${shown.length > 1 ? 'ba lá này' : 'lá bài này'}</a><button type="button" class="btn" id="tr-dl">⬇ Tải ảnh</button><button type="button" class="btn" id="tr-share">⤴ Chia sẻ</button></div>
+  <p class="sub tr-note" id="tr-note" role="status" aria-live="polite" style="margin:0" hidden></p>
   <p class="sub" style="margin:0">Lá bài chỉ là một lăng kính để suy ngẫm, không dự báo điều gì sẽ xảy ra.</p>`;
 
 function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = false } = {}) {
@@ -66,7 +67,16 @@ function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = fals
     read.innerHTML = readingHtml(shown, topicKey) + (next ? nextBlock() : ''); read.hidden = false; tickCountdown();
     const ids = shown.map((c) => c.id);
     $('#tr-ask').href = `/?tarot=${ids.join(',')}${topicKey ? `&chu=${topicKey}` : ''}`; $('#tr-ask').onclick = () => track('tarot_ask', { n: ids.length });
-    const share = async (m) => { const me = await meReady; const url = me.refCode ? `${location.origin}/?ref=${me.refCode}` : location.origin; const r = await shareTarot({ cards: shown, positions: shown.length > 1 ? POS.map((p) => p[0]) : null, url }, m); track('tarot_share', { action: r, mode: m, n: ids.length }); };
+    const note = $('#tr-note'), say = (t) => { note.hidden = !t; note.textContent = t || ''; };
+    const share = async (m) => {
+      say(m === 'download' ? 'Đang tạo ảnh…' : 'Đang chuẩn bị ảnh để chia sẻ…');
+      try {
+        const me = await meReady; const url = me.refCode ? `${location.origin}/?ref=${me.refCode}` : location.origin;
+        const r = await shareTarot({ cards: shown, positions: shown.length > 1 ? POS.map((p) => p[0]) : null, url }, m);
+        track('tarot_share', { action: r, mode: m, n: ids.length });
+        say(r === 'saved' ? 'Đã tải ảnh về máy bạn. Bạn mở thư viện ảnh hoặc mục Tải xuống để xem.' : r === 'shared' ? 'Đã mở chia sẻ.' : '');
+      } catch (e) { track('tarot_share', { action: 'error', mode: m, n: ids.length }); say('Chưa tạo được ảnh lúc này, bạn thử lại sau ít giây nhé.'); }
+    };
     $('#tr-dl').onclick = () => share('download'); $('#tr-share').onclick = () => share('share');
   }, flipDelay + shown.length * 420 + 700);
 }
@@ -75,7 +85,7 @@ function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = fals
 // ---------- nghi thức trước khi bốc bài ----------
 const R = $('#tr-ritual'), REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let topic = null, picks = [], ritualTimer = 0;
-const FAN = 11, TODAY_DONE = () => getDaily() != null;
+const FAN_DESKTOP = 9, FAN_PHONE = 9, TODAY_DONE = () => getDaily() != null;
 const streakNow = () => liveStreak(getStreak(), vnDay());
 
 function nextBlock() {
@@ -116,14 +126,15 @@ function phaseTopic() {
 }
 function phasePick() {
   picks = [];
-  const three = mode === 'three';
-  const cards = Array.from({ length: FAN }, (_, i) => {
-    const t = i / (FAN - 1) - 0.5, a = t * 66, x = Math.sin((a * Math.PI) / 180), y = 1 - Math.cos((a * Math.PI) / 180);
-    return `<button type="button" class="fan-card" style="--a:${a.toFixed(1)}deg;--x:${x.toFixed(3)};--y:${y.toFixed(3)};--d:${(i * 0.12).toFixed(2)}s" data-i="${i}" aria-label="Lá bài úp số ${i + 1}">${cardBackSvg()}<span class="fan-n"></span></button>`;
+  const three = mode === 'three', phone = matchMedia('(max-width: 640px)').matches, n = phone ? FAN_PHONE : FAN_DESKTOP;
+  // điện thoại: lưới 3 x 3 lá to, không chồng nhau để chạm trúng; máy tính: xòe quạt
+  const cards = Array.from({ length: n }, (_, i) => {
+    const t = i / (n - 1) - 0.5, a = phone ? (i % 2 ? 2.2 : -2.2) : t * 64, x = Math.sin((a * Math.PI) / 180), y = 1 - Math.cos((a * Math.PI) / 180);
+    return `<button type="button" class="fan-card" style="--a:${a.toFixed(1)}deg;--x:${x.toFixed(3)};--y:${y.toFixed(3)};--d:${(i * 0.14).toFixed(2)}s" data-i="${i}" aria-label="Lá bài úp số ${i + 1}">${cardBackSvg()}<span class="fan-n"></span></button>`;
   }).join('');
   R.innerHTML = `<div class="rit"><p class="rit-step">Bước 2 trên 2${topic ? ` · <b>${esc(topicLabel(topic))}</b>` : ''}</p><h2>Hãy nhìn vào bộ bài</h2>
     <p class="rit-sub" id="rit-sub">Hít một hơi thật chậm, giữ điều bạn muốn hỏi trong lòng. ${three ? 'Khi sẵn sàng, chạm vào <b>ba lá</b> đang gọi bạn, lần lượt từng lá.' : 'Khi sẵn sàng, chạm vào <b>một lá</b> đang gọi bạn.'}</p>
-    <div class="fan" id="fan">${cards}</div>
+    <div class="fan${phone ? ' grid' : ''}" id="fan">${cards}</div>
     <p class="rit-count" id="rit-count" aria-live="polite">${three ? `Đã chọn 0/3 · ${POS[0][0]}` : 'Chưa chọn lá nào'}</p>
     <div class="rit-acts"><button type="button" class="rit-link" id="rit-back">‹ Đổi chủ đề</button></div></div>`;
   $('#rit-back').onclick = phaseTopic;
