@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a24" />
+  <meta name="description" content="Xem lá số, 12 cung và thời vận theo năm, tháng ngay trên máy bạn. Miễn phí, không cần đăng nhập, thông tin bạn nhập không gửi đi đâu." />
+  <title>Khám phá lá số - Huyền My Luận Giải</title>
+  <link rel="icon" type="image/svg+xml" href="/art/huyenmy-avatar.svg" />
+  <meta name="author" content="Lương Việt Hoàng" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="vi_VN" />
+  <meta property="og:site_name" content="Huyền My Luận Giải" />
+  <meta property="og:url" content="https://huyenmy.isavietnam.app/kham-pha" />
+  <meta property="og:title" content="Khám phá lá số của bạn: 12 cung, thời vận theo năm và tháng" />
+  <meta property="og:description" content="Miễn phí, không cần đăng nhập. Mọi phép tính chạy ngay trên máy bạn. Không tiên đoán, không dọa hạn." />
+  <meta property="og:image" content="https://huyenmy.isavietnam.app/art/huyenmy-og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preload" href="/fonts/be-vietnam-pro-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/fonts/fonts.css" />
+</head>
+<body class="explore">
+  <header class="ex-top">
+    <a class="ex-brand" href="/" aria-label="Huyền My Luận Giải, về trang chính"><span id="brand"></span></a>
+    <a class="btn sm" href="/">Trò chuyện với My</a>
+  </header>
+  <main class="ex-main">
+    <section class="ex-hero">
+      <h1>Khám phá lá số</h1>
+      <p>Xem lá số, 12 cung và thời vận theo từng năm, từng tháng ngay tại đây. <b>Miễn phí, không cần đăng nhập, không cần email.</b> Mọi phép tính chạy ngay trên máy bạn, thông tin bạn nhập không gửi đi đâu.</p>
+      <p class="sub">Đây là một lăng kính biểu tượng để soi mình, không phải tiên đoán. Chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận.</p>
+    </section>
+
+    <section class="ex-card" id="ex-form-card" aria-labelledby="ex-form-h">
+      <h2 id="ex-form-h">Xem lá số của bạn</h2>
+      <form id="ex-form" novalidate autocomplete="off">
+        <label class="ex-f">Họ và tên khai sinh<input class="field" name="name" type="text" maxlength="80" placeholder="Ví dụ: Nguyễn Văn An" required></label>
+        <fieldset class="ex-f ex-radios"><legend>Giới tính khi sinh <small>(để lập Tử Vi và Bát Trạch)</small></legend>
+          <label><input type="radio" name="gender" value="nu"> Nữ</label><label><input type="radio" name="gender" value="nam"> Nam</label><label><input type="radio" name="gender" value="khac" checked> Không muốn nói</label>
+        </fieldset>
+        <fieldset class="ex-f"><legend>Ngày sinh dương lịch</legend>
+          <div class="ex-row"><input class="field num" name="d" inputmode="numeric" maxlength="2" placeholder="Ngày" aria-label="Ngày sinh"><input class="field num" name="m" inputmode="numeric" maxlength="2" placeholder="Tháng" aria-label="Tháng sinh"><input class="field num" name="y" inputmode="numeric" maxlength="4" placeholder="Năm" aria-label="Năm sinh"></div>
+        </fieldset>
+        <fieldset class="ex-f"><legend>Giờ sinh <small>(24 giờ; không nhớ cũng được)</small></legend>
+          <div class="ex-row"><input class="field num" name="hh" inputmode="numeric" maxlength="2" placeholder="Giờ" aria-label="Giờ sinh"><input class="field num" name="mm" inputmode="numeric" maxlength="2" placeholder="Phút" aria-label="Phút sinh"><label class="ex-check"><input type="checkbox" name="nohour"> Không rõ giờ sinh</label></div>
+        </fieldset>
+        <label class="ex-f">Nơi sinh <small>(tỉnh hoặc thành phố; chỉ cần để tính cung mọc)</small><input class="field" name="place" type="text" list="ex-places" placeholder="Ví dụ: Cần Thơ" maxlength="60"></label>
+        <datalist id="ex-places"></datalist>
+        <p class="ex-err" id="ex-err" role="alert" hidden></p>
+        <p class="sub">Dưới 16 tuổi, bạn nên xem cùng cha mẹ hoặc người giám hộ. Không có giờ sinh thì không lập được Tử Vi và 12 cung.</p>
+        <button class="btn primary" type="submit">Xem lá số</button>
+      </form>
+    </section>
+
+    <section id="ex-result" hidden aria-live="polite">
+      <div class="ex-card" id="ex-famous" hidden></div>
+      <div class="ex-card"><div class="sheet-card flat" id="ex-chart"></div></div>
+    </section>
+
+    <section class="ex-card" aria-labelledby="ex-samples-h">
+      <h2 id="ex-samples-h">Hoặc xem một lá số mẫu</h2>
+      <p class="sub">Ba hồ sơ hư cấu, không phải người thật, để bạn xem lá số, 12 cung và thời vận trông thế nào.</p>
+      <div class="ex-samples" id="ex-samples"></div>
+    </section>
+
+    <section class="ex-card" aria-labelledby="ex-fam-h">
+      <h2 id="ex-fam-h">Soi ngày sinh của người nổi tiếng</h2>
+      <p class="sub">Gõ tên một người, hoặc chọn nhanh. Chỉ là phép tính từ ngày sinh công khai, <b>không phải nhận định về con người họ</b>.</p>
+      <div class="ex-row"><input class="field" id="ex-q" type="search" placeholder="Ví dụ: Albert Einstein" maxlength="60" aria-label="Tên người nổi tiếng"></div>
+      <div class="chips ex-chips" id="ex-sugg"></div>
+      <div id="ex-fam-out"></div>
+    </section>
+
+    <p class="ex-foot">© 2026 <b>Lương Việt Hoàng</b>. Bảo lưu mọi quyền. <a href="/about.html">Giới thiệu</a> · <a href="/terms.html">Điều khoản</a> · <a href="/privacy.html">Quyền riêng tư</a></p>
+  </main>
+  <div class="ex-cta" id="ex-cta" hidden>
+    <span id="ex-cta-t">Muốn nói chuyện với My về lá số này?</span>
+    <button class="btn primary sm" id="ex-cta-b" type="button">Trò chuyện với My</button>
+  </div>
+  <script type="module" src="/src/explore.js"></script>
+</body>
+</html>

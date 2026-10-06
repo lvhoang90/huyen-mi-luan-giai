@@ -216,7 +216,7 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
   st.tab ||= 'tomtat'; st.rated ??= {};
   const ctx = { ask, cta, now, rated: st.rated };
   const body = { tomtat: () => tabOverview(c) + newBanner(), cung12: () => tab12(c, profile, st, ctx), thoivan: () => tabTime(c, profile, st, ctx), tuvi: () => tabTuVi(c, profile), tutru: () => tabTuTru(c), astro: () => tabAstro(c), thanso: () => tabThanSo(c) }[st.tab]();
-  const sp = host.closest('.sheet-card'), top = sp ? sp.scrollTop : (globalThis.scrollY ?? 0);
+  const sp = host.closest('.sheet-card:not(.flat)'), top = sp ? sp.scrollTop : (globalThis.scrollY ?? 0);
   host.innerHTML = `${title ? `<h2>Lá số của ${esc(profile.nickname)}</h2>
     <p class="sub">${esc(profile.fullName)} · ${profile.birth.d}/${profile.birth.m}/${profile.birth.y}${profile.birth.hour !== null ? ` · ${String(profile.birth.hour).padStart(2, '0')}:${String(profile.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>` : ''}
     <div class="tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === st.tab ? 'on' : ''}" aria-selected="${k === st.tab}">${l}</button>`).join('')}</div>

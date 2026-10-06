@@ -346,3 +346,5 @@ a.btn, a.icon { text-decoration: none; color: inherit; display: inline-flex; ali
   .stages { grid-template-columns: repeat(2, 1fr); } .rd-row { grid-template-columns: 70px 1fr; } .rd-row .lvl { grid-column: 2; justify-self: start; }
   .mb i { display: none; } .mb { padding: 6px 0; } .rd-lbl { font-size: 12.5px; }
 }
+
+a.veil-login { display: block; width: fit-content; margin: 8px auto 0; text-align: center; }

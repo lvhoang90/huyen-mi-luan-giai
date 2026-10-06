@@ -1,0 +1,30 @@
+/* Trang Khám phá: dùng lại bảng màu và kiểu chữ của ứng dụng; trang này cuộn được (ứng dụng chính thì không). */
+html, body.explore { height: auto; min-height: 100%; overflow: auto; }
+body.explore { overflow-x: hidden; }
+.ex-top { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; backdrop-filter: blur(12px); background: rgba(10, 10, 36, .72); border-bottom: 1px solid var(--line); }
+.ex-brand { display: inline-flex; text-decoration: none; color: inherit; } .ex-brand #brand { display: inline-flex; }
+.ex-main { max-width: 820px; margin: 0 auto; padding: 24px 16px 120px; display: grid; gap: 18px; }
+.ex-hero h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(34px, 6vw, 52px); margin: 8px 0 6px; color: var(--gold); }
+.ex-hero p { margin: 0 0 8px; line-height: 1.7; font-size: 15.5px; } .ex-hero b { color: #fbeecb; font-weight: 500; }
+.ex-card { padding: 20px 20px 18px; border: 1px solid var(--line); border-radius: 22px; background: linear-gradient(180deg, rgba(26, 22, 70, .85), rgba(12, 10, 36, .88)); box-shadow: 0 14px 50px rgba(0, 0, 0, .35); }
+.ex-card h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 0 0 10px; color: var(--gold); }
+.ex-f { display: grid; gap: 6px; margin: 0 0 14px; padding: 0; border: 0; font-size: 14px; color: #d9d2f2; min-width: 0; }
+.ex-f legend, .ex-f > :first-child { padding: 0; } .ex-f small { color: var(--dim); font-size: 12px; font-weight: 300; }
+.ex-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ex-row .field.num { flex: none; width: 5em; text-align: center; padding-left: 8px; padding-right: 8px; }
+.ex-radios label, .ex-check { display: inline-flex; gap: 6px; align-items: center; margin-right: 12px; font-size: 14px; } .ex-radios, .ex-radios legend { }
+.ex-radios { display: block; } .ex-radios legend { margin-bottom: 6px; }
+input[type=radio], input[type=checkbox] { accent-color: var(--gold); width: 18px; height: 18px; }
+.ex-err { margin: 0 0 10px; color: #ffb4a8; font-size: 14px; }
+.ex-samples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ex-sample { display: grid; gap: 6px; text-align: left; align-content: start; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, .03); }
+.ex-sample b { font-family: var(--serif); font-size: 21px; font-weight: 600; color: var(--gold); } .ex-sample span { font-size: 13px; line-height: 1.55; color: #cfc8ea; } .ex-sample em { font-style: normal; font-size: 11.5px; color: var(--dim); }
+.ex-sample:hover { border-color: var(--gold); }
+.ex-list { margin: 0 0 8px; padding-left: 18px; line-height: 1.7; } .ex-list span { color: var(--dim); font-size: 13.5px; }
+.ex-chips { margin: 10px 0; flex-wrap: wrap; }
+.ex-fam { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255, 255, 255, .03); }
+.ex-fam h3 { margin: 0; font-family: var(--serif); font-size: 21px; color: var(--gold); font-weight: 600; } .ex-fam h3 small { font-family: var(--sans); font-size: 12px; font-weight: 300; color: var(--dim); margin-left: 6px; }
+.sheet-card.flat { position: static; width: auto; max-height: none; overflow: visible; padding: 0; background: none; border: 0; box-shadow: none; border-radius: 0; }
+.ex-cta { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: rgba(10, 10, 36, .92); backdrop-filter: blur(12px); border-top: 1px solid rgba(226, 194, 125, .4); font-size: 14px; }
+.ex-foot { text-align: center; color: var(--dim); font-size: 12.5px; } .ex-foot a, .cta a { color: #f6e3a8; }
+.ex-main a { color: #f6e3a8; } a.btn { color: inherit; }
+@media (max-width: 720px) { .ex-samples { grid-template-columns: 1fr; } .ex-card { padding: 16px 14px; } }

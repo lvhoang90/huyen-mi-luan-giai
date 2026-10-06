@@ -329,6 +329,8 @@ function restScreen() {
   $('#veil').classList.remove('gone'); $('#dialog').hidden = true; intro.showStatic();
   const box = h('div');
   $('#veil-actions').replaceChildren(box, ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
+  const viewChart = h('button', { className: 'btn sm', textContent: '☯ Xem lại lá số của bạn (không cần đăng nhập)', onclick: () => { track('static_view', { via: 'rest' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; } });
+  $('#veil-actions').append(h('div', { className: 'rest' }, viewChart));
   watchRest(box, () => enter(true));
 }
 
@@ -491,7 +493,8 @@ async function collect() {
   S.phase = 'collect'; const D = (S.draft ??= {}); save();
   // Hồ sơ điền dở được lưu từng bước: nếu trang bị nạp lại giữa chừng (hay xảy ra trong trình duyệt của Zalo), My nối tiếp đúng chỗ, không hỏi lại.
   const keep = (k, v) => { D[k] = v; save(); return v; };
-  if (D.fullName) await say('[[vui]]Chào bạn quay lại. My nhớ bạn đang điền dở, mình nối tiếp ngay từ chỗ đó nhé, không phải nhập lại.', 300);
+  if (D.fromExplore && D.fullName) { track('explore_handoff'); await say(`[[vui]]Chào bạn. My đã nhận thông tin bạn vừa điền ở trang Khám phá, mình đi tiếp từ đó nhé, bạn không phải nhập lại.`, 300); }
+  else if (D.fullName) await say('[[vui]]Chào bạn quay lại. My nhớ bạn đang điền dở, mình nối tiếp ngay từ chỗ đó nhé, không phải nhập lại.', 300);
   else await say('[[lang_nghe]]Trước hết, xin cho My biết họ và tên khai sinh của bạn. Mỗi con chữ mang một rung động riêng, nên My cần đúng cái tên cha mẹ đã đặt.');
   const fullName = D.fullName ?? keep('fullName', await ask({ placeholder: 'Họ và tên khai sinh', validate: (v) => v.length >= 2 && /\p{L}/u.test(v) }));
   if (!D.nameTracked) { track('intake_step', { step: 'name' }); D.nameTracked = true; }
