@@ -37,6 +37,8 @@ const ACC = {
   sun: () => `<g>${Array.from({ length: 14 }, (_, i) => { const a = ((-170 + i * (160 / 13)) * Math.PI) / 180; return `<path d="M ${(300 + 108 * Math.cos(a)).toFixed(1)} ${(250 + 100 * Math.sin(a)).toFixed(1)} L ${(300 + 148 * Math.cos(a)).toFixed(1)} ${(250 + 136 * Math.sin(a)).toFixed(1)}" stroke="${INK}" stroke-width="11" stroke-linecap="round"/><path d="M ${(300 + 108 * Math.cos(a)).toFixed(1)} ${(250 + 100 * Math.sin(a)).toFixed(1)} L ${(300 + 148 * Math.cos(a)).toFixed(1)} ${(250 + 136 * Math.sin(a)).toFixed(1)}" stroke="#ffd54a" stroke-width="6" stroke-linecap="round"/>`; }).join('')}</g>`,
 };
 // phần tóc che dải da lộ ra trên đỉnh đầu khi không đội nón
+// hai lọn tóc mai phủ thái dương và tai (vẽ sau tai, trước phụ kiện), để bỏ nón rồi hai bên đầu không trống; hoa tai vẫn lộ ra bên dưới
+const SIDE = (d) => { const X = (x) => 300 - d * (300 - x); return `<path d="M ${X(190)} 276 C ${X(174)} 298 ${X(164)} 338 ${X(167)} 372 C ${X(172)} 392 ${X(190)} 394 ${X(200)} 386 C ${X(214)} 370 ${X(220)} 334 ${X(222)} 302 L ${X(222)} 280 Z" fill="url(#hairg)" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><path d="M ${X(196)} 300 C ${X(186)} 326 ${X(184)} 352 ${X(188)} 374" fill="none" stroke="#6a6a78" stroke-width="2.6" stroke-linecap="round" opacity=".55"/>`; };
 const HAIR_CAP = `<path d="M 184 300 C 182 236 238 206 300 206 C 362 206 418 236 416 300 C 408 262 356 244 300 244 C 244 244 192 262 184 300 Z" fill="url(#hairg)" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/><path d="M 236 224 C 262 214 292 212 316 214" fill="none" stroke="#6a6a78" stroke-width="3" stroke-linecap="round" opacity=".6"/>`;
 
 const MAJOR = {
@@ -76,10 +78,10 @@ export function dress(rigSvg, look = {}, uid = 'x') {
   }
   const o = OUTFITS[look.outfit];
   if (o) { s = recolor(s, 'adg', o[0]); s = recolor(s, 'adg2', o[1]); s = s.replaceAll('#8b5fe0', o[2]).replaceAll('#b49cf3', o[3]); }
-  if (look.acc && ACC[look.acc]) {
-    const art = ACC[look.acc](look.accArg === 'silver' ? '#dfe6ff' : look.accArg ?? undefined);
+  const art = look.acc && ACC[look.acc] ? ACC[look.acc](look.accArg === 'silver' ? '#dfe6ff' : look.accArg ?? undefined) : '';
+  if (hatless || art) {
     const orb = s.indexOf('<g id="orb"');
-    s = s.slice(0, orb) + `<g class="acc">${art}</g>` + s.slice(orb);
+    s = s.slice(0, orb) + `<g class="acc">${hatless && look.acc !== 'hood' ? SIDE(1) + SIDE(-1) : ''}${art}</g>` + s.slice(orb);
   }
   // tên gradient riêng cho từng nhân vật
   const ids = [...s.matchAll(/<(?:linearGradient|radialGradient|filter|clipPath)\b[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
