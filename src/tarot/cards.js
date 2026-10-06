@@ -94,6 +94,9 @@ const MAJOR = [
     step: 'Liệt kê ba điều bạn đã làm được trong năm nay và tự khen mình một câu.', emo: 'vui' },
 ];
 export const CARDS = [...MAJOR, ...MINOR];
+/** Chủ đề người dùng chọn trước khi bốc bài (chỉ là nhãn, không có nội dung tự do). */
+export const TOPICS = [['tinh-cam', 'Tình cảm'], ['cong-viec', 'Công việc'], ['tien-bac', 'Tiền bạc'], ['suc-khoe', 'Sức khỏe'], ['ban-than', 'Bản thân'], ['gia-dinh', 'Gia đình và bạn bè'], ['hoc-tap', 'Học tập'], ['khac', 'Điều khác']];
+export const topicLabel = (k) => TOPICS.find(([s]) => s === k)?.[1] ?? null;
 /** Đọc tham số ?tarot=3,17,40: chỉ nhận số nguyên trong bộ bài, tối đa ba lá; chuỗi rỗng thì không có lá nào (không phải lá số 0). */
 export const parseCardIds = (param) => String(param ?? '').split(',').filter((x) => /^\d+$/.test(x.trim())).map(Number).filter((n) => n >= 0 && n < 78).slice(0, 3);
 export const cardById = (id) => CARDS.find((c) => c.id === +id) ?? null;

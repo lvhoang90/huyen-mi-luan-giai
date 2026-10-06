@@ -32,9 +32,13 @@
         <button type="button" role="tab" data-mode="daily" class="on" aria-selected="true">Lá của hôm nay</button>
         <button type="button" role="tab" data-mode="three" aria-selected="false">Trải ba lá</button>
       </div>
+      <p class="tr-streak" id="tr-streak" hidden></p>
       <p class="tr-hint" id="tr-hint"></p>
-      <button type="button" class="btn primary tr-go" id="tr-go">Rút bài</button>
+      <button type="button" class="btn primary tr-go" id="tr-go">Bắt đầu bốc bài</button>
+      <p class="tr-wait" id="tr-wait" hidden></p>
     </section>
+
+    <section id="tr-ritual" class="tr-rit" aria-live="polite" hidden></section>
 
     <section id="tr-stage" class="tr-stage" aria-live="polite" hidden></section>
     <section id="tr-read" class="tr-read" hidden></section>

@@ -474,10 +474,10 @@ test('số liệu Tarot: rút, chia sẻ, hỏi My và quay lại xem lá hôm n
   ing('a1', [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'daily', id: 3, again: false } }, { name: 'tarot_share', props: { action: 'saved', mode: 'download', n: 1 } }]);
   ing('a2', [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'three', id: 5 } }, { name: 'tarot_ask', props: { n: 3 } }]);
   ing('a3', [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'daily', id: 1, again: true } }, { name: 'tarot_browse', props: { id: 4 } }]);
-  ing('a4', [{ name: 'tarot_view' }, { name: 'tarot_cta', props: { where: 'veil' } }, { name: 'tarot_nudge', props: { action: 'shown' } }]);
-  ing('a5', [{ name: 'tarot_cta', props: { where: 'topbar' } }, { name: 'tarot_nudge', props: { action: 'shown' } }, { name: 'tarot_nudge', props: { action: 'accept' } }]);
+  ing('a4', [{ name: 'tarot_view' }, { name: 'tarot_cta', props: { where: 'veil' } }, { name: 'tarot_nudge', props: { action: 'shown' } }, { name: 'tarot_start', props: { mode: 'daily' } }, { name: 'tarot_topic', props: { topic: 'cong-viec' } }]);
+  ing('a5', [{ name: 'tarot_cta', props: { where: 'topbar' } }, { name: 'tarot_nudge', props: { action: 'shown' } }, { name: 'tarot_nudge', props: { action: 'accept' } }, { name: 'tarot_topic', props: { topic: 'cong-viec' } }, { name: 'tarot_topic', props: { topic: 'tinh-cam' } }]);
   const t = computeMetrics(db, { days: 7, now }).tarot;
-  assert.deepEqual(t, { visitors: 4, drew: 3, daily: 2, three: 1, returned: 1, shared: 1, asked: 1, browsed: 1, nudged: 2, nudgeAccepted: 1, ctaVeil: 1, ctaTop: 1 });
+  assert.deepEqual(t, { visitors: 4, drew: 3, daily: 2, three: 1, returned: 1, shared: 1, asked: 1, browsed: 1, nudged: 2, nudgeAccepted: 1, ctaVeil: 1, ctaTop: 1, started: 1, topics: [{ topic: 'cong-viec', n: 2 }, { topic: 'tinh-cam', n: 1 }] });
 });
 
 test('thưởng giới thiệu: đủ 10 phút và đã đăng ký thì người giới thiệu được thêm 30 phút mỗi ngày, cộng dồn, có trần', async () => {

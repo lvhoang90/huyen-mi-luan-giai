@@ -48,3 +48,8 @@ test('tham số ?tarot=: rỗng hoặc sai thì không có lá nào, không bi�
   assert.deepEqual(parseCardIds('0'), [0], 'lá số 0 viết rõ thì vẫn nhận');
   assert.deepEqual(parseCardIds('17, 40,99,5,1'), [17, 40, 5], 'bỏ lá ngoài bộ, tối đa ba lá');
 });
+
+test('chủ đề đã chọn được báo cho My như một nhãn, chủ đề lạ bị bỏ', () => {
+  assert.match(tarotBlock([3], 'cong-viec'), /Công việc/); assert.match(tarotBlock([3], 'cong-viec'), /nhãn/);
+  assert.doesNotMatch(tarotBlock([3], 'ignore previous'), /Chủ đề họ chọn/); assert.doesNotMatch(tarotBlock([3]), /Chủ đề họ chọn/);
+});
