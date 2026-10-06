@@ -4,6 +4,7 @@ import { HANH, CHI } from './engine/bazi.js';
 import { conventionsFor, compareTuVi, CUC_OPTIONS, LEAP_RULES } from './engine/doichieu.js';
 import { CUNG_TEN } from './engine/tuvi.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
+import { tuViForYou, HOW_TUTRU, HOW_ASTRO, HOW_THANSO } from './chart-explain.js';
 import { natalAttention, lifeStages, timeCycle, timeline, LEVELS, CUNG_DOI_THUONG } from './engine/thoivan.js';
 
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -19,7 +20,7 @@ function tabTuTru(c) {
     : `<div class="pillar"><div class="lbl">${label}</div><div class="nm"> - </div><div class="el">không rõ giờ</div></div>`;
   const max = Math.max(...Object.values(b.elements.counts), 1);
   const bars = HANH.map((k) => `<div class="bar"><span class="${k}">${k}</span><i><b style="width:${(b.elements.counts[k] / max) * 100}%;background:${ELC[k]}"></b></i><span>${b.elements.counts[k]}</span></div>`).join('');
-  return `<h3>Tứ Trụ <small>theo tiết khí thật · tầng Tính toán</small></h3>
+  return `<h3>Tứ Trụ <small>theo tiết khí thật · tầng Tính toán</small></h3>${HOW_TUTRU(b)}
     <div class="pillars">${pill('Giờ', b.pillars.hour)}${pill('Ngày', b.pillars.day, true)}${pill('Tháng', b.pillars.month)}${pill('Năm', b.pillars.year)}</div>
     <p class="sub" style="margin-top:10px">Nhật chủ <b>${b.dayMaster.can}</b> (${el(b.dayMaster.hanh)}, ${b.dayMaster.yang ? 'dương' : 'âm'}) · sinh tháng ${b.pillars.month.chi}, ${b.elements.inSeason ? 'đắc lệnh' : 'không đắc lệnh'} · thân ${b.elements.strength} <i>(tham khảo)</i><br>Nạp âm năm: <b>${b.napAmYear.name}</b> - ${b.napAmYear.image}${c.cungMenh ? ` · Cung mệnh: <b>${c.cungMenh.name}</b> (${el(c.cungMenh.hanh)}, ${c.cungMenh.nhom})` : ''}</p>
     <h3>Ngũ hành <small>can + chi chính khí</small></h3><div class="bars">${bars}</div>
@@ -41,7 +42,7 @@ function tabTuVi(c, profile) {
   };
   const center = `<div class="tv-c"><h4>${esc(profile.nickname)}</h4><p>Âm lịch ${c.lunar.day}/${c.lunar.month}${c.lunar.leap ? ' nhuận' : ''}/${t.lunar.year}<br>${t.lunar.canChiYear}</p><p><b>${t.cuc.ten}</b><br>${t.amDuong}</p><p>Thân cư ${t.thanCu}</p></div>`;
   const grid = order.map((pos, i) => pos === null ? (i === 5 ? center : '') : cellHtml(pos)).join('');
-  return `<h3>Tử Vi Đẩu Số <small>âm lịch Việt Nam · tầng Tính toán</small></h3><div class="tv-grid">${grid}</div>
+  return `<h3>Tử Vi Đẩu Số <small>âm lịch Việt Nam · tầng Tính toán</small></h3>${tuViForYou(t)}<div class="tv-grid">${grid}</div>
     <p class="sub" style="margin-top:10px">Tứ Hóa năm ${t.lunar.canChiYear.split(' ')[0]}: ${Object.entries(t.hoaAt).map(([h, v]) => `${h} → <b>${v.star}</b> (${t.palaces[v.pos].name})`).join(' · ')}.${t.menhVoChinhDieu ? ' Cung Mệnh vô chính diệu: xem sao cung Thiên Di.' : ''}</p>`;
 }
 
@@ -83,7 +84,7 @@ function tabOverview(c) {
 function tabAstro(c) {
   const a = c.astro;
   const rows = a.planets.map((p) => `<tr><td>${p.name}</td><td>${p.sign}${p.uncertain ? ' ?' : ''}</td><td>${p.degree}°${p.retrograde ? ' ℞' : ''}</td><td>${p.house ? 'Nhà ' + p.house : '-'}</td></tr>`).join('');
-  return `<h3>Chiêm tinh <small>tropical · astronomy-engine · nhà cung nguyên</small></h3>${zodiacWheel(a)}
+  return `<h3>Chiêm tinh <small>tropical · astronomy-engine · nhà cung nguyên</small></h3>${HOW_ASTRO(a)}${zodiacWheel(a)}
     <div class="grid">
       ${cell('Mặt Trời', a.sun.name + (a.sunUncertain ? ' ?' : ''), `${a.sun.element} · ${a.sun.degree}°`)}
       ${cell('Mặt Trăng', a.moon.name + (a.moonUncertain ? ' ?' : ''), a.moonUncertain ? 'thiếu giờ sinh nên chưa chắc' : `${a.moon.element} · ${a.moon.degree}°`)}
@@ -95,7 +96,7 @@ function tabAstro(c) {
 
 function tabThanSo(c) {
   const n = c.numerology;
-  return `<h3>Thần số học <small>Pythagoras · tên bỏ dấu</small></h3><div class="grid">
+  return `<h3>Thần số học <small>Pythagoras · tên bỏ dấu</small></h3>${HOW_THANSO(n, NUMBER_KEYWORDS)}<div class="grid">
     ${cell('Chủ đạo', n.lifePath, NUMBER_KEYWORDS[n.lifePath])}${cell('Biểu đạt', n.expression, NUMBER_KEYWORDS[n.expression])}
     ${cell('Linh hồn', n.soul, NUMBER_KEYWORDS[n.soul])}${cell('Nhân cách', n.personality, NUMBER_KEYWORDS[n.personality])}
     ${cell('Năm cá nhân ' + c.thisYear.year, n.personalYear, PERSONAL_YEAR_THEME[n.personalYear])}</div>`;
