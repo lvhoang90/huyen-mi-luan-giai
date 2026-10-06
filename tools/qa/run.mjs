@@ -17,7 +17,7 @@ const CHAT_STATE = JSON.stringify({ profile: { fullName: 'Nguyễn Minh Anh', ni
 
 function contextOptions(P, idx) {
   const base = P.custom ? { ...P.custom } : { ...(devices[P.device] ?? (() => { throw new Error(`Không có thiết bị ${P.device}`); })()) };
-  if (P.ua) base.userAgent = P.ua(base.userAgent ?? '');
+  if (P.ua) base.userAgent = typeof P.ua === 'function' ? P.ua(base.userAgent ?? '') : P.ua;
   if (!base.userAgent) delete base.userAgent;
   return { ...base, locale: P.locale ?? 'vi-VN', timezoneId: P.tz ?? 'Asia/Ho_Chi_Minh', reducedMotion: P.reducedMotion ?? 'no-preference', acceptDownloads: true, extraHTTPHeaders: { 'X-Forwarded-For': `10.20.${Math.floor(idx / 200)}.${(idx % 200) + 1}` }, permissions: ['clipboard-read', 'clipboard-write'] };
 }
@@ -107,8 +107,10 @@ async function runProfile(P, idx, browser) {
     // cảm xúc và lời mời đăng ký
     const feel = pg.locator('.tf-chips button[data-v="3"]'); if (await feel.count()) { await feel.click(); await sleep(200); check('Chọn cảm xúc sau lá bài được', /Cảm ơn/.test(await pg.locator('.tr-feel').innerText())); } else check('Có hàng chọn cảm xúc sau lá bài', false);
     const cta = await pg.locator('#tr-cta').evaluate((e) => ({ hidden: e.hidden, text: e.innerText.slice(0, 40) })).catch(() => null); R.metrics.ctaShown = cta ? !cta.hidden : false;
+    const day = await pg.evaluate(() => { try { return JSON.parse(localStorage.getItem('huyenmy.tarotdaily'))?.day ?? null; } catch { return null; } }), expectDay = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+    check('Lá của ngày tính theo giờ Việt Nam, kể cả khi máy ở múi giờ khác', day === expectDay, `lưu ${day}, đúng ${expectDay}`);
     // chia sẻ
-    const t0 = await pg.evaluate(() => performance.now()); await pg.click('#tr-share'); await sleep(900);
+    const t0 = await pg.evaluate(() => performance.now()); await pg.click('#tr-share'); if (P.noShare) await sleep(900); else await pg.waitForFunction(() => window.__shares.length > 0, null, { timeout: 6000 }).catch(() => {});
     const sh = await pg.evaluate(() => window.__shares);
     if (P.noShare) {
       const note = await pg.locator('#tr-note').innerText(); check('Máy không có hộp thoại chia sẻ: báo rõ và vẫn có ảnh', /tải ảnh về/.test(note), note.slice(0, 80));
@@ -158,7 +160,8 @@ async function runProfile(P, idx, browser) {
     await pg.locator('.msg.my .rep').last().click(); await pg.locator('.rep-box .chip').first().click(); await sleep(200);
     check('Báo cáo câu trả lời được', /Cảm ơn bạn/.test(await pg.locator('.rep-box').last().innerText()));
     R.audit.chat = await pg.evaluate(AUDIT);
-    const chartBtn = pg.locator('#btn-chart'); if (await chartBtn.isVisible().catch(() => false)) { await chartBtn.click(); await pg.waitForSelector('#sheet:not([hidden])', { timeout: 5000 }); const sw = await pg.evaluate(() => { const s = document.querySelector('#sheet-body'); return s.scrollWidth - s.clientWidth; }); check('Bảng lá số mở được, không tràn ngang', sw <= 1, `lệch ${sw}px`); await pg.locator('#sheet-close').click().catch(() => {}); }
+    const chartBtn = pg.locator('#btn-chart'); if (await chartBtn.isVisible().catch(() => false)) { await chartBtn.click(); await pg.waitForSelector('#sheet:not([hidden])', { timeout: 5000 }); const ov = await pg.evaluate(() => { const s = document.querySelector('#sheet-body'), r0 = s.getBoundingClientRect(), edge = r0.left + s.clientWidth; return { d: s.scrollWidth - s.clientWidth, ox: getComputedStyle(s).overflowX, bad: [...s.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().right > edge + 0.5).slice(0, 4).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 24)} +${Math.round(e.getBoundingClientRect().right - edge)}px`) }; });
+      check('Bảng lá số mở được, không tràn ngang', ov.d <= 1, `lệch ${ov.d}px, overflow-x ${ov.ox}; ${ov.bad.join(', ')}`); await pg.locator('#sheet-close').click().catch(() => {}); }
     await pg.close();
   });
 

@@ -453,3 +453,10 @@ a.veil-login { text-wrap: balance; line-height: 1.5; }
 .rep svg { width: 13px; height: 13px; } .rep:hover, .rep:focus-visible { color: #cfc7ee; opacity: 1; }
 .rep-q { font-family: var(--sans, inherit); font-size: 12.5px; color: #a79fc9; font-style: normal; }
 .chip.sm { padding: 5px 12px; font-size: 12.5px; }
+
+/* Kết quả kiểm thử 50 thiết bị: không cho bảng lá số trượt ngang vài px (thanh tab lấn ra 6px), và nới vùng chạm của các liên kết nhỏ mà không đổi bố cục */
+.sheet-card { overflow-x: hidden; }
+@media (pointer: coarse) {
+  .copy .legal a, .veil-reset, a.veil-login, .cta-later, .rep, .snd { position: relative; }
+  .copy .legal a::after, .veil-reset::after, a.veil-login::after, .cta-later::after, .rep::after, .snd::after { content: ""; position: absolute; inset: -11px -8px; }
+}

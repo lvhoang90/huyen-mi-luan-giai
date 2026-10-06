@@ -3,10 +3,9 @@ import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { track, sessionId, ageBand } from './track.js';
-import { shareCard, shareChart, shareMessage } from './share.js';
 import { icon } from './icons.js';
 import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
-import { cardById, vnDay, parseCardIds, topicLabel } from './tarot/cards.js';
+import { vnDay, parseCardIds, topicLabel } from './tarot/ids.js';
 import { shouldNudge, nudgeShown, nudgeSkipped, nudgeAccepted, NUDGE_KEY } from './nudge.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
@@ -14,9 +13,11 @@ import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, famousStory, pickFamous, FIELD_OPTIONS } from './engine/index.js';
-import { renderChart } from './chart-view.js';
 
 const $ = (s) => document.querySelector(s);
+// Phần tạo ảnh chia sẻ (khá nặng) nạp lúc rảnh, không chặn màn chào; khi bấm chia sẻ thì thường đã có sẵn.
+let shareMod = null; const loadShare = () => (shareMod ??= import('./share.js'));
+if ('requestIdleCallback' in window) requestIdleCallback(() => loadShare(), { timeout: 8000 }); else setTimeout(loadShare, 4000);
 const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
@@ -502,6 +503,7 @@ async function askResonance() {
   if (v === 3) { const c = await ask({ kind: 'choice', chips: [{ label: 'Tạo thẻ chia sẻ', value: 'card' }, { label: 'Để sau', value: '' }] }); if (c === 'card') await doShare(); }
 }
 async function doShare() {
+  const { shareCard, shareMessage } = await loadShare();
   const f = pickFamous(S.profile).sameDay[0] ?? pickFamous(S.profile).nearDay[0];
   const r = await shareCard({ nickname: S.profile.nickname, element: chart?.bazi.dayMaster.hanh, trait: hookTrait, famous: f?.name, url: `${location.origin}/?ref=${ACCOUNT.refCode}` });
   track('share_card', { action: r });
@@ -615,6 +617,8 @@ async function ritual() {
 }
 
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
+let cardById = () => null; // dữ liệu 78 lá chỉ nạp khi người dùng đến từ trang Tarot
+const wantCards = () => import('./tarot/cards.js').then((m) => { cardById = m.cardById; });
 const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa rút Tarot ${t.length > 1 ? 'ba lá' : 'lá'} ${t.map((c) => c.name).join(', ')}${topicLabel(S.tarotTopic) ? `, mình đang nghĩ về chuyện ${topicLabel(S.tarotTopic).toLowerCase()}` : ''}. My nói giúp mình nhé.` }] : []; };
 const startChips = () => [
   ...tarotChip(),
@@ -699,15 +703,18 @@ function askFromSheet(text) {
   else { pendingAsk = text; note('My ghi nhớ câu hỏi của bạn, nói xong My trả lời ngay.'); }
 }
 async function chartShare(mode) {
+  const { shareChart, shareMessage } = await loadShare();
   const c = chart ?? (chart = buildChart(S.profile));
   const url = ACCOUNT.refCode ? `${location.origin}/?ref=${ACCOUNT.refCode}` : location.origin; // liên kết giới thiệu: người mới vào qua đây được ghi nhận nguồn
   const r = await shareChart({ nickname: S.profile.nickname, chart: c, url }, mode);
   track('share_card', { action: r, via: 'chart', mode });
   return shareMessage(r);
 }
-function renderSheet() {
+let chartView = null; // bảng lá số và phần giải thích chỉ nạp khi người dùng mở lá số, để màn chào nhanh hơn trên mạng chậm
+async function renderSheet() {
   const p = S.profile, c = chart ?? (chart = buildChart(p));
   sheetState.tab = sheetTab;
+  const { renderChart } = (chartView ??= await import('./chart-view.js'));
   renderChart($('#sheet-body'), {
     profile: p, chart: c, state: sheetState, track,
     ask: canAsk() ? askFromSheet : null, cta: canAsk() ? '' : 'My đang nghỉ hoặc chưa sẵn sàng; khi My quay lại, bạn bấm hỏi tiếp nhé.',
@@ -896,6 +903,7 @@ function offerResume() {
   if (S.restUntil && Date.now() < S.restUntil) restScreen();
 }
 const saved = load();
+if (urlTarot.length || saved?.tarot?.length) wantCards();
 // lá Tarot vừa rút ở trang /tarot được giữ vào trạng thái sau khi trạng thái đã lưu được nạp (nạp xong mới gán, tránh bị ghi đè)
 queueMicrotask(() => { if (urlTarot.length) { S.tarot = urlTarot; S.tarotTopic = urlTopic; try { save(); } catch {} } });
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {
