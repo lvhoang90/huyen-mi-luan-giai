@@ -46,5 +46,5 @@ export function pickLinkers(seed, k = 3) {
   for (let i = 0; out.length < k && i < n * 2; i++) { const l = LINKERS[(h + i * 7 + out.length * 13) % n]; if (!out.includes(l)) out.push(l); }
   return out;
 }
-const LENGTHS = ['rất ngắn: 1-2 câu, thật tự nhiên', 'ngắn: 2-3 câu', 'vừa: 3-4 câu', 'vừa, nhưng đổi nhịp: một câu rất ngắn rồi một câu dài', 'ngắn, không kết bằng câu hỏi'];
+const LENGTHS = ['rất ngắn: 1-2 câu, thật tự nhiên', 'ngắn: 2-3 câu, mỗi câu dưới 15 từ', 'vừa: 3 câu ngắn', 'ngắn, đổi nhịp: một câu rất ngắn rồi một câu vừa', 'ngắn, không kết bằng câu hỏi'];
 export const lengthHint = (seed) => LENGTHS[hash('len' + seed) % LENGTHS.length];

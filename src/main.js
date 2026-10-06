@@ -215,9 +215,16 @@ function askChat(chips = []) {
 const CODE_KEY = 'huyenmy.code';
 const getCode = () => { try { return localStorage.getItem(CODE_KEY) || ''; } catch { return ''; } };
 const setCode = (v) => { try { v ? localStorage.setItem(CODE_KEY, v) : localStorage.removeItem(CODE_KEY); } catch {} };
+// Câu hỏi cuối cùng My đã hỏi trước khi người dùng rời đi (rút gọn), để nhắc lại khi họ quay về và đáp "ok"
+const lastAsk = (msgs) => {
+  const a = [...msgs].reverse().find((m) => m.role === 'assistant'); if (!a) return '';
+  const parts = stripTags(a.content).replace(/\s+/g, ' ').split(/(?<=[.?!])\s+/).filter(Boolean);
+  const q = [...parts].reverse().find((x) => x.includes('?')) ?? parts.at(-1) ?? '';
+  return q.slice(0, 200);
+};
 let resumeGreet = null; // { at: số tin nhắn lúc chào, text }
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null }) });
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null }) });
   if (!res.ok) { const j = await res.json().catch(() => ({})); if (j.needAuth) throw Object.assign(new Error(j.error), { needAuth: true }); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {
@@ -816,7 +823,7 @@ async function enter(resume) {
     note('- My vẫn ở đây -');
     const greet = S.teaser ? `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Lần trước My hẹn kể về **${S.teaser}**. Bạn muốn nghe luôn, hay có điều gì mới muốn nói trước?` : `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`;
     await say(greet, 300);
-    resumeGreet = { at: S.messages.length, text: stripTags(greet) }; // lời chào chỉ hiện trên màn hình; báo cho AI để tin ngắn đầu tiên ("ok") được hiểu là đáp lại lời chào
+    resumeGreet = { at: S.messages.length, text: stripTags(greet), last: lastAsk(S.messages) }; // lời chào chỉ hiện trên màn hình; báo cho AI để tin ngắn đầu tiên ("ok") được hiểu là đáp lại lời chào
     if (S.teaser) { S.teaser = null; save(); }
     startClock();
     return converse();

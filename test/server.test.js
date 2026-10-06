@@ -423,3 +423,20 @@ test('xóa tài khoản: số liệu tổng hợp không đổi, nhưng không c
   assert.ok(!JSON.stringify(h.db.prepare('SELECT * FROM users_gone').all()).includes('a@b.vn'));
   h.close();
 });
+
+test('giọng My: tiết chế gọi tên, chỉ vỗ về khi nặng lòng, hiểu lời chào là tạm biệt, nhắc lại câu dang dở', async () => {
+  const { voiceBlock, resumeHint } = await import('../server/persona.js');
+  const u = (c) => ({ role: 'user', content: c }), a = (c) => ({ role: 'assistant', content: c });
+  // vừa gọi tên ở lượt trước: lượt này cấm gọi
+  assert.match(voiceBlock([u('chào'), a('Chào Hoàng, My nghe đây.'), u('mình hơi bận')], { name: 'Hoàng' }), /KHÔNG GỌI TÊN "Hoàng"/);
+  assert.doesNotMatch(voiceBlock([u('chào'), a('My nghe đây.'), u('mình hơi bận')], { name: 'Hoàng' }), /KHÔNG GỌI TÊN/);
+  // người đang buồn: chỉ vỗ về
+  assert.match(voiceBlock([u('mình buồn lắm, mệt mỏi quá, chỉ muốn khóc')], {}), /CHỈ VỖ VỀ/);
+  assert.doesNotMatch(voiceBlock([u('mình thấy ổn, đang vui lắm')], {}), /CHỈ VỖ VỀ/);
+  // lời chào sau khi My vừa chốt buổi là tạm biệt
+  assert.match(voiceBlock([a('Vậy hẹn bạn quay lại với ba điều đã ghi.'), u('Chào My nha👋')], {}), /LỜI TẠM BIỆT/);
+  assert.doesNotMatch(voiceBlock([a('Bạn kể My nghe chuyện hôm nay nhé?'), u('Chào My nha')], {}), /LỜI TẠM BIỆT/);
+  // quay lại: "ok" là đồng ý, nhắc lại câu dang dở thật gọn
+  const h = resumeHint('Chào mừng trở lại.', 'Bạn muốn nói tiếp chuyện nhà hay chuyện phần mềm?');
+  assert.match(h, /đồng ý bắt đầu lại/); assert.match(h, /chuyện nhà hay chuyện phần mềm/); assert.match(h, /dưới 15 từ/);
+});

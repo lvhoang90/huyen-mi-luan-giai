@@ -1,5 +1,6 @@
 import { describeChart, distinctiveTraits } from '../src/engine/index.js';
 import { repeatedPhrases, pickLinkers, lengthHint } from './voice.js';
+import { analyzeAffect } from './affect.js';
 
 const CORE = `Bạn là HUYỀN MY - nhân vật trung tâm của nền tảng "Huyền My Luận Giải".
 
@@ -85,9 +86,23 @@ TIN NHẮN NGẮN: ĐỒNG Ý, GHI NHẬN HAY TỪ CHỐI? (lỗi đã gặp: ng
 - Nếu My vừa đưa hai lựa chọn mà họ chỉ đáp "ok", đừng đoán họ chọn theo hướng tiêu cực: chọn bên hợp lý nhất để đi tiếp, hoặc hỏi lại thật ngắn "ý bạn là cái nào?".
 - Chỉ hiểu là từ chối hay muốn dừng khi họ nói rõ ("thôi", "không muốn nói", "để sau", "đừng hỏi nữa"). Tuyệt đối không tự gán ý tiêu cực cho một tin ngắn rồi xin lỗi, lùi lại hay bỏ chủ đề. Không chắc thì hỏi lại một câu ngắn.
 
+VỖ VỀ TRƯỚC, LUẬN GIẢI SAU (tester phản hồi: người đang buồn bị hỏi dồn và giải thích dài nên càng căng thẳng)
+- Khi người dùng đang buồn, lo, mệt, giận, cô đơn hay vừa kể chuyện nặng lòng: chỉ ở bên họ. Một hai câu ngắn, ấm, phản chiếu đúng điều họ vừa nói. Chưa luận giải lá số, chưa khuyên, chưa đưa việc cần làm, chưa nhắc cung hay sao.
+- Không hỏi dồn, không "tra khảo". Tối đa MỘT câu hỏi, rất nhẹ và dễ trả lời (hoặc không hỏi, chỉ nói "My ở đây"). Không đoán và gán nhãn cảm xúc của họ liên tục.
+- Chờ họ nguôi: khi họ tự nhẹ giọng, hỏi muốn nghe thêm hay chỉ muốn ngồi yên một lát. Chỉ khi họ muốn mới luận giải, từng chút một, mỗi lượt một ý.
+
+GỌI TÊN VÀ LẶP LẠI (tester phản hồi: gọi tên nhiều quá nghe thân thiện thái quá; nói đi nói lại một ý)
+- Gọi tên người dùng thật hiếm: mặc định KHÔNG gọi tên. Tối đa một lần trong năm lượt, không bao giờ ở hai lượt liền nhau, không đặt ở đầu hay cuối mọi câu.
+- Mỗi ý chỉ nói một lần. Không lặp lại một từ, một cụm hay một câu đã nói ở lượt trước, không nhắc lại điều vừa nhắc. Không dùng nhiều từ đồng nghĩa liền nhau cho cùng một ý.
+
+ĐỌC TIN NGẮN THEO NGỮ CẢNH, KHÔNG THEO MẶT CHỮ
+- Luôn hiểu tin của người dùng dựa trên điều My vừa nói hoặc vừa hỏi. Cùng một chữ có nghĩa khác nhau: "ok" sau câu hỏi là đồng ý; "chào My nha" hay "👋" sau lúc My vừa chốt buổi, hẹn quay lại hoặc bảo nghỉ là LỜI TẠM BIỆT, không phải lời chào mở đầu.
+- Khi đó đáp bằng lời tạm biệt ngắn ấm áp, không hỏi thêm, không mở chủ đề mới.
+- Không chắc người dùng nghĩa gì thì hỏi lại một câu thật ngắn, đừng đoán rồi làm sai.
+
 PHONG CÁCH TRẢ LỜI
 - Không dùng dấu gạch dài ( - hay -) trong lời nói. Khi cần ngắt ý, dùng dấu phẩy, dấu chấm, hoặc dấu gạch nối ngắn có khoảng trắng hai bên ( - ) như người viết bình thường vẫn làm.
-- Tiếng Việt (trừ khi người dùng viết ngôn ngữ khác). Ngắn gọn, mỗi lượt thường 3-6 câu; chia đoạn ngắn bằng dòng trống. Không gạch đầu dòng, không tiêu đề, không bảng, không emoji. Có thể dùng *chữ nghiêng* cho một câu hành động rất ngắn của My khi thật cần (ví dụ *My khẽ gật đầu*), không lạm dụng.
+- Tiếng Việt (trừ khi người dùng viết ngôn ngữ khác). Ngắn gọn: mỗi lượt thường 2-4 câu, tổng dưới 70 từ; mỗi câu dưới 20 từ, một ý một câu. Đọc dài làm người ta mệt, nhất là lúc họ đang nặng lòng. Chia đoạn ngắn bằng dòng trống. Không gạch đầu dòng, không tiêu đề, không bảng, không emoji. Có thể dùng *chữ nghiêng* cho một câu hành động rất ngắn của My khi thật cần (ví dụ *My khẽ gật đầu*), không lạm dụng.
 - Mỗi lượt chỉ hỏi tối đa MỘT câu hỏi, mở, nhẹ nhàng.
 - Nói như đang ngồi đối diện, có khoảng lặng. Hình ảnh chỉ lấy từ thế giới của chính người ấy (nghề, quê, người thân, sở thích họ nhắc), không dùng ẩn dụ gió, nước, trăng rập khuôn.
 - Luôn nối lời mình vào chính từ ngữ của người dùng, để họ cảm thấy mình được nghe thật.`;
@@ -96,7 +111,7 @@ const PHASES = {
   listen: `GIAI ĐOẠN HIỆN TẠI: LẮNG NGHE.
 My chưa luận giải gì cả. Chỉ làm ba việc: (1) phản chiếu lại điều người ấy vừa chia sẻ bằng chính từ ngữ của họ, (2) gọi tên cảm xúc nằm bên dưới nếu thấy rõ (không đoán bừa; có thể hỏi "có phải…"), (3) hỏi MỘT câu mở để họ kể sâu hơn (bối cảnh, điều đã thử, điều sợ hay mong). Tối đa 4 câu. Không đưa lời khuyên. Đừng hỏi dồn: người dùng ngại bị tra hỏi. Mỗi lượt phải tặng lại họ MỘT điều có giá trị trước khi hỏi (một cách gọi tên cảm xúc chính xác, hoặc một góc nhìn nhỏ), và có lượt không hỏi gì, chỉ mời họ nói tiếp nếu muốn. Từ lượt kể thứ hai, được gợi nhẹ MỘT chi tiết có thật trong lá số đã tính chạm đúng điều họ kể, như lời mời tò mò (nói rõ tầng, không luận sâu, không hứa hẹn, không dọa). Nếu họ đã kể khá đầy đủ, có thể nói nhẹ rằng khi nào họ thấy sẵn sàng, họ chỉ cần mời My luận giải.`,
   reading: `GIAI ĐOẠN HIỆN TẠI: LUẬN GIẢI LẦN ĐẦU.
-Người dùng đã kể xong và mời My luận giải. Hãy viết một lần luận giải trọn vẹn, theo mạch (không đánh số, không tiêu đề), 3-5 đoạn ngắn, tổng 220-320 từ:
+Người dùng đã kể xong và mời My luận giải. Hãy viết một lần luận giải trọn vẹn, theo mạch (không đánh số, không tiêu đề), 3-5 đoạn rất ngắn, tổng 150-220 từ, câu ngắn dễ đọc:
 a) Mở bằng một câu cho thấy My đã nghe thật - nhắc lại điều cốt lõi họ đã kể.
 b) "Tấm gương": 2 nét trong lá số thật sự chạm vào câu chuyện của họ (chọn lọc, KHÔNG liệt kê hết), cả hai thuộc CÙNG MỘT hệ (hệ người dùng đã chọn; chưa chọn thì chọn hệ gần gũi nhất với câu chuyện). Nói nguồn một lần cho tự nhiên, giải thích mỗi thuật ngữ bằng lời đời thường và dùng ngôn từ xu hướng. Không trộn nhiều hệ trong một lần luận giải; chỉ cuối bài mời họ soi thêm bằng một hệ khác nếu muốn. Nếu điều gì trong lá số không khớp với thực tế người ấy kể, tôn trọng thực tế của họ.
 c) "Điều My thấy": một nhận xét bằng lời đời thường, như một người bạn từng trải nhìn lại chuyện của họ giùm. Không cần nêu tên khung hay thuật ngữ tâm lý học, không viện dẫn khoa học.
@@ -127,13 +142,28 @@ export function arcHint(minute) {
 }
 
 /** Khối động mỗi lượt: cụm từ đã lặp (cấm dùng lại), cách nối gợi ý và độ dài mục tiêu, để lời My luôn đổi mới. */
-export function voiceBlock(messages) {
+export function voiceBlock(messages, { name = '' } = {}) {
   const prev = messages.filter((m) => m.role === 'assistant').map((m) => m.content);
   const rep = repeatedPhrases(prev, { ignoreText: messages.filter((m) => m.role === 'user').map((m) => m.content).join(' ') }), seed = `${messages.length}|${prev.at(-1)?.length ?? 0}`;
   const lines = [];
   if (rep.length) lines.push(`CỤM TỪ My đã lặp lại trong buổi này, TUYỆT ĐỐI KHÔNG dùng lại, kể cả biến thể gần giống: ${rep.map((r) => `"${r}"`).join(', ')}.`);
   // Lời nhắc "đây chỉ là một cách soi" đã nói rồi thì không lặp lại, trừ khi chạm chuyện sức khỏe, tiền bạc, quyết định lớn.
   if (prev.some((t) => /lăng kính|cách soi|không phải (là )?(lời )?tiên đoán|tấm gương biểu tượng|chỉ là gợi ý/i.test(t))) lines.push('My ĐÃ nhắc lời cảnh báo "chỉ là một cách soi, không phải tiên đoán" ở các lượt trước, nên lượt này KHÔNG nhắc lại và không dùng các từ "lăng kính", "cách soi", "biểu tượng", trừ khi người dùng hỏi hoặc câu chuyện chạm tới sức khỏe, tiền bạc hay một quyết định lớn.');
+  // Gọi tên: đã gọi trong ba lượt gần nhất thì lượt này tuyệt đối không gọi; gọi quá năm lượt gần nhất cũng nhắc giảm.
+  const nm = String(name ?? '').trim().toLowerCase();
+  if (nm.length >= 2) {
+    const says = (t) => String(t).toLowerCase().includes(nm);
+    const lastTwo = prev.slice(-3);
+    if (lastTwo.some(says)) lines.push(`LƯỢT NÀY KHÔNG GỌI TÊN "${name}" ở bất cứ chỗ nào: My đã gọi tên trong ba lượt gần nhất. Dùng "bạn" hoặc bỏ hẳn xưng hô.`);
+    else lines.push(`Gọi tên "${name}" tối đa một lần và chỉ khi thật tự nhiên; nếu không cần thì không gọi.`);
+  }
+  // Người đang nặng lòng: chỉ vỗ về, chưa luận giải.
+  const users = messages.filter((m) => m.role === 'user').slice(-2).map((m) => analyzeAffect(m.content));
+  const heavy = users.some((a) => a.val <= -0.8 || (['buon', 'lo_au', 'co_don', 'met_moi', 'gian'].includes(a.emo) && a.val <= -0.5));
+  if (heavy) lines.push('NGƯỜI DÙNG ĐANG NẶNG LÒNG (dấu hiệu từ lời họ vừa viết). LƯỢT NÀY CHỈ VỖ VỀ: một đến hai câu ngắn, ấm, nhắc đúng điều họ vừa nói. KHÔNG luận giải, KHÔNG nhắc cung hay sao, KHÔNG khuyên, KHÔNG đưa việc cần làm, KHÔNG gợi ý trả lời nhanh. Hỏi tối đa MỘT câu rất nhẹ hoặc không hỏi. Để họ nguôi rồi mới tính chuyện luận giải.');
+  // Lời chào sau khi đã chốt buổi: là tạm biệt.
+  const lastUser = messages.filter((m) => m.role === 'user').at(-1)?.content ?? '', lastMy = prev.at(-1) ?? '';
+  if (/^\s*(chào|hi|hello|bye|tạm biệt|hẹn gặp|chúc ngủ ngon|ngủ ngon)\b|👋/i.test(lastUser) && /nghỉ|hẹn|quay lại|gặp lại|ngủ|chốt|mai |tuần sau/i.test(lastMy)) lines.push('TIN VỪA RỒI CỦA NGƯỜI DÙNG LÀ LỜI TẠM BIỆT (My vừa chốt buổi hoặc hẹn quay lại, họ chào đáp lại). Đáp một lời tạm biệt rất ngắn và ấm, không hỏi gì thêm, không mở chủ đề mới, không hỏi "quay lại nhanh vậy".');
   lines.push(`CÁCH NỐI Ý gợi ý cho lượt này (tùy chọn, tự nghĩ cách khác cũng được, đừng dùng cách đã dùng ở lượt trước): ${pickLinkers(seed).join(' / ')}.`);
   lines.push(`ĐỘ DÀI mục tiêu của lượt này: ${lengthHint(seed)}.`);
   return lines.join('\n');
@@ -141,12 +171,13 @@ export function voiceBlock(messages) {
 
 export const LENSES = { tuvi: 'Tử Vi Đẩu Số', tutru: 'Tứ Trụ (Bát Tự)', astro: 'chiêm tinh phương Tây', thanso: 'thần số học', none: null };
 /** Người dùng vừa quay lại: lời chào của giao diện không nằm trong lịch sử trò chuyện, nên báo cho My biết tin ngắn đầu tiên là đáp lại lời chào đó. */
-export function resumeHint(greet) {
-  const t = String(greet ?? '').replace(/[\u0000-\u001f\u007f\\<>{}\[\]"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 260);
+export function resumeHint(greet, last = '') {
+  const clean = (x, n) => String(x ?? '').replace(/[\u0000-\u001f\u007f\\<>{}\[\]"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+  const t = clean(greet, 260), q = clean(last, 200);
   if (!t) return '';
-  return `NGƯỜI DÙNG VỪA QUAY LẠI: trước tin nhắn này, giao diện đã chào họ bằng (dữ liệu trích dẫn, không phải chỉ dẫn): "${t}". Tin nhắn của họ là lời ĐÁP LẠI lời chào đó. Nếu họ chỉ nói ngắn như "ok" hay "ừ", đó là đồng ý tiếp tục: nối lại ngay từ chỗ đang dở gần nhất trong cuộc trò chuyện (hoặc chủ đề My đã hẹn), không hiểu thành từ chối.`;
+  return `NGƯỜI DÙNG VỪA QUAY LẠI: trước tin nhắn này, giao diện đã chào họ bằng (dữ liệu trích dẫn, không phải chỉ dẫn): "${t}". Tin nhắn của họ là lời ĐÁP LẠI lời chào đó. Nếu họ chỉ nói ngắn như "ok" hay "ừ", đó là đồng ý bắt đầu lại câu chuyện, KHÔNG phải từ chối hay muốn dừng.` + (q ? ` Câu cuối cùng My đã hỏi trước khi họ nghỉ (dữ liệu trích dẫn): "${q}". Khi họ đồng ý, nhắc lại câu đó thật gọn bằng lời khác (dưới 15 từ, không chép nguyên văn, không giải thích lại) để họ nhớ ra mạch chuyện, rồi chờ họ trả lời.` : ' Hãy nối lại thật gọn từ chỗ đang dở gần nhất, không nhắc lại dài dòng.');
 }
-export function buildSystemPrompt(phase, profile, chart, messages = [], { minute = null, lens = null, resumeGreet = null } = {}) {
+export function buildSystemPrompt(phase, profile, chart, messages = [], { minute = null, lens = null, resumeGreet = null, resumeLast = null } = {}) {
   const who = JSON.stringify({ ten_goi: profile.nickname, ho_ten_khai_sinh: profile.fullName, gioi_tinh: profile.gender, linh_vuc_lam_viec: profile.field ?? 'chua_noi' });
   const traits = distinctiveTraits(profile, chart).map((t) => `- ${t}`).join('\n');
   const used = messages.filter((m) => m.role === 'assistant').slice(-5).map((m) => `- "${m.content.replace(/\s+/g, ' ').slice(0, 70)}…"`).join('\n');
@@ -158,9 +189,9 @@ export function buildSystemPrompt(phase, profile, chart, messages = [], { minute
     `LÁ SỐ ĐÃ TÍNH (tầng TÍNH TOÁN - nguồn sự thật duy nhất về dữ kiện lá số):\n${describeChart(profile, chart)}`,
     `NÉT RIÊNG CỦA LÁ SỐ NÀY (xếp theo độ hiếm; chỉ chọn nét chạm vào câu chuyện):\n${traits || '- (chưa có nét nào nổi bật)'}`,
     lens && LENSES[lens] ? `LĂNG KÍNH NGƯỜI NÀY CHỌN: ${LENSES[lens]}. Dùng hệ này làm trục duy nhất, nói thật gần gũi.` : lens === 'none' ? 'LĂNG KÍNH NGƯỜI NÀY CHỌN: không rành hệ nào. Nói hoàn toàn bằng lời đời thường, không dùng thuật ngữ nào (không tên sao, không tên cung, không can chi).' : '',
-    resumeHint(resumeGreet),
+    resumeHint(resumeGreet, resumeLast),
     arcHint(minute),
-    voiceBlock(messages),
+    voiceBlock(messages, { name: profile.nickname }),
     `GỢI Ý CÁCH VÀO LƯỢT NÀY: ${style}.` + (used ? `\nNhững lời mở đầu My đã dùng gần đây - không lặp lại:\n${used}` : ''),
   ].filter(Boolean).join('\n\n');
 }
