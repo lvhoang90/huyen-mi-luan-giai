@@ -148,9 +148,22 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
   body.docked .msg { max-width: 100%; }
   body.docked .msg.my { font-size: 18.5px; padding: 16px 22px; }
 }
+/* Điện thoại và máy gập: sau khi vào trò chuyện, My thu thành avatar nhỏ ở góc trên bên trái, ngang hàng với logo chữ, để chừa chỗ cho khung chat. */
 @media (max-width: 899px) {
-  body.docked #stage-area { top: 17%; height: 18vh; }
-  body.docked .dialog { top: 27vh; }
+  body.docked { --av-h: clamp(72px, 10vh, 100px); --hdr: calc(var(--av-h) + 16px + env(safe-area-inset-top)); }
+  body.docked #stage-area { height: var(--av-h); left: calc(12px + var(--av-h) * .375); top: calc(env(safe-area-inset-top) + 8px + var(--av-h) / 2); }
+  body.docked #stage-area::before { inset: -20% -45% -10% -45%; opacity: .5; }
+  body.docked #wheel { display: none; }
+  body.docked #char svg { filter: drop-shadow(0 3px 8px rgba(138, 107, 255, .35)); }
+  body.docked #lanterns { opacity: 0; pointer-events: none; transition: opacity .8s; }
+  body.docked .topbar { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; min-height: var(--hdr); padding: calc(8px + env(safe-area-inset-top)) 12px 8px calc(22px + var(--av-h) * .75); }
+  body.docked .tools { justify-self: end; }
+  body.docked .dialog { top: var(--hdr); }
+}
+/* điện thoại hẹp: logo ở hàng trên, các nút ở hàng dưới, cùng cao với avatar */
+@media (max-width: 520px) {
+  body.docked .topbar { grid-template-columns: 1fr; row-gap: 4px; align-content: center; justify-items: start; }
+  body.docked .tools { justify-self: start; }
 }
 
 /* ---- đèn lồng treo ---- */
