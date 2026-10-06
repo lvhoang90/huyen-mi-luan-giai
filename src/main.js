@@ -3,7 +3,7 @@ import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { track, sessionId, ageBand } from './track.js';
-import { shareCard, shareChart } from './share.js';
+import { shareCard, shareChart, shareMessage } from './share.js';
 import { icon } from './icons.js';
 import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
 import { cardById, vnDay, parseCardIds, topicLabel } from './tarot/cards.js';
@@ -505,7 +505,7 @@ async function doShare() {
   const f = pickFamous(S.profile).sameDay[0] ?? pickFamous(S.profile).nearDay[0];
   const r = await shareCard({ nickname: S.profile.nickname, element: chart?.bazi.dayMaster.hanh, trait: hookTrait, famous: f?.name, url: `${location.origin}/?ref=${ACCOUNT.refCode}` });
   track('share_card', { action: r });
-  note(r === 'saved' ? 'Thẻ đã được tải về máy bạn.' : r === 'shared' ? 'Đã mở chia sẻ.' : 'Bạn chưa chia sẻ thẻ.');
+  note(shareMessage(r) || 'Bạn chưa chia sẻ thẻ.');
 }
 function openAccount() {
   if (ACCOUNT.user) { location.href = '/goc-cua-toi'; return; } // đã đăng nhập: vào thẳng Góc của tôi
@@ -703,6 +703,7 @@ async function chartShare(mode) {
   const url = ACCOUNT.refCode ? `${location.origin}/?ref=${ACCOUNT.refCode}` : location.origin; // liên kết giới thiệu: người mới vào qua đây được ghi nhận nguồn
   const r = await shareChart({ nickname: S.profile.nickname, chart: c, url }, mode);
   track('share_card', { action: r, via: 'chart', mode });
+  return shareMessage(r);
 }
 function renderSheet() {
   const p = S.profile, c = chart ?? (chart = buildChart(p));

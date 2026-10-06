@@ -12,7 +12,7 @@ import { icon } from './icons.js';
 import { SUITS } from './tarot/minor.js';
 import { cardArtSvg, cardBackSvg } from './tarot/art.js';
 import { mountCta } from './cta.js';
-import { shareTarot } from './share.js';
+import { shareTarot, prepareTarot, shareMessage } from './share.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -70,13 +70,17 @@ function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = fals
     const ids = shown.map((c) => c.id);
     $('#tr-ask').href = `/?tarot=${ids.join(',')}${topicKey ? `&chu=${topicKey}` : ''}`; $('#tr-ask').onclick = () => track('tarot_ask', { n: ids.length });
     const note = $('#tr-note'), say = (t) => { note.hidden = !t; note.textContent = t || ''; };
+    // vẽ sẵn ảnh ngay khi lá bài hiện ra: bấm "Chia sẻ" thì hộp thoại của điện thoại mở liền, trình duyệt không kịp từ chối vì để lâu
+    const positions = shown.length > 1 ? POS.map((p) => p[0]) : null, cards = shown;
+    const urlOf = (me) => (me?.refCode ? `${location.origin}/tarot?ref=${me.refCode}` : `${location.origin}/tarot`);
+    const ready = meReady.then((me) => prepareTarot({ cards, positions, url: urlOf(me) })).catch(() => null);
     const share = async (m) => {
-      say(m === 'download' ? 'Đang tạo ảnh…' : 'Đang chuẩn bị ảnh để chia sẻ…');
+      say(m === 'download' ? 'Đang tạo ảnh…' : 'Đang chuẩn bị chia sẻ…');
       try {
-        const me = await meReady; const url = me.refCode ? `${location.origin}/?ref=${me.refCode}` : location.origin;
-        const r = await shareTarot({ cards: shown, positions: shown.length > 1 ? POS.map((p) => p[0]) : null, url }, m);
+        const me = await meReady;
+        const r = await shareTarot({ cards, positions, url: urlOf(me), blob: ready }, m);
         track('tarot_share', { action: r, mode: m, n: ids.length });
-        say(r === 'saved' ? 'Đã tải ảnh về máy bạn. Bạn mở thư viện ảnh hoặc mục Tải xuống để xem.' : r === 'shared' ? 'Đã mở chia sẻ.' : '');
+        say(shareMessage(r));
       } catch (e) { track('tarot_share', { action: 'error', mode: m, n: ids.length }); say('Chưa tạo được ảnh lúc này, bạn thử lại sau ít giây nhé.'); }
     };
     $('#tr-dl').onclick = () => share('download'); $('#tr-share').onclick = () => share('share');

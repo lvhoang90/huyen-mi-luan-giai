@@ -6,7 +6,7 @@ import { mountLogo } from './logo.js';
 import { mountCta } from './cta.js';
 import { track } from './track.js';
 import { renderChart, esc } from './chart-view.js';
-import { shareChart } from './share.js';
+import { shareChart, shareMessage } from './share.js';
 import { hourFrom } from './engine/birthtime.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, pickFamous } from './engine/index.js';
 import { allEntries } from './engine/famous.js';
@@ -35,9 +35,10 @@ function show(profile, { sample = false, key = null, keep = false } = {}) {
   const chart = buildChart(profile), host = $('#ex-chart');
   // Chia sẻ: chỉ khi xem lá số của chính mình (không phải hồ sơ mẫu). Mã giới thiệu chỉ được lấy từ máy chủ khi người dùng bấm chia sẻ.
   const onShare = sample ? null : async (mode) => {
-    let ref = ''; try { ref = (await (await fetch('/api/me')).json()).refCode ?? ''; } catch {}
+    const ref = (await meOnce)?.refCode ?? ''; // đã lấy sẵn khi mở trang, để hộp thoại chia sẻ được gọi ngay sau khi bấm
     const r = await shareChart({ nickname: profile.nickname, chart, url: ref ? `${location.origin}/?ref=${ref}` : location.origin }, mode);
     track('share_card', { action: r, via: 'explore', mode });
+    return shareMessage(r);
   };
   renderChart(host, { profile, chart, state, cta: cta(sample), track, onShare, onLeapRule: (rule) => show(normalizeProfile({ ...profile, leapRule: rule }), { sample, key, keep: true }) });
   const fam = $('#ex-famous');

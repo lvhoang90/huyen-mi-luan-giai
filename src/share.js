@@ -123,24 +123,57 @@ export async function makeChartCard({ nickname, chart, url }) {
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
 
+// Mã ngẫu nhiên 3 ký tự (bỏ các ký tự dễ nhầm) gắn vào tên tệp để mỗi lần tải ra một tệp mới, không đè và không bị hỏi lại.
+const SUFFIX = 'abcdefghjkmnpqrstuvwxyz23456789';
+const randomSuffix = () => Array.from({ length: 3 }, () => SUFFIX[Math.floor(Math.random() * SUFFIX.length)]).join('');
+export const uniqueName = (name) => { const dot = name.lastIndexOf('.'); return dot < 0 ? `${name}-${randomSuffix()}` : `${name.slice(0, dot)}-${randomSuffix()}${name.slice(dot)}`; };
 function download(blob, name) {
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = uniqueName(name); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-/** mode: 'share' mở hộp thoại chia sẻ của thiết bị (kèm ảnh và liên kết giới thiệu); 'download' luôn tải ảnh về. Trả về 'shared' | 'saved' | 'cancelled'. */
-async function deliver(blob, name, { mode, url, text }) {
+/** Chép chữ vào bộ nhớ tạm. Gọi ngay trong lúc bấm nút (cần thao tác của người dùng); có cách dự phòng cho trình duyệt trong ứng dụng (Zalo, Facebook). */
+export async function copyText(text) {
+  try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true; } } catch {}
+  try {
+    const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;opacity:0;left:-9999px;top:0';
+    document.body.append(t); t.select(); t.setSelectionRange(0, text.length); const ok = document.execCommand('copy'); t.remove(); return !!ok;
+  } catch { return false; }
+}
+/** Kết quả của lần chia sẻ gần nhất: đã chép sẵn lời nhắn và liên kết hay chưa, và đang ở chế độ nào. */
+export const shareState = { copied: false, mode: 'share' };
+/** Lời báo cho người dùng sau khi chia sẻ hoặc tải ảnh, chung cho mọi nơi. */
+export function shareMessage(r) {
+  const { copied, mode } = shareState;
+  if (r === 'shared') return copied ? 'Đã mở chia sẻ. Lời nhắn kèm liên kết cũng đã được sao chép sẵn, bạn dán vào nếu ứng dụng không tự điền.' : 'Đã mở chia sẻ.';
+  if (r === 'saved' && mode === 'download') return 'Đã tải ảnh về máy bạn. Bạn mở thư viện ảnh hoặc mục Tải xuống để xem.';
+  if (r === 'saved') return copied ? 'Máy này chưa mở được hộp thoại chia sẻ, nên mình đã tải ảnh về và sao chép sẵn lời nhắn kèm liên kết. Bạn dán vào khi đăng nhé.' : 'Máy này chưa mở được hộp thoại chia sẻ, nên mình đã tải ảnh về. Bạn đính kèm ảnh khi đăng nhé.';
+  if (r === 'cancelled') return copied ? 'Bạn chưa gửi. Lời nhắn kèm liên kết vẫn được sao chép sẵn nếu bạn muốn dán.' : '';
+  return '';
+}
+/**
+ * mode: 'share' mở hộp thoại chia sẻ của thiết bị; 'download' luôn tải ảnh về. Trả về 'shared' | 'saved' | 'cancelled'.
+ * makeBlob có thể là một Promise đã vẽ sẵn: hộp thoại chia sẻ phải được gọi sớm sau khi bấm nút, nếu để lâu trình duyệt từ chối.
+ * Khi chia sẻ, lời nhắn ngắn kèm liên kết có mã giới thiệu được chép sẵn vào bộ nhớ tạm ngay lúc bấm.
+ */
+async function deliver(makeBlob, name, { mode, url, text }) {
+  const full = `${text}\n${url}`;
+  const copying = mode === 'share' ? copyText(full) : Promise.resolve(false); // bắt đầu ngay trong cử chỉ bấm, không chờ
+  shareState.mode = mode; shareState.copied = false;
+  const blob = await (typeof makeBlob === 'function' ? makeBlob() : makeBlob);
+  let result = 'saved';
   if (mode === 'share') {
-    const file = new File([blob], name, { type: 'image/png' });
     try {
-      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'Huyền My Luận Giải', text, url }); return 'shared'; }
-      if (navigator.share) { await navigator.share({ title: 'Huyền My Luận Giải', text, url }); return 'shared'; }
-    } catch (e) { if (e?.name === 'AbortError') return 'cancelled'; }
-    try { await navigator.clipboard?.writeText(`${text} ${url}`); } catch {} // máy không có hộp thoại chia sẻ: tải ảnh và chép sẵn lời kèm liên kết
+      const file = new File([blob], uniqueName(name), { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'Huyền My Luận Giải', text: full }); result = 'shared'; }
+      else if (navigator.share) { await navigator.share({ title: 'Huyền My Luận Giải', text, url }); result = 'shared'; }
+    } catch (e) { result = e?.name === 'AbortError' ? 'cancelled' : 'saved'; }
   }
-  download(blob, name); return 'saved';
+  shareState.copied = await copying;
+  if (result === 'saved') download(blob, name);
+  return result;
 }
-const SHARE_TEXT = 'Mình vừa được Huyền My soi lá số, bạn thử xem sao';
-export async function shareCard(info, mode = 'share') { return deliver(await makeCard(info), 'huyen-my.png', { mode, url: info.url, text: SHARE_TEXT }); }
-export async function shareChart(info, mode = 'share') { return deliver(await makeChartCard(info), 'la-so-huyen-my.png', { mode, url: info.url, text: SHARE_TEXT }); }
+const SHARE_TEXT = 'Mình vừa được Huyền My soi lá số, bạn thử xem sao:';
+export async function shareCard(info, mode = 'share') { return deliver(() => makeCard(info), 'huyen-my.png', { mode, url: info.url, text: SHARE_TEXT }); }
+export async function shareChart(info, mode = 'share') { return deliver(() => makeChartCard(info), 'la-so-huyen-my.png', { mode, url: info.url, text: 'Mình vừa xem lá số cùng Huyền My, bạn thử xem sao:' }); }
 
 // ---------- thẻ Tarot (một lá hoặc ba lá) ----------
 const svgImage = async (svg, w, h) => { const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace('<svg ', `<svg width="${w}" height="${h}" `)); await img.decode(); return img; };
@@ -183,4 +216,8 @@ export async function makeTarotCard({ cards, positions = null, url }) {
   drawFooter(g, W, H, url, 'Quét mã để rút bài cùng My');
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
-export async function shareTarot(info, mode = 'share') { return deliver(await makeTarotCard(info), 'tarot-huyen-my.png', { mode, url: info.url, text: 'Mình vừa rút một lá Tarot cùng Huyền My, bạn thử xem sao' }); }
+/** Vẽ sẵn ảnh Tarot (gọi ngay khi lá bài hiện ra) để lúc bấm chia sẻ hay tải thì có ảnh liền. */
+export const prepareTarot = (info) => makeTarotCard(info);
+const tarotText = (cards) => (cards.length > 1 ? `Mình vừa trải ba lá Tarot cùng Huyền My (${cards.map((c) => c.name).join(', ')}). Bạn thử xem sao:` : `Mình vừa rút lá ${cards[0].name} cùng Huyền My. Bạn thử rút lá của mình nhé:`);
+/** info.blob: ảnh đã vẽ sẵn bằng prepareTarot (không bắt buộc). */
+export async function shareTarot(info, mode = 'share') { return deliver(async () => (await info.blob) ?? makeTarotCard(info), 'tarot-huyen-my.png', { mode, url: info.url, text: tarotText(info.cards) }); }
