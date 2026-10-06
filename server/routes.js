@@ -6,7 +6,7 @@ import { ingest } from './events.js';
 import { computeMetrics } from './admin.js';
 import { analyzeAffect, firstTag } from './affect.js';
 import { deviceOf } from './device.js';
-import { listParticipants, participantDetail, computeJourney, exportTurns } from './people.js';
+import { listParticipants, participantDetail, computeJourney, exportTurns, computeCost } from './people.js';
 import { assessTurn } from './quality.js';
 import { newToken } from './reminders.js';
 import { createRewards } from './rewards.js';
@@ -19,6 +19,11 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
   const adminEmails = String(env.ADMIN_EMAILS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const pepper = env.HUYENMY_PEPPER || crypto.randomBytes(16).toString('hex');
   const rewards = createRewards({ db, env, now });
+  // Đơn giá mỗi triệu token (USD) do quản trị tự khai theo bảng giá hiện hành của nhà cung cấp; không khai thì chỉ hiện số token.
+  const num = (v) => (v !== undefined && v !== '' && Number.isFinite(+v) && +v >= 0 ? +v : undefined);
+  const prices = num(env.HUYENMY_PRICE_IN) !== undefined || num(env.HUYENMY_PRICE_OUT) !== undefined
+    ? { in: num(env.HUYENMY_PRICE_IN), out: num(env.HUYENMY_PRICE_OUT), cacheRead: num(env.HUYENMY_PRICE_CACHE_READ), cacheWrite: num(env.HUYENMY_PRICE_CACHE_WRITE) } : null;
+  const usdVnd = num(env.HUYENMY_USD_VND) || 0;
   const auth = createAuth({ db, pepper, adminEmails, mailer, now });
   const dataKey = env.HUYENMY_DATA_KEY ? crypto.createHash('sha256').update(env.HUYENMY_DATA_KEY).digest() : null;
   const dailyCap = +env.HUYENMY_DAILY_TURNS || 200;
@@ -77,12 +82,13 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
     return id;
   }
 
-  function recordTurn({ actor, sid, phase, minute, ms, ttft, reply, userMsg, userHistory, prevReplies, ok, ut }) {
+  function recordTurn({ actor, sid, phase, minute, ms, ttft, reply, userMsg, userHistory, prevReplies, ok, ut, usage = null }) {
     const a = ok ? assessTurn({ phase, reply, userMsg, userHistory, prevReplies }) : { words: 0, q: 0, tags: 0, rep: 0, echo: 0, score: 0, flags: [] };
     const af = analyzeAffect(userMsg); // chỉ giữ các con số, không giữ nội dung
-    db.prepare('INSERT INTO turns(ts, actor, sid, phase, minute, ms, ttft, words, q, tags, rep, echo, score, flags, ok, u_val, u_aro, u_emo, u_disc, u_words, my_emo, ut) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    db.prepare('INSERT INTO turns(ts, actor, sid, phase, minute, ms, ttft, words, q, tags, rep, echo, score, flags, ok, u_val, u_aro, u_emo, u_disc, u_words, my_emo, ut, tok_in, tok_out, tok_cr, tok_cw) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(now(), actor, String(sid ?? '').slice(0, 24) || null, phase, Number.isFinite(minute) ? Math.round(minute) : null, ms ?? null, ttft ?? null, a.words, a.q, a.tags, a.rep, a.echo, a.score, a.flags.join(','), ok ? 1 : 0,
-        af.val, af.aro, af.emo, af.disc, af.words, firstTag(reply), Number.isFinite(ut) ? ut : null);
+        af.val, af.aro, af.emo, af.disc, af.words, firstTag(reply), Number.isFinite(ut) ? ut : null,
+        usage ? Math.max(0, +usage.input_tokens || 0) : null, usage ? Math.max(0, +usage.output_tokens || 0) : null, usage ? Math.max(0, +usage.cache_read_input_tokens || 0) : null, usage ? Math.max(0, +usage.cache_creation_input_tokens || 0) : null);
     if (actor.startsWith('u')) { try { rewards.settle(+actor.slice(1)); } catch (e) { console.error('[rewards]', e.message); } }
     return a;
   }
@@ -223,8 +229,9 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
       if (id.user.role !== 'admin') return json(res, 403, { error: 'Chỉ dành cho quản trị viên.' }), true;
       const q = new URL(req.url, 'http://x').searchParams, days = Math.min(365, Math.max(0, +q.get('days') || 0));
-      if (pathname === '/api/admin/participants') return json(res, 200, listParticipants(db, { days, now: now() })), true;
-      if (pathname === '/api/admin/participant') { const d = participantDetail(db, String(q.get('id') ?? ''), { now: now() }); return d ? json(res, 200, d) : json(res, 404, { error: 'Không thấy người này.' }), true; }
+      if (pathname === '/api/admin/participants') return json(res, 200, { ...listParticipants(db, { days, now: now(), prices }), priced: !!prices, usdVnd }), true;
+      if (pathname === '/api/admin/cost') return json(res, 200, { ...computeCost(db, { days: days || 14, now: now(), prices }), usdVnd }), true;
+      if (pathname === '/api/admin/participant') { const d = participantDetail(db, String(q.get('id') ?? ''), { now: now(), prices }); return d ? json(res, 200, d) : json(res, 404, { error: 'Không thấy người này.' }), true; }
       if (pathname === '/api/admin/feedback') {
         const since = days ? now() - days * DAY : 0;
         return json(res, 200, db.prepare('SELECT id, ts, kind, rating, text, quote_ok quoteOk, display FROM feedback WHERE ts >= ? ORDER BY ts DESC LIMIT 500').all(since).map((r) => ({ ...r, quoteOk: !!r.quoteOk }))), true;

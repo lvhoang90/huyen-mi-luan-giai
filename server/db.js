@@ -39,7 +39,7 @@ export function openDb(file) {
     if (!ucols.includes(name)) db.exec(`ALTER TABLE users ADD COLUMN ${name} ${ddl}`);
   // Hành trình cảm xúc: chỉ lưu con số ước lượng từ từng lượt, không lưu nội dung (xem server/affect.js).
   const tcols = db.prepare('PRAGMA table_info(turns)').all().map((c) => c.name);
-  for (const [name, ddl] of [['u_val', 'REAL'], ['u_aro', 'REAL'], ['u_emo', 'TEXT'], ['u_disc', 'INTEGER'], ['u_words', 'INTEGER'], ['my_emo', 'TEXT'], ['ut', 'INTEGER']])
+  for (const [name, ddl] of [['u_val', 'REAL'], ['u_aro', 'REAL'], ['u_emo', 'TEXT'], ['u_disc', 'INTEGER'], ['u_words', 'INTEGER'], ['my_emo', 'TEXT'], ['ut', 'INTEGER'], ['tok_in', 'INTEGER'], ['tok_out', 'INTEGER'], ['tok_cr', 'INTEGER'], ['tok_cw', 'INTEGER']])
     if (!tcols.includes(name)) db.exec(`ALTER TABLE turns ADD COLUMN ${name} ${ddl}`);
   // Thiết bị (chỉ nhóm thô: loại máy, hệ điều hành, trình duyệt) để biết người thử dùng gì, và liên kết người ẩn danh với tài khoản sau khi đăng ký.
   const acols = db.prepare('PRAGMA table_info(anon)').all().map((c) => c.name);

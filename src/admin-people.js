@@ -2,7 +2,7 @@
 import { esc, nf, fx, sgn, download, toCsv, FIELD, GENDER, DEVICE, TONE, MOOD, EMO_COLOR } from './admin-ui.js';
 
 const LS_COLS = 'hm_admin_cols', LS_SIZE = 'hm_admin_size';
-const st = { data: null, cols: [], vis: new Set(), sort: [{ key: 'lastSeen', dir: -1 }], q: '', filters: [], page: 0, size: 25, emo: {} };
+const st = { data: null, cols: [], vis: new Set(), sort: [{ key: 'lastSeen', dir: -1 }], q: '', filters: [], page: 0, size: 25, emo: {}, preset: 'all' };
 const OPS = {
   text: [['has', 'chứa'], ['eq', 'đúng bằng'], ['empty', 'để trống'], ['filled', 'có giá trị']],
   cat: [['is', 'là'], ['not', 'không phải'], ['empty', 'để trống'], ['filled', 'có giá trị']],
@@ -10,6 +10,17 @@ const OPS = {
   bool: [['yes', 'có'], ['no', 'không']],
   date: [['after', 'từ ngày'], ['before', 'đến ngày']],
 };
+const TIER_CLS = { 'Gắn bó cao': 'hi', 'Đang quan tâm': 'mid', 'Nhẹ nhàng': 'lo', 'Mới ghé': 'new', 'Cần chú ý': 'warn', 'Cần chú ý (an toàn)': 'crit' };
+// Cách xem nhanh: một chạm đặt sẵn sắp xếp, bộ lọc và cột cho từng câu hỏi hay gặp.
+const PRESETS = [
+  { k: 'all', label: 'Tất cả', sort: [{ key: 'lastSeen', dir: -1 }], filters: [] },
+  { k: 'tok', label: 'Đốt token nhiều nhất', sort: [{ key: 'tokTotal', dir: -1 }], filters: [{ key: 'tokTotal', op: 'filled', val: '' }], show: ['tokTotal', 'tokShare', 'tokPerTurn', 'tokPerMin', 'costUsd', 'score', 'tier'] },
+  { k: 'waste', label: 'Đốt nhiều, gắn bó thấp', sort: [{ key: 'tokTotal', dir: -1 }], filters: [{ key: 'costFlag', op: 'yes', val: '' }], show: ['tokTotal', 'tokShare', 'score', 'tier', 'activeMin'] },
+  { k: 'best', label: 'Gắn bó cao nhất', sort: [{ key: 'score', dir: -1 }], filters: [], show: ['score', 'tier', 'activeMin', 'daysActive', 'returned'] },
+  { k: 'care', label: 'Cần chú ý', sort: [{ key: 'crisis', dir: -1 }, { key: 'score', dir: 1 }], filters: [{ key: 'attention', op: 'yes', val: '' }], show: ['attention', 'tier', 'crisis', 'trend', 'moodDelta', 'nps', 'resonance'] },
+  { k: 'new', label: 'Mới đăng ký', sort: [{ key: 'created', dir: -1 }], filters: [{ key: 'kind', op: 'is', val: 'Tài khoản' }], show: ['created', 'stage', 'score', 'tier'] },
+  { k: 'lost', label: 'Từng sâu sắc, đã vắng', sort: [{ key: 'lastSeen', dir: 1 }], filters: [{ key: 'score', op: 'gte', val: 40 }, { key: 'returned', op: 'no', val: '' }], show: ['score', 'tier', 'lastSeen', 'activeMin'] },
+];
 const pick = (map) => (v) => (v == null ? null : map[v] ?? v);
 const LABEL = { gender: pick(GENDER), field: pick(FIELD), device: pick(DEVICE), myTone: pick(TONE), domEmo: (v) => (v == null ? null : st.emo[v] ?? v) };
 
@@ -30,6 +41,13 @@ const cellHtml = (col, r) => {
     case 'moodStart': case 'moodEnd': return `${v} <span class="muted">${MOOD[v] ?? ''}</span>`;
     case 'moodDelta': case 'valDelta': case 'valSlope': return `<span class="${v > 0 ? 'good' : v < 0 ? 'bad' : ''}">${sgn(v)}</span>`;
     case 'crisis': return v ? `<span class="bad">▲ ${v}</span>` : '0';
+    case 'score': return `<span class="scorebar" title="${esc(`Điểm ${v}/100`)}"><i style="width:${Math.max(2, Math.min(100, v))}%"></i></span> <b>${v}</b>`;
+    case 'tier': return `<span class="tier t${TIER_CLS[v] ?? 'x'}">${esc(v)}</span>`;
+    case 'attention': return v ? `<span class="bad" title="${esc(r.attentionWhy ?? '')}">▲ Cần chú ý</span>` : '<span class="muted">–</span>';
+    case 'costFlag': return v ? '<span class="bad" title="Nhóm 20% đốt nhiều token nhất nhưng điểm gắn bó dưới 40">▲ Có</span>' : '<span class="muted">–</span>';
+    case 'tokTotal': case 'tokPerTurn': case 'tokPerMin': case 'tokIn': case 'tokOut': case 'tokCr': case 'tokCw': return nf.format(v);
+    case 'tokShare': return `${fx(v, 1)}%`;
+    case 'costUsd': return `$${fx(v, v < 10 ? 3 : 2)}`;
     case 'stage': return `<span class="stg s${r.stageNo}">${esc(v)}</span>`;
     case 'kind': return `<span class="chip ${v === 'Tài khoản' ? 'info' : ''}">${esc(v)}</span>`;
     default: break;
@@ -89,6 +107,7 @@ function render(host) {
   host.innerHTML = `<section class="panel"><div class="ph"><div><h2>Người tham gia</h2><p class="sub" style="margin:0">Một dòng một người. Tài khoản được nối với các lần ghé ẩn danh trước khi đăng ký. Bấm tiêu đề cột để sắp xếp (giữ Shift để thêm cấp), bấm một dòng để xem hành trình cảm xúc.</p></div>
       <div class="toolbar"><button class="btn" id="px-csv">Tải CSV</button><button class="btn" id="px-json">Tải JSON</button><button class="btn" id="px-mail" title="Sao chép email của các dòng đang lọc">Sao chép email</button></div></div>
     <div class="stagebars" aria-label="Số người theo bước đã tới (theo bộ lọc)">${stageBars}</div>
+    <div class="presets" role="group" aria-label="Cách xem nhanh">${PRESETS.map((p) => `<button type="button" class="pchip ${st.preset === p.k ? 'on' : ''}" data-preset="${p.k}" aria-pressed="${st.preset === p.k}">${esc(p.label)}</button>`).join('')}</div>
     <div class="ptools"><input id="px-q" type="search" placeholder="Tìm theo email, mã, lĩnh vực, thiết bị…" value="${esc(st.q)}" aria-label="Tìm kiếm">
       <button class="btn" id="px-addf">+ Thêm bộ lọc</button><button class="btn" id="px-clr" ${st.filters.length || st.q ? '' : 'disabled'}>Xóa lọc</button>
       <details class="colpick"><summary class="btn">Cột hiển thị (${shown.length}/${st.cols.length})</summary><div class="cp">${groups.map((g) => `<fieldset><legend>${esc(g)}</legend>${st.cols.filter((c) => c.group === g).map((c) => `<label><input type="checkbox" data-col="${c.key}" ${st.vis.has(c.key) ? 'checked' : ''}> ${esc(c.label)}</label>`).join('')}</fieldset>`).join('')}
@@ -105,6 +124,13 @@ function render(host) {
 
 function wire(host, rows) {
   const again = () => render(host);
+  host.querySelectorAll('[data-preset]').forEach((el) => (el.onclick = () => {
+    const p = PRESETS.find((x) => x.k === el.dataset.preset); if (!p) return;
+    st.preset = p.k; st.sort = p.sort.map((s) => ({ ...s })); st.filters = p.filters.map((f) => ({ ...f })); st.q = ''; st.page = 0;
+    if (p.show) { st.vis = new Set(['id', 'email', 'kind', ...p.show.filter((k) => st.cols.some((c) => c.key === k))]); if (!st.data.priced) st.vis.delete('costUsd'); } // mỗi cách xem chỉ bày đúng các cột cần cho câu hỏi đó
+    else { let saved = null; try { saved = JSON.parse(localStorage.getItem(LS_COLS)); } catch {} st.vis = new Set(Array.isArray(saved) && saved.length ? saved.filter((k) => st.cols.some((c) => c.key === k)) : st.cols.filter((c) => c.def).map((c) => c.key)); if (!st.data.priced) st.vis.delete('costUsd'); }
+    again();
+  }));
   host.querySelector('#px-q').oninput = (e) => { st.q = e.target.value; st.page = 0; const pos = e.target.selectionStart; again(); const q = host.querySelector('#px-q'); q.focus(); q.setSelectionRange(pos, pos); };
   host.querySelector('#px-addf').onclick = () => { st.filters.push({ key: 'ageBand', op: 'is', val: '' }); again(); };
   host.querySelector('#px-clr').onclick = () => { st.filters = []; st.q = ''; st.page = 0; again(); };
@@ -153,14 +179,19 @@ async function openDrawer(el, id) {
   const d = await r.json(), row = d.row, g = (k) => { const c = st.cols.find((x) => x.key === k); return c ? cellHtml(c, row) : ''; };
   const facts = ['kind', 'email', 'stage', 'firstSeen', 'lastSeen', 'daysActive', 'sessions', 'activeMin', 'userTurns', 'ageBand', 'gender', 'field', 'device', 'os', 'browser', 'ref', 'resonance', 'nps', 'quality', 'crisis', 'consent', 'remind'].map((k) => { const c = st.cols.find((x) => x.key === k); return c ? `<div><span>${esc(c.label)}</span><b>${g(k)}</b></div>` : ''; }).join('');
   const moods = d.mood.map((m) => `<span class="chip">${{ start: 'Đầu buổi', mid: 'Giữa buổi', end: 'Cuối buổi' }[m.phase] ?? m.phase}: ${m.value} · ${MOOD[m.value]}</span>`).join(' ') || '<span class="muted">Chưa tự đánh giá tâm trạng.</span>';
-  const rowsT = d.turns.map((t, i) => `<tr><td class="num">${t.ut ?? i + 1}</td><td>${esc(t.ts?.slice(11) ?? '')}</td><td>${esc(t.phase ?? '')}</td><td><i class="dot" style="background:${EMO_COLOR[t.emo] ?? '#999'}"></i>${esc(st.emo[t.emo] ?? t.emo ?? '–')}</td><td class="num">${sgn(t.val, 1)}</td><td class="num">${fx(t.aro, 1)}</td><td class="num">${t.disc ?? '–'}</td><td>${esc(TONE[t.myTone] ?? t.myTone ?? '–')}</td><td class="num">${t.score ?? '–'}</td><td>${t.flags.map((f) => `<span class="chip warn">${esc(f)}</span>`).join(' ')}</td></tr>`).join('');
+  const rowsT = d.turns.map((t, i) => `<tr><td class="num">${t.ut ?? i + 1}</td><td>${esc(t.ts?.slice(11) ?? '')}</td><td>${esc(t.phase ?? '')}</td><td class="num">${t.tok == null ? '–' : nf.format(t.tok)}</td><td><i class="dot" style="background:${EMO_COLOR[t.emo] ?? '#999'}"></i>${esc(st.emo[t.emo] ?? t.emo ?? '–')}</td><td class="num">${sgn(t.val, 1)}</td><td class="num">${fx(t.aro, 1)}</td><td class="num">${t.disc ?? '–'}</td><td>${esc(TONE[t.myTone] ?? t.myTone ?? '–')}</td><td class="num">${t.score ?? '–'}</td><td>${t.flags.map((f) => `<span class="chip warn">${esc(f)}</span>`).join(' ')}</td></tr>`).join('');
   const tl = d.timeline.map((e) => `<tr><td>${esc(e.ts)}</td><td>${esc(e.name)}</td><td class="muted">${esc(Object.entries(e.props).map(([k, v]) => `${k}=${v}`).join(' '))}</td></tr>`).join('');
   el.innerHTML = `<div class="dcard" role="dialog" aria-label="Hành trình ${esc(row.id)}"><div class="dh"><div><h2>${esc(row.email ?? row.id)}</h2><p class="sub" style="margin:0">${esc(row.id)} · ${esc(row.kind)} · đi tới "${esc(row.stage)}"</p></div><button class="btn dx">Đóng ✕</button></div>
     <div class="facts">${facts}</div>
+    <h3>Đánh giá tổng hợp: ${g('tier')} · ${row.score}/100</h3>
+    ${row.attentionWhy ? `<p class="bad">▲ ${esc(row.attentionWhy)}</p>` : ''}
+    <ul class="evl">${(row.evalParts ?? []).map((x) => `<li><span class="el">${esc(x.label)}</span><span class="scorebar"><i style="width:${(x.got / x.max) * 100}%"></i></span><b>${x.got}/${x.max}</b><span class="muted">${esc(x.why)}</span></li>`).join('')}</ul>
+    <p class="note" style="margin:2px 0 8px">Điểm cộng từ các phần trên (thời gian, lượt nói, quay lại, luận giải, cảm nhận, lan tỏa). Không phải dự báo, chỉ để sắp xếp và nhìn nhanh.</p>
+    <h3>Token đã đốt</h3>${row.tokTotal == null ? '<p class="muted">Chưa có ghi nhận token cho người này (các lượt cũ không có số).</p>' : `<div class="facts"><div><span>Tổng token</span><b>${nf.format(row.tokTotal)}</b></div><div><span>% tổng của mọi người</span><b>${fx(row.tokShare, 1)}%</b></div><div><span>Mỗi lượt</span><b>${nf.format(row.tokPerTurn)}</b></div><div><span>Mỗi phút trò chuyện</span><b>${row.tokPerMin == null ? '–' : nf.format(row.tokPerMin)}</b></div><div><span>Vào (không đệm)</span><b>${nf.format(row.tokIn)}</b></div><div><span>Đọc từ đệm</span><b>${nf.format(row.tokCr)}</b></div><div><span>Ghi vào đệm</span><b>${nf.format(row.tokCw)}</b></div><div><span>Ra</span><b>${nf.format(row.tokOut)}</b></div>${row.costUsd != null ? `<div><span>Chi phí ước tính</span><b>$${fx(row.costUsd, 3)}</b></div>` : ''}</div>`}
     <h3>Tâm trạng tự báo</h3><p>${moods}${row.moodDelta != null ? ` <b class="${row.moodDelta > 0 ? 'good' : row.moodDelta < 0 ? 'bad' : ''}">${sgn(row.moodDelta, 0)} điểm</b>` : ''}</p>
     <h3>Hành trình sắc thái qua các lượt nói</h3>${turnChart(d.turns)}
     <p>${g('trend')} · cảm xúc nổi bật ${g('domEmo')} · mở lòng trung bình ${fx(row.discMean, 1)}/3 · giọng My hay dùng ${esc(TONE[row.myTone] ?? row.myTone ?? '–')}</p>
-    <details open><summary>Từng lượt (${d.turns.length})</summary><div class="scroll"><table><thead><tr><th class="num">Lượt</th><th>Giờ</th><th>Giai đoạn</th><th>Cảm xúc</th><th class="num">Sắc thái</th><th class="num">Cường độ</th><th class="num">Mở lòng</th><th>Giọng My</th><th class="num">Điểm</th><th>Cờ</th></tr></thead><tbody>${rowsT || '<tr><td colspan="10" class="muted">Chưa có.</td></tr>'}</tbody></table></div></details>
+    <details open><summary>Từng lượt (${d.turns.length})</summary><div class="scroll"><table><thead><tr><th class="num">Lượt</th><th>Giờ</th><th>Giai đoạn</th><th class="num">Token</th><th>Cảm xúc</th><th class="num">Sắc thái</th><th class="num">Cường độ</th><th class="num">Mở lòng</th><th>Giọng My</th><th class="num">Điểm</th><th>Cờ</th></tr></thead><tbody>${rowsT || '<tr><td colspan="10" class="muted">Chưa có.</td></tr>'}</tbody></table></div></details>
     <details><summary>Dòng thời gian sự kiện (${d.timeline.length})</summary><div class="scroll"><table><tbody>${tl}</tbody></table></div></details>
     <p class="note">Không có nội dung trò chuyện trong dữ liệu này. Sắc thái và cảm xúc là ước lượng thô, chỉ dùng để nhìn xu hướng.</p></div>`;
   const close = () => (el.hidden = true);
@@ -172,8 +203,13 @@ export async function loadPeople(host, days) {
   const r = await fetch(`/api/admin/participants?days=${days}`, { cache: 'no-store' });
   if (!r.ok) { host.innerHTML = `<p class="err">Không tải được (${r.status}).</p>`; return; }
   st.data = await r.json(); st.cols = st.data.columns; st.emo = st.data.emotions;
+  if (!st.data.priced) { const c = st.cols.find((x) => x.key === 'costUsd'); if (c) c.def = false; } // chưa khai đơn giá: không bày cột tiền
   let saved = null; try { saved = JSON.parse(localStorage.getItem(LS_COLS)); } catch {}
   st.vis = new Set((Array.isArray(saved) ? saved.filter((k) => st.cols.some((c) => c.key === k)) : null)?.length ? saved : st.cols.filter((c) => c.def).map((c) => c.key));
+  if (!st.data.priced) st.vis.delete('costUsd');
   try { st.size = +localStorage.getItem(LS_SIZE) || 25; } catch {}
+  st.preset = 'all';
   render(host);
+  let want = null; try { want = sessionStorage.getItem('hm_open_person'); sessionStorage.removeItem('hm_open_person'); } catch {}
+  if (want) openDrawer(host.querySelector('#drawer'), want);
 }

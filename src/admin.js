@@ -1,5 +1,5 @@
 import './admin.css';
-import { esc, nf, pct, ci, download, toCsv } from './admin-ui.js';
+import { esc, nf, fx, pct, ci, download, toCsv } from './admin-ui.js';
 import { renderJourney, wireJourney } from './admin-journey.js';
 import { loadPeople } from './admin-people.js';
 import { initViz, tile, ring, barList, funnelChart, areaChart, cohortHeat, npsBar, agreeBar, feelBar } from './admin-viz.js';
@@ -7,7 +7,7 @@ import { initViz, tile, ring, barList, funnelChart, areaChart, cohortHeat, npsBa
 const app = document.getElementById('app');
 const SEV = { critical: ['▲', 'Nghiêm trọng'], warn: ['●', 'Cần xem'], info: ['○', 'Gợi ý'] };
 let days = +(new URLSearchParams(location.search).get('days')) || 14, data = null, journey = null;
-const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Cảm xúc'], ['nguoi', 'Người dùng'], ['tang-truong', 'Tăng trưởng'], ['chat-luong', 'Chất lượng'], ['gop-y', 'Góp ý'], ['phuong-phap', 'Phương pháp']];
+const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Cảm xúc'], ['nguoi', 'Người dùng'], ['chi-phi', 'Chi phí AI'], ['tang-truong', 'Tăng trưởng'], ['chat-luong', 'Chất lượng'], ['gop-y', 'Góp ý'], ['phuong-phap', 'Phương pháp']];
 const tabNow = () => { const h = location.hash.replace(/^#\/?/, ''); return TABS.some(([k]) => k === h) ? h : 'tong-quan'; };
 
 async function load() {
@@ -156,11 +156,36 @@ async function paintTab(tab) {
   else if (tab === 'gop-y') await loadFeedback(host);
   else if (tab === 'phuong-phap') host.innerHTML = methodTab();
   else if (tab === 'nguoi') await loadPeople(host, 0);
+  else if (tab === 'chi-phi') await loadCost(host);
   else if (tab === 'cam-xuc') {
     host.innerHTML = '<p class="muted" style="padding:16px">Đang phân tích…</p>';
     if (!journey) { const r = await fetch(`/api/admin/journey?days=${days}`, { cache: 'no-store' }); if (!r.ok) { host.innerHTML = `<p class="err">Không tải được (${r.status}).</p>`; return; } journey = await r.json(); }
     host.innerHTML = renderJourney(journey); wireJourney(journey, days);
   }
+}
+// ---------------- chi phí AI: token đốt theo ngày, giai đoạn và theo thành viên ----------------
+const compact = (v) => (v == null ? '–' : Math.abs(v) >= 1e6 ? `${fx(v / 1e6, 2)} triệu` : Math.abs(v) >= 1e3 ? `${fx(v / 1e3, 1)} nghìn` : nf.format(Math.round(v)));
+async function loadCost(host) {
+  host.innerHTML = '<p class="muted" style="padding:16px">Đang tải…</p>';
+  const r = await fetch(`/api/admin/cost?days=${days}`, { cache: 'no-store' });
+  if (!r.ok) { host.innerHTML = `<p class="err">Không tải được (${r.status}).</p>`; return; }
+  const c = await r.json(), t = c.totals, PH = { listen: 'Lắng nghe', reading: 'Luận giải lần đầu', companion: 'Đồng hành' };
+  const money = (usd) => (usd == null ? '–' : `$${fx(usd, usd < 10 ? 3 : 2)}${c.usdVnd ? ` (~${nf.format(Math.round(usd * c.usdVnd))}đ)` : ''}`);
+  if (!t.turns) { host.innerHTML = '<section class="panel"><h2>Chi phí AI</h2><p class="muted">Chưa có lượt trò chuyện nào có ghi nhận token. Số liệu sẽ xuất hiện khi có người trò chuyện với My sau bản cập nhật này (các lượt cũ không có số token).</p></section>'; return; }
+  const notes = [];
+  if (!c.prices) notes.push('Chưa khai đơn giá nên chưa tính tiền. Đặt <code>HUYENMY_PRICE_IN</code> và <code>HUYENMY_PRICE_OUT</code> (USD mỗi triệu token theo bảng giá hiện hành), tùy chọn <code>HUYENMY_PRICE_CACHE_READ</code>, <code>HUYENMY_PRICE_CACHE_WRITE</code> và <code>HUYENMY_USD_VND</code>, rồi khởi động lại.');
+  if (c.concentration.topDecile != null && c.members >= 10 && c.concentration.topDecile >= 50) notes.push(`${c.concentration.decileN} người dùng nhiều nhất (nhóm 10%) đốt ${c.concentration.topDecile}% tổng token: nếu tính phí, nên đặt mức dùng hợp lý theo ngày.`);
+  if (c.flagged) notes.push(`${c.flagged} người thuộc nhóm đốt nhiều token nhưng gắn bó thấp. Lọc cột "Đốt nhiều, gắn bó thấp" ở mục Người dùng để xem.`);
+  if (c.cacheHit != null && c.cacheHit < 40 && t.turns >= 20) notes.push(`Bộ nhớ đệm lời nhắc mới trúng ${c.cacheHit}% phần đầu vào: kiểm tra khối lời chỉ dẫn có bị đổi giữa các lượt không.`);
+  host.innerHTML = `<section class="panel"><h2>Token đã đốt</h2><p class="sub">${t.turns} lượt trả lời có ghi nhận token, ${c.members} người, trong ${days} ngày. Token vào = lời chỉ dẫn và lịch sử gửi cho AI; token ra = lời My trả lời; bộ nhớ đệm giúp phần lặp lại rẻ hơn.</p>
+    <div class="tiles">${tile({ label: 'Tổng token', value: compact(t.total), sub: `${nf.format(t.total)} token`, tone: 's1' })}${tile({ label: 'Chi phí ước tính', value: t.cost == null ? '–' : `$${fx(t.cost, t.cost < 10 ? 3 : 2)}`, sub: c.prices ? `theo đơn giá đã khai${c.usdVnd && t.cost != null ? `, khoảng ${nf.format(Math.round(t.cost * c.usdVnd))}đ` : ''}` : 'chưa khai đơn giá', tone: 's2' })}${tile({ label: 'Token mỗi lượt', value: compact(c.perTurn), sub: `ra ${nf.format(c.outPerTurn ?? 0)} token mỗi lượt`, tone: 's3' })}${tile({ label: 'Trúng bộ nhớ đệm', value: c.cacheHit == null ? '–' : `${c.cacheHit}%`, sub: 'phần đầu vào đọc từ đệm', tone: 's4' })}</div>
+    ${notes.length ? `<ul class="notes">${notes.map((x) => `<li class="note warn">${x}</li>`).join('')}</ul>` : ''}</section>
+    <section class="panel"><h2>Theo ngày</h2>${areaChart(c.perDay.map((d) => ({ day: d.day, total: d.total, out: d.out })), [['total', 'Tổng token', 'var(--s1)'], ['out', 'Token ra', 'var(--s3)']], { label: 'Token theo ngày' })}</section>
+    <div class="grid2"><section class="panel"><h2>Cấu thành</h2>${barList([{ label: 'Vào (không đệm)', value: t.in }, { label: 'Đọc từ bộ nhớ đệm', value: t.cr }, { label: 'Ghi vào bộ nhớ đệm', value: t.cw }, { label: 'Ra', value: t.out }], { tone: 's2', fmt: compact })}</section>
+      <section class="panel"><h2>Theo giai đoạn trò chuyện</h2>${barList(c.byPhase.map((p) => ({ label: `${PH[p.phase] ?? p.phase} (${p.turns} lượt)`, value: p.total })), { tone: 's5', fmt: compact })}</section></div>
+    <section class="panel"><h2>Thành viên đốt nhiều token nhất</h2><p class="sub">Một người chiếm ${c.concentration.top1 ?? '–'}% tổng token; năm người đầu chiếm ${c.concentration.top5 ?? '–'}%. Bấm một dòng để mở hồ sơ người đó.</p>
+      <div class="scroll"><table><thead><tr><th>Người</th><th class="num">Token</th><th class="num">% tổng</th><th class="num">Lượt</th><th class="num">Token/lượt</th><th class="num">Phút</th><th class="num">Điểm</th><th>Xếp hạng</th>${c.prices ? '<th class="num">Chi phí</th>' : ''}</tr></thead><tbody>${c.top.map((r) => `<tr class="rowlink" data-open="${esc(r.id)}" tabindex="0"><td>${esc(r.email ?? r.id)}${r.costFlag ? ' <span class="chip">đốt nhiều, gắn bó thấp</span>' : ''}</td><td class="num">${compact(r.tokTotal)}</td><td class="num">${fx(r.tokShare, 1)}%</td><td class="num">${nf.format(r.turns ?? 0)}</td><td class="num">${compact(r.tokPerTurn)}</td><td class="num">${fx(r.activeMin, 1)}</td><td class="num">${r.score}</td><td>${esc(r.tier)}</td>${c.prices ? `<td class="num">${money(r.costUsd)}</td>` : ''}</tr>`).join('')}</tbody></table></div></section>`;
+  host.querySelectorAll('[data-open]').forEach((tr) => { const go = () => { try { sessionStorage.setItem('hm_open_person', tr.dataset.open); } catch {} location.hash = '#/nguoi'; }; tr.onclick = go; tr.onkeydown = (e) => { if (e.key === 'Enter') go(); }; });
 }
 async function loadFeedback(host) {
   host.innerHTML = '<p class="muted" style="padding:16px">Đang tải…</p>';

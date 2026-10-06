@@ -541,3 +541,35 @@ test('chấm chất lượng: bắt chữ trừu tượng và việc né câu xi
   const c = assessTurn({ phase: 'companion', reply: 'Theo My thì chưa nên nghỉ ngay. Bạn thử xin nghỉ phép một tuần trước. Bạn nghĩ sao?', userMsg: 'Mình có nên nghỉ việc không', userHistory: '', prevReplies: [] });
   assert.ok(!c.flags.includes('ne_cau_hoi') && !c.flags.includes('tu_truu_tuong'));
 });
+
+test('token đốt theo thành viên: lưu từng lượt, tổng hợp theo người, đánh giá và chi phí', async () => {
+  const { listParticipants, computeCost, evaluate, tokenCost } = await import('../server/people.js');
+  const h = await harness({ HUYENMY_PRICE_IN: '3', HUYENMY_PRICE_OUT: '15' });
+  const mk = async (email) => { h.newJar(); await h.call('GET', '/api/me'); await h.call('POST', '/api/auth/request', { email }); const v = await h.call('POST', '/api/auth/verify', { email, code: codeOf(h.mails.at(-1)) }); h.tick(61_000); return v.body.user; };
+  const A = await mk('a@x.vn'), B = await mk('b@x.vn');
+  const turn = (u, usage, ut) => { h.api.recordTurn({ actor: `u${u.id}`, phase: 'companion', reply: 'x', userMsg: 'chào', userHistory: [], prevReplies: [], ok: true, ut, usage }); h.tick(60_000); };
+  turn(A, { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 4000, cache_creation_input_tokens: 500 }, 1);
+  turn(A, { input_tokens: 800, output_tokens: 150, cache_read_input_tokens: 4500, cache_creation_input_tokens: 0 }, 2);
+  turn(B, { input_tokens: 100, output_tokens: 20 }, 1);
+  h.api.recordTurn({ actor: `u${B.id}`, phase: 'companion', reply: 'x', userMsg: 'chào', userHistory: [], prevReplies: [], ok: true, ut: 2 }); // lượt cũ không có số token
+  const now = Date.now() + 10 * 86_400_000;
+  const list = listParticipants(h.db, { days: 0, now: h.api ? Date.now() + 0 : now, prices: { in: 3, out: 15 } });
+  const a = list.rows.find((r) => r.email === 'a@x.vn'), b = list.rows.find((r) => r.email === 'b@x.vn');
+  assert.equal(a.tokIn, 1800); assert.equal(a.tokOut, 350); assert.equal(a.tokCr, 8500); assert.equal(a.tokCw, 500); assert.equal(a.tokTotal, 11150);
+  assert.equal(a.tokPerTurn, 5575); assert.equal(b.tokTotal, 120);
+  assert.equal(a.costUsd, tokenCost({ tokIn: 1800, tokOut: 350, tokCr: 8500, tokCw: 500 }, { in: 3, out: 15 })); assert.ok(a.costUsd > 0);
+  assert.ok(Math.abs((a.tokShare + b.tokShare) - 100) < 0.2, 'phần trăm token cộng lại ~100');
+  assert.ok(list.columns.some((c) => c.key === 'tokTotal') && list.columns.some((c) => c.key === 'score'));
+  const det = (await import('../server/people.js')).participantDetail(h.db, `U${String(A.id).padStart(3, '0')}`, { now: Date.now(), prices: { in: 3, out: 15 } });
+  assert.equal(det.row.tokTotal, 11150); assert.ok(det.row.tokShare > 90 && det.row.evalParts.length === 6); assert.equal(det.turns.filter((t) => t.tok != null).length, 2);
+  const c = computeCost(h.db, { days: 0, now: Date.now() + 86_400_000, prices: { in: 3, out: 15 } });
+  assert.equal(c.totals.total, 11270); assert.equal(c.members, 2); assert.equal(c.top[0].tokTotal, 11150); assert.equal(c.perDay.reduce((s, d) => s + d.total, 0), 11270);
+  assert.ok(c.cacheHit > 50 && c.concentration.top1 > 90);
+  assert.equal(computeCost(h.db, { days: 0, now: Date.now() + 86_400_000 }).totals.cost, null, 'chưa khai đơn giá thì không có chi phí');
+  // đánh giá minh bạch: có các phần cộng điểm, và cờ cần chú ý
+  const ev = evaluate({ activeMin: 25, userTurns: 20, returned: true, daysActive: 4, read: true, closed: true, moodDelta: 1, resonance: 3, nps: 10, shared: true, kind: 'Tài khoản', crisis: 0 });
+  assert.equal(ev.score, 100); assert.equal(ev.tier, 'Gắn bó cao'); assert.equal(ev.attention, false); assert.equal(ev.evalParts.reduce((s, x) => s + x.max, 0), 100);
+  assert.equal(evaluate({ activeMin: 2, userTurns: 2, crisis: 1 }).tier, 'Cần chú ý (an toàn)');
+  assert.equal(evaluate({ activeMin: 10, userTurns: 8, nps: 3 }).attention, true);
+  h.close();
+});

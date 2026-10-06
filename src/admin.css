@@ -265,3 +265,11 @@ details.fw h2 { margin: 0; font-size: 14.5px; }
 }
 @media (max-width: 380px) { .tv { font-size: 26px; } .ttl .sub { display: none; } .seg.period button { font-size: 12px; } }
 @media (prefers-reduced-motion: reduce) { .bl-t i { transition: none; } }
+
+/* thành viên: cách xem nhanh, điểm đánh giá, xếp hạng */
+.presets { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; } .pchip { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line, #d7d3c8); background: var(--surface, #fff); font-size: 13px; cursor: pointer; color: inherit; } .pchip.on { background: var(--s1, #3a6fb0); border-color: var(--s1, #3a6fb0); color: #fff; }
+.scorebar { display: inline-block; width: 54px; height: 7px; border-radius: 6px; background: rgba(120, 120, 120, .22); vertical-align: middle; overflow: hidden; } .scorebar i { display: block; height: 100%; background: var(--s1, #3a6fb0); border-radius: 6px; }
+.tier { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; white-space: nowrap; } .tier.thi { color: #1c7a4b; } .tier.tmid { color: #2d62a8; } .tier.tlo { color: #6b6b6b; } .tier.tnew { color: #8a6d00; } .tier.twarn { color: #b25a00; } .tier.tcrit { color: #b3261e; }
+.evl { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; } .evl li { display: grid; grid-template-columns: 150px 60px 56px 1fr; gap: 8px; align-items: center; font-size: 13px; } .evl .el { font-weight: 500; } .evl .muted { font-size: 12px; }
+@media (max-width: 560px) { .evl li { grid-template-columns: 1fr 60px 52px; } .evl li .muted { grid-column: 1 / -1; } }
+.rowlink { cursor: pointer; } .rowlink:hover { background: rgba(120, 120, 120, .1); }
