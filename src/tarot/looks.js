@@ -79,6 +79,11 @@ export function dress(rigSvg, look = {}, uid = 'x') {
       s = s.slice(0, r[0]) + HAIR_CAP + s.slice(r[1], wrapEnd) + s.slice(s.indexOf('/>', knot) + 2);
     }
   }
+  if (hatless) { // không còn chóp nón để voan buông xuống: hạ đỉnh voan thành vòm mềm ôm tóc
+    s = s.replaceAll('M 300 76 C 372 78 480 156 546 246', 'M 300 150 C 400 150 500 190 546 246')
+      .replaceAll('56 246 C 120 156 228 78 300 76 Z', '56 246 C 100 190 200 150 300 150 Z')
+      .replaceAll('M 300 82 ', 'M 300 156 ');
+  }
   const o = OUTFITS[look.outfit];
   if (o) { s = recolor(s, 'adg', o[0]); s = recolor(s, 'adg2', o[1]); s = s.replaceAll('#8b5fe0', o[2]).replaceAll('#b49cf3', o[3]); }
   const art = look.acc && ACC[look.acc] ? ACC[look.acc](look.accArg === 'silver' ? '#dfe6ff' : look.accArg ?? undefined) : '';
