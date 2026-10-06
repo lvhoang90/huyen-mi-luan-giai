@@ -7,7 +7,9 @@
 //   Lưu nguyệt theo cách "Đẩu Quân" (từ cung Thái Tuế đếm nghịch đến tháng sinh, rồi đếm thuận đến giờ sinh = tháng Giêng).
 // - Tứ Trụ: hành của can năm/tháng so với Nhật chủ (sinh, khắc, đồng), lục xung / lục hợp / tam hợp của chi với chi ngày và chi năm sinh.
 // - Thần số học: năm cá nhân và tháng cá nhân.
-// Chưa có: tiểu hạn, sao lưu (Lưu Lộc Tồn, Lưu Kình Đà...), Tuần/Triệt. Chưa đối chiếu với thư viện độc lập nào (không có thư viện nào làm phần này).
+// Chưa có: tiểu hạn, sao lưu (Lưu Lộc Tồn, Lưu Kình Đà...), Tuần/Triệt.
+// Đối chiếu: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và cung lưu nguyệt Đẩu Quân khớp 100% với thư viện iztro (MIT) trên hàng trăm lá số;
+// xem tools/compare-iztro.mjs. iztro theo trường phái Trung Hoa phổ biến, nên đây là bằng chứng nhất quán, chưa phải thẩm định của người xem Tử Vi.
 import { CAN, CHI, CAN_HANH, CHI_HANH, SINH, KHAC, computeBazi, yearPillarOfYear } from './bazi.js';
 import { CUNG_TEN, TU_HOA, HOUR_BRANCH } from './tuvi.js';
 import { lunarMonthsOfYear } from './lunar.js';

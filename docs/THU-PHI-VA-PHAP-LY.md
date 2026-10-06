@@ -42,5 +42,5 @@ Lưu ý: độ đúng do người dùng tự nhận chịu hiệu ứng Barnum (
 
 ## 5. Những điều chưa được kiểm chứng
 
-- Phần thời vận (lưu niên, lưu nguyệt) **chưa đối chiếu với thư viện độc lập** vì chưa có thư viện nào làm cùng phần này. Lịch âm, tiết khí, đại hạn thì đã kiểm (xem `README.md`). Nên nhờ một người xem Tử Vi có kinh nghiệm duyệt quy tắc ở đầu `src/engine/thoivan.js` trước khi thu phí.
+- Phần thời vận (lưu niên, lưu nguyệt) đã đối chiếu với thư viện iztro: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và cung lưu nguyệt Đẩu Quân khớp 100% trên 379 lá số có gốc trùng (xem `tools/compare-iztro.mjs`). iztro cùng trường phái Trung Hoa phổ biến, nên đây là bằng chứng nhất quán, **chưa phải thẩm định của người xem Tử Vi**; vẫn nên nhờ một người có kinh nghiệm duyệt quy tắc ở đầu `src/engine/thoivan.js` trước khi thu phí.
 - "Mức chú ý" là cách đếm yếu tố kích hoạt, không phải mô hình dự báo, và không có bằng chứng khoa học rằng nó dự báo được sự kiện. Mọi nơi hiển thị đều đã ghi rõ điều đó; giữ nguyên khi làm trang bán hàng.

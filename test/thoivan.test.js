@@ -150,3 +150,12 @@ test('Thử giá: số liệu theo từng mức giá, đếm người không tr�
   const r = rows[0]; assert.equal(r.views, 3); assert.equal(r.opens, 2); assert.equal(r.clicks, 1); assert.equal(r.clickRate.p, 0.5); assert.deepEqual(r.feel, [0, 0, 1, 0], 'bỏ qua giá trị ngoài 1-4');
   assert.equal(rows[1].opens, 0);
 });
+
+test('Đối chiếu iztro (cố định): lưu nguyệt Đẩu Quân của 22/7/1992 giờ Mão nam, năm 2026', () => {
+  // Giá trị lấy từ thư viện iztro 2.x (astro.bySolar + horoscope) cho 12 tháng âm 2026; nhánh 0 = Tý. Chạy lại bằng tools/compare-iztro.mjs.
+  const { profile, chart } = mk();
+  const t = timeCycle(profile, chart, 2026);
+  assert.deepEqual(t.months.map((m) => m.cung.pos), [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3]);
+  assert.equal(t.tuvi.ttChi, 'Ngọ'); assert.equal(chart.tuvi.palaces[t.tuvi.tt].name, 'Phúc Đức');
+  assert.deepEqual(t.tuvi.luuHoa.map((h) => [h.hoa, h.star]), [['Hóa Lộc', 'Thiên Đồng'], ['Hóa Quyền', 'Thiên Cơ'], ['Hóa Khoa', 'Văn Xương'], ['Hóa Kỵ', 'Liêm Trinh']]);
+});
