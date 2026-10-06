@@ -28,6 +28,17 @@ export const FUNNEL = [
   { key: 'signup_verified', label: 'Xác thực xong', names: ['signup_verified'] },
 ];
 
+/** Tab Đối chiếu: người dùng so lá số với ứng dụng khác. Đếm theo người (không trùng) và theo kết quả; lý do lệch giải thích được (cn = lịch Trung Quốc, leap = tháng nhuận, ty = giờ Tý muộn). */
+function compareStats(evs, actorsBy) {
+  const runs = evs.filter((e) => e.name === 'compare_run');
+  const count = (v) => runs.filter((e) => e.p.result === v).length;
+  const k = count('khop'), g = count('lech_giai_thich_duoc'), u = count('lech_khong_ro');
+  const reasons = { cn: 0, leap: 0, ty: 0 };
+  for (const e of runs) if (e.p.result === 'lech_giai_thich_duoc') for (const r of String(e.p.reason ?? '').split('+')) if (r in reasons) reasons[r]++;
+  const opened = new Set(evs.filter((e) => e.name === 'chart_tab' && e.p.tab === 'doichieu').map((e) => e.actor)), ran = actorsBy(['compare_run']);
+  return { opened: opened.size, people: ran.size, runs: runs.length, khop: k, giaiThich: g, khongRo: u, thieuDuLieu: count('thieu_du_lieu'), reasons, explainedOfDiff: pct(g, g + u), runRate: pct([...ran].filter((a) => opened.has(a)).length, opened.size) };
+}
+
 /** Bài thử giá: mỗi mức giá, bao nhiêu người thấy nút, mở bảng giá, bấm quan tâm, và họ thấy giá đó thế nào (1 rẻ, 2 hợp lý, 3 hơi đắt, 4 quá đắt). */
 function upgradeRows(evs) {
   const by = new Map();
@@ -137,6 +148,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     visitors: funnel[0].actors.size || allActors.size, funnel: funnelOut, sessions, retention: { d1: ret(1), d3: ret(3), d7: ret(7), cohorts: cohortRows.slice(-10) },
     satisfaction, quality, series,
     upgrade: upgradeRows(evs),
+    compare: compareStats(evs, actorsBy),
     explore: { visitors: actorsBy(['sample_view']).size, viewedChart: actorsBy(['static_view']).size, pickedSample: actorsBy(['sample_pick']).size, toChat: new Set(evs.filter((e) => e.name === 'sample_cta' && e.p.via === 'chat').map((e) => e.actor)).size, arrived: actorsBy(['explore_handoff']).size, zalo: actorsBy(['zalo_click']).size },
     thoivan: { openedTab: new Set(evs.filter((e) => e.name === 'chart_tab' && ['thoivan', 'cung12'].includes(e.p.tab)).map((e) => e.actor)).size, monthViews: actorsBy(['time_month']).size, asked: actorsBy(['chart_ask']).size, rated: actorsBy(['resonance_time']).size },
     segments: { age: seg('ageBand'), field: seg('field') }, startChoices: dist('start_choice', 'chip'), pace: dist('pace_toggle', 'mode'),
@@ -200,6 +212,9 @@ export function insights(m) {
   if (q.flags.lap_cum_tu.p > 0.15) add('lap-cum', 'warn', 'My lặp lại cụm từ giữa các lượt', `Tỉ lệ lượt dùng lại cụm đã nói: ${pc(q.flags.lap_cum_tu)}.`, 'Máy chủ đã đưa danh sách cụm bị lặp vào lời dặn mỗi lượt; nếu vẫn cao, thử model mạnh hơn cho giai đoạn đồng hành hoặc giảm số lượt cố gắng dùng cùng hình ảnh.', 4, q.turns, 2);
   if (q.flags.qua_nhieu_cau_hoi.p > 0.15) add('hoi-nhieu', 'warn', 'My hỏi dồn quá nhiều', `Tỉ lệ lượt hỏi quá mức: ${pc(q.flags.qua_nhieu_cau_hoi)}.`, 'Đúng điều người dùng đã phàn nàn lúc đầu: ràng buộc mỗi lượt tối đa một câu hỏi và luôn tặng một nhận định có giá trị trước khi hỏi.', 4, q.turns, 1);
   if (q.flags.khong_bam_loi_nguoi_dung.p > 0.2) add('khong-bam', 'warn', 'My chưa bám vào chi tiết người dùng kể', `Tỉ lệ lượt không nhắc lại ý nào của người dùng: ${pc(q.flags.khong_bam_loi_nguoi_dung)}.`, 'Nhấn mạnh kỹ thuật phản chiếu: nhắc lại một cụm từ cụ thể của người dùng trong câu đầu.', 4, q.turns, 1);
+  const cp = m.compare;
+  if (cp && cp.giaiThich + cp.khongRo >= 20 && cp.explainedOfDiff.p < 0.6) add('doi-chieu-khong-ro', 'warn', 'Nhiều lá số lệch mà My chưa giải thích được', `Trong các lần đối chiếu bị lệch, chỉ ${pc(cp.explainedOfDiff)} được giải thích bằng ba quy ước hiện có.`, 'Có thể thiếu một quy ước (cách an Cục, Mệnh theo trường phái khác) hoặc người dùng nhập nhầm. Xem lại các ca lệch và cân nhắc thêm quy ước.', 6, cp.giaiThich + cp.khongRo, 3);
+  if (cp && cp.reasons.leap >= 10 && cp.reasons.leap >= 0.25 * cp.giaiThich) add('quy-uoc-nhuan', 'info', 'Nhiều người lệch do quy ước tháng nhuận', `${cp.reasons.leap} trong ${cp.giaiThich} lần lệch giải thích được là do tháng nhuận.`, 'Cân nhắc đổi quy ước mặc định cho người sinh nửa sau tháng nhuận cho khớp với đa số ứng dụng người dùng đang dùng.', 5, cp.giaiThich, 2);
   const sk = m.intro?.skipFirstVisit;
   if (sk && sk.n >= 20 && sk.p > 0.4) add('bo-qua-intro', 'warn', 'Nhiều người bỏ qua màn mở đầu lần đầu', `Tỉ lệ bỏ qua bản dài (lần đầu): ${pc(sk)}.`, 'Bản dài đã được rút từ 8,4 giây xuống 4,6 giây và lời chào hiện từ giây 2,2. Số liệu trong kỳ có thể còn lẫn người xem bản cũ: đợi vài chục người mới rồi đọc lại. Nếu vẫn trên 40%, thử cho lời chào hiện ngay từ giây đầu hoặc bỏ pha cận mặt. Chạm để bỏ qua luôn có sẵn nên không mất gì. So sánh các lời chào ở tab Hành trình cảm xúc.', 3, sk.n, 1);
   const r = m.satisfaction.resonance;

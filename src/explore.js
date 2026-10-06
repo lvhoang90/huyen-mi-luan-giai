@@ -24,11 +24,11 @@ const cta = (sample) => sample
   ? 'Đây là hồ sơ mẫu hư cấu. <a href="#ex-form-card" data-form>Điền ngày sinh của bạn</a> để xem lá số thật.'
   : 'Muốn hỏi My về điều này? <a href="/" data-chat>Trò chuyện với My</a>, My sẽ nhận thông tin bạn vừa điền, không phải nhập lại.';
 
-function show(profile, { sample = false, key = null } = {}) {
+function show(profile, { sample = false, key = null, keep = false } = {}) {
   current = { profile, sample, key };
-  for (const k of Object.keys(state)) delete state[k];
+  if (!keep) for (const k of Object.keys(state)) delete state[k];
   const chart = buildChart(profile), host = $('#ex-chart');
-  renderChart(host, { profile, chart, state, cta: cta(sample), track });
+  renderChart(host, { profile, chart, state, cta: cta(sample), track, onLeapRule: (rule) => show(normalizeProfile({ ...profile, leapRule: rule }), { sample, key, keep: true }) });
   const fam = $('#ex-famous');
   if (!sample) {
     const f = pickFamous(profile, 3), list = [...f.sameDay, ...f.nearDay];
@@ -38,8 +38,8 @@ function show(profile, { sample = false, key = null } = {}) {
   $('#ex-result').hidden = false; $('#ex-cta').hidden = false;
   $('#ex-cta-t').textContent = sample ? 'Đây là hồ sơ mẫu. Muốn xem lá số của bạn?' : 'Muốn nói chuyện với My về lá số này?';
   $('#ex-cta-b').textContent = sample ? 'Điền ngày sinh của bạn' : 'Trò chuyện với My';
-  track('static_view', { via: sample ? 'sample' : 'form', hasTime: profile.birth.hour != null });
-  host.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  if (!keep) track('static_view', { via: sample ? 'sample' : 'form', hasTime: profile.birth.hour != null });
+  if (!keep) host.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 }
 
 // ---- chuyển sang ứng dụng: ghi hồ sơ nháp, ứng dụng nối tiếp từ đó (vẫn hỏi tuổi và lĩnh vực) ----
