@@ -195,31 +195,64 @@ export function timeline(profile, chart, fromYear, count = 5) {
 
 const lv = (i) => LEVELS[i];
 const dmy = (x) => `${x.d}/${x.m}`;
-/** Văn bản cho AI: chỉ là dữ kiện đã tính, AI không được sửa, và phải nói bằng giọng "giai đoạn nên chú ý". */
-export function describeTimeCycle(profile, chart, now = new Date()) {
-  const y = now.getFullYear(), L = [];
-  L.push('THỜI VẬN (đã tính; "mức chú ý" nhẹ/vừa/nhiều chỉ cho biết có bao nhiêu yếu tố cùng kích hoạt một lĩnh vực, KHÔNG phải tốt hay xấu):');
-  for (const yr of [y - 1, y, y + 1, y + 2, y + 3]) {
-    const t = timeCycle(profile, chart, yr, { withMonths: false });
-    const parts = [`Năm ${yr} (${t.yearPillar}${yr === y ? ', năm nay' : ''}): mức chú ý chung ${lv(t.level)}`];
-    if (t.tuvi) {
-      parts.push(`tuổi âm ${t.age}; Lưu Thái Tuế ở cung ${chart.tuvi.palaces[t.tuvi.tt].name}`);
-      if (t.tuvi.dai) parts.push(`đại hạn ${t.tuvi.dai.daiHan[0]}-${t.tuvi.dai.daiHan[1]} tuổi tại cung ${t.tuvi.dai.name}`);
-      if (t.top.length) parts.push(`cung nên chú ý: ${t.top.map((c) => `${c.name} (${lv(c.level)})`).join(', ')}`);
-      if (t.tuvi.luuHoa.length) parts.push(`Lưu Tứ Hóa: ${t.tuvi.luuHoa.map((h) => `${h.hoa} → ${h.star} (${h.cung})`).join('; ')}`);
-    }
-    parts.push(`Tứ Trụ: ${t.bazi.notes.join('; ')}`);
-    parts.push(`năm cá nhân ${t.numerology.personalYear} (${t.numerology.theme})`);
-    L.push('- ' + parts.join(' | '));
+const keyOf = (x) => x.y * 10000 + x.m * 100 + x.d;
+const vnToday = (now) => { const t = new Date(now.getTime() + 7 * 3600_000); return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() }; };
+
+/** Một dòng cho một năm. `full` có thêm Lưu Tứ Hóa và các nhận định Tứ Trụ; rút gọn thì chỉ mức chú ý, Lưu Thái Tuế, cung nên chú ý. */
+function yearLine(profile, chart, yr, nowYear, full) {
+  const t = timeCycle(profile, chart, yr, { withMonths: false });
+  const parts = [`Năm ${yr} (${t.yearPillar}${yr === nowYear ? ', năm nay' : ''}): mức chú ý chung ${lv(t.level)}`];
+  if (t.tuvi) {
+    parts.push(`tuổi âm ${t.age}; Lưu Thái Tuế ở cung ${chart.tuvi.palaces[t.tuvi.tt].name}`);
+    if (full && t.tuvi.dai) parts.push(`đại hạn ${t.tuvi.dai.daiHan[0]}-${t.tuvi.dai.daiHan[1]} tuổi tại cung ${t.tuvi.dai.name}`);
+    if (t.top.length) parts.push(`cung nên chú ý: ${t.top.map((c) => `${c.name} (${lv(c.level)})`).join(', ')}`);
+    if (full && t.tuvi.luuHoa.length) parts.push(`Lưu Tứ Hóa: ${t.tuvi.luuHoa.map((h) => `${h.hoa} → ${h.star} (${h.cung})`).join('; ')}`);
   }
+  if (full) parts.push(`Tứ Trụ: ${t.bazi.notes.join('; ')}`);
+  parts.push(`năm cá nhân ${t.numerology.personalYear} (${t.numerology.theme})`);
+  return '- ' + parts.join(' | ');
+}
+const monthLine = (m) => `- Tháng ${m.month} (${dmy(m.start)} đến ${dmy(m.end)}): mức chú ý ${lv(m.level)}; ${m.notes.slice(0, 3).join('; ')}`;
+const HEAD = 'THỜI VẬN (đã tính; "mức chú ý" nhẹ/vừa/nhiều chỉ cho biết có bao nhiêu yếu tố cùng kích hoạt một lĩnh vực, KHÔNG phải tốt hay xấu):';
+
+/**
+ * Văn bản cho AI (bản gọn, ổn định cả ngày để dùng bộ nhớ đệm): năm nay đầy đủ, năm trước và năm sau một dòng,
+ * tháng âm lịch hiện tại và hai tháng kế tiếp, các giai đoạn đời. Năm hoặc tháng khác được thêm theo lời người dùng
+ * bằng describeTimeExtra (đặt ngoài vùng đệm). Chỉ là dữ kiện đã tính; AI không được sửa, và phải nói bằng giọng "giai đoạn nên chú ý".
+ */
+export function describeTimeCycle(profile, chart, now = new Date()) {
+  const y = now.getFullYear(), L = [HEAD];
+  L.push(yearLine(profile, chart, y, y, true));
+  L.push(yearLine(profile, chart, y - 1, y, false), yearLine(profile, chart, y + 1, y, false));
   const cur = timeCycle(profile, chart, y);
-  L.push(`Các tháng âm lịch năm ${y}${cur.monthsNeedHour ? ' (thiếu giờ sinh nên chưa có phần Tử Vi theo tháng)' : ''}:`);
-  for (const m of cur.months) L.push(`- Tháng ${m.month} (${dmy(m.start)} đến ${dmy(m.end)}): mức chú ý ${lv(m.level)}; ${m.notes.slice(0, 3).join('; ')}`);
+  const today = keyOf(vnToday(now));
+  let idx = cur.months.findIndex((m) => keyOf(m.start) <= today && today <= keyOf(m.end));
+  if (idx < 0) idx = today < keyOf(cur.months[0].start) ? 0 : cur.months.length - 1;
+  const shown = cur.months.slice(idx, idx + 3);
+  L.push(`Tháng âm lịch gần nhất (tháng hiện tại và hai tháng kế tiếp)${cur.monthsNeedHour ? ' (thiếu giờ sinh nên chưa có phần Tử Vi theo tháng)' : ''}:`);
+  for (const m of shown) L.push(monthLine(m));
   if (chart.tuvi) {
     const st = lifeStages(chart.tuvi, now).map((s) => `${s.from}-${s.to} tuổi: cung ${s.name} (mức chú ý nền ${lv(s.level)})${s.current ? ' [đang đi]' : ''}`);
     L.push('Các giai đoạn đời theo đại hạn: ' + st.join('; '));
   }
-  L.push('Chỉ nói về những năm và tháng có trong khối này. Năm khác: nói thật là My chưa tính phần đó.');
+  L.push('Chỉ nói về những năm và tháng có trong khối này hoặc khối THỜI VẬN BỔ SUNG nếu có. Năm hay tháng khác: nói thật là My chưa tính phần đó.');
   for (const c of cur.caveats) L.push(`- Giới hạn: ${c}`);
   return L.join('\n');
+}
+
+/** Phần thời vận bổ sung theo điều người dùng vừa nhắc (năm cụ thể, "năm sau", "tháng 5"...). Rỗng nếu không có gì cần thêm. */
+export function describeTimeExtra(profile, chart, text, now = new Date()) {
+  const raw = String(text ?? ''), y = now.getFullYear(), years = [];
+  const add = (yr) => { if (Number.isInteger(yr) && yr >= y - 6 && yr <= y + 8 && !years.includes(yr) && years.length < 2) years.push(yr); };
+  for (const m of raw.matchAll(/\b(20\d{2})\b/g)) add(+m[1]);
+  if (/năm\s+(sau|tới|tiếp theo)/i.test(raw)) add(y + 1);
+  if (/năm\s+(ngoái|trước|vừa rồi)/i.test(raw)) add(y - 1);
+  const months = [...raw.matchAll(/tháng\s*(\d{1,2})\b/gi)].map((m) => +m[1]).filter((n) => n >= 1 && n <= 12).slice(0, 2);
+  const L = [];
+  for (const yr of years) L.push(yearLine(profile, chart, yr, y, true));
+  if (months.length) {
+    const yr = years[0] ?? y, cyc = timeCycle(profile, chart, yr);
+    for (const n of months) { const m = cyc.months.find((x) => x.month === n); if (m) L.push(`(năm ${yr}) ${monthLine(m).slice(2)}`.replace(/^/, '- ')); }
+  }
+  return L.length ? ['THỜI VẬN BỔ SUNG (đã tính, theo điều người dùng vừa nhắc; cùng quy tắc "mức chú ý" như trên):', ...L].join('\n') : '';
 }
