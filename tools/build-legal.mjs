@@ -14,7 +14,7 @@ function md(src) {
   }
   if (list) out.push('</ul>'); return out.join('\n');
 }
-const NAV = '<nav><a href="/about.html">Giới thiệu</a> · <a href="/terms.html">Điều khoản</a> · <a href="/privacy.html">Quyền riêng tư</a> · <a href="/license.html">Bản quyền</a></nav>';
+const NAV = '<nav><a href="/about.html">Giới thiệu</a> · <a href="/terms.html">Điều khoản</a> · <a href="/privacy.html">Quyền riêng tư</a> · <a href="/xoa-du-lieu.html">Xóa dữ liệu</a> · <a href="/license.html">Bản quyền</a></nav>';
 const page = (title, body) => `<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} · Huyền My Luận Giải</title><meta name="color-scheme" content="dark">
@@ -25,6 +25,7 @@ const page = (title, body) => `<!doctype html>
 const write = (f, t, b) => fs.writeFileSync(new URL(`../public/${f}`, import.meta.url), page(t, b));
 write('terms.html', 'Điều khoản sử dụng', md(fs.readFileSync(new URL('../docs/legal/dieu-khoan.md', import.meta.url), 'utf8')));
 write('privacy.html', 'Chính sách quyền riêng tư', md(fs.readFileSync(new URL('../docs/legal/quyen-rieng-tu.md', import.meta.url), 'utf8')));
+write('xoa-du-lieu.html', 'Xóa tài khoản và dữ liệu', md(fs.readFileSync(new URL('../docs/legal/xoa-du-lieu.md', import.meta.url), 'utf8')));
 write('about.html', 'Giới thiệu và liên hệ', md(fs.readFileSync(new URL('../docs/legal/gioi-thieu.md', import.meta.url), 'utf8')));
 write('license.html', 'Bản quyền', `<h1>Bản quyền</h1>${esc(fs.readFileSync(new URL('../LICENSE', import.meta.url), 'utf8')).split('\n').map((l) => (/^-{8,}$/.test(l.trim()) ? '<hr>' : l)).join('\n').split('<hr>').map((x) => `<pre>${x.trim().replace(/\n[ \t]+(?=\S)/g, ' ')}</pre>`).join('<hr>')}`);
-console.log('Đã dựng public/terms.html, privacy.html, about.html, license.html');
+console.log('Đã dựng public/terms.html, privacy.html, about.html, xoa-du-lieu.html, license.html');

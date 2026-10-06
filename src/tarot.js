@@ -1,5 +1,6 @@
 // Trang Tarot Huyền My: rút một lá mỗi ngày hoặc trải ba lá, đọc theo hướng soi mình, tải ảnh hoặc chia sẻ kèm liên kết giới thiệu.
 // Không gửi lên máy chủ điều bạn nghĩ hay lá bạn rút; chỉ ghi nhận tên sự kiện ẩn danh (rút lá, chia sẻ).
+import './pwa.js';
 import './style.css';
 import './explore.css';
 import './tarot.css';
@@ -11,7 +12,7 @@ import { icon } from './icons.js';
 import { SUITS } from './tarot/minor.js';
 import { cardArtSvg, cardBackSvg } from './tarot/art.js';
 import { mountCta } from './cta.js';
-import { shareTarot } from './share.js';
+import { shareTarot, prepareTarot, shareMessage } from './share.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -59,6 +60,9 @@ const actions = () => `<div class="tr-acts"><a class="btn primary" id="tr-ask" h
 
 function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = false } = {}) {
   shown = ids.map(cardById).filter(Boolean);
+  const positions0 = shown.length > 1 ? POS.map((p) => p[0]) : null, cards0 = shown;
+  // vẽ sẵn ảnh để chia sẻ ngay từ lúc bắt đầu lật bài, sớm hơn khi lời đọc hiện ra khoảng một đến hai giây
+  const ready = meReady.then((me) => prepareTarot({ cards: cards0, positions: positions0, url: urlOf(me) })).catch(() => null);
   const stage = $('#tr-stage'), read = $('#tr-read');
   stage.hidden = false; read.hidden = true; stage.className = 'tr-stage' + (shown.length > 1 ? ' three' : '');
   stage.innerHTML = shown.map((c, i) => `<div class="tr-slot">${cardHtml(c, { back: true })}${shown.length > 1 ? `<span class="pos">${POS[i][0]}</span>` : ''}</div>`).join('');
@@ -69,13 +73,16 @@ function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = fals
     const ids = shown.map((c) => c.id);
     $('#tr-ask').href = `/?tarot=${ids.join(',')}${topicKey ? `&chu=${topicKey}` : ''}`; $('#tr-ask').onclick = () => track('tarot_ask', { n: ids.length });
     const note = $('#tr-note'), say = (t) => { note.hidden = !t; note.textContent = t || ''; };
+    // ảnh đã được vẽ sẵn từ lúc bắt đầu lật bài (xem biến `ready` ở trên): bấm "Chia sẻ" thì hộp thoại của điện thoại mở liền
+    const positions = shown.length > 1 ? POS.map((p) => p[0]) : null, cards = shown;
     const share = async (m) => {
-      say(m === 'download' ? 'Đang tạo ảnh…' : 'Đang chuẩn bị ảnh để chia sẻ…');
+      say(m === 'download' ? 'Đang tạo ảnh…' : 'Đang chuẩn bị chia sẻ…');
       try {
-        const me = await meReady; const url = me.refCode ? `${location.origin}/?ref=${me.refCode}` : location.origin;
-        const r = await shareTarot({ cards: shown, positions: shown.length > 1 ? POS.map((p) => p[0]) : null, url }, m);
+        const me = await meReady;
+        const r = await shareTarot({ cards, positions, url: urlOf(me), blob: ready }, m);
         track('tarot_share', { action: r, mode: m, n: ids.length });
-        say(r === 'saved' ? 'Đã tải ảnh về máy bạn. Bạn mở thư viện ảnh hoặc mục Tải xuống để xem.' : r === 'shared' ? 'Đã mở chia sẻ.' : '');
+        say(shareMessage(r));
+        if (r === 'pending') ready.then((b) => { if (b) say('Ảnh đã sẵn sàng. Bạn bấm Chia sẻ nhé.'); });
       } catch (e) { track('tarot_share', { action: 'error', mode: m, n: ids.length }); say('Chưa tạo được ảnh lúc này, bạn thử lại sau ít giây nhé.'); }
     };
     $('#tr-dl').onclick = () => share('download'); $('#tr-share').onclick = () => share('share');
@@ -84,6 +91,7 @@ function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = fals
 }
 
 
+const urlOf = (me) => (me?.refCode ? `${location.origin}/tarot?ref=${me.refCode}` : `${location.origin}/tarot`);
 // ---------- sau khi xem lá: hỏi cảm xúc (đo hiệu quả) và lời mời đăng ký cho người chưa có tài khoản ----------
 const FEEL = [['Nhẹ nhõm', 4], ['Tò mò', 3], ['Bình thường', 2], ['Băn khoăn', 1]], FEEL_KEY = 'huyenmy.tarotfeel';
 const feelDone = () => { try { return localStorage.getItem(FEEL_KEY) === String(vnDay()); } catch { return false; } };

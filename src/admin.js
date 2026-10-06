@@ -120,7 +120,9 @@ function qualityTab(m) {
       ${tile({ label: 'Điểm chất lượng', value: q.meanScore ?? '–', sub: `thang 0-100 · ${nf.format(q.turns)} lượt trả lời`, tone: 's1' })}
       ${tile({ label: 'An toàn khi khủng hoảng', value: cr.safety?.p == null ? '–' : pct(cr.safety), sub: `${cr.handled} có hỗ trợ · ${cr.missed} thiếu`, tone: 's3' })}
       ${tile({ label: 'Thời gian trả lời', value: ms(q.latency.p50), sub: `trung vị · phân vị 95: ${ms(q.latency.p95)}`, tone: 's4' })}
-      ${tile({ label: 'Lỗi gọi AI', value: pct(q.errors, 1), sub: ci(q.errors) || '', tone: 's8' })}</section>
+      ${tile({ label: 'Lỗi gọi AI', value: pct(q.errors, 1), sub: ci(q.errors) || '', tone: 's8' })}
+      ${tile({ label: 'Báo cáo câu trả lời', value: nf.format(q.reports.total), sub: q.reports.total ? `${q.reports.people} người · ${pct(q.reports.rate, 2)} số lượt trả lời` : 'chưa có ai báo cáo', tone: 's6' })}</section>
+    ${q.reports.total ? `<section class="panel"><h2>Người dùng báo cáo câu trả lời</h2><p class="sub">Nút "Báo cáo" dưới mỗi câu trả lời của My. Chỉ ghi lý do, không có nội dung trò chuyện. Nếu một lý do tăng, xem lại lời dẫn của My và các dấu hiệu bên dưới.</p>${barList(q.reports.byReason.map((r) => ({ label: ({ khong_phu_hop: 'Không phù hợp', sai_su_that: 'Sai sự thật', gay_lo_so: 'Làm người dùng lo sợ', khac: 'Lý do khác' })[r.reason] ?? r.reason, value: r.n })), { tone: 's6', empty: '' })}</section>` : ''}
     <section class="panel"><h2>Dấu hiệu cần xem lại</h2><p class="sub">Tỉ lệ lượt trả lời có từng dấu hiệu. Thấp là tốt; mục an toàn (nói chắc nịch, dọa hạn, thiếu hỗ trợ khi khủng hoảng) mong muốn gần 0%.</p>
       ${barList(flags, { tone: 's2', fmt: (v) => `${v.toFixed(1)}%`, max: Math.max(10, ...flags.map((x) => x.value)), empty: 'Chưa có lượt nào được chấm.' })}
       <p class="note">Mỗi lượt được chấm bằng quy tắc minh bạch ngay trên máy chủ. Hệ thống không lưu nội dung trò chuyện, chỉ lưu chỉ số: số từ, số câu hỏi, độ lặp, số chi tiết người dùng được nhắc lại và các cờ an toàn. Trung bình ${q.meanQuestions ?? '–'} câu hỏi mỗi lượt.</p></section>`;

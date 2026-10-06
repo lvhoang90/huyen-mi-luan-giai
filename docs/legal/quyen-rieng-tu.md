@@ -29,6 +29,8 @@ Có hiệu lực từ 05/10/2026. Chuyện bạn kể với My là chuyện riê
 
 **e5. Giới thiệu bạn bè.** Khi bạn mở một liên kết giới thiệu (có mã `ref`), chúng tôi ghi nhận mã đó để cộng thời gian trò chuyện cho người đã chia sẻ khi bạn đăng ký và trò chuyện đủ lâu. Chúng tôi chỉ lưu những con số cần thiết (số phút trò chuyện mỗi ngày, mã giới thiệu, bạn có đủ điều kiện hay chưa), không lưu nội dung trò chuyện. Người giới thiệu chỉ thấy số lượt, không thấy email hay tên của bạn.
 
+**e6. Báo cáo câu trả lời.** Dưới mỗi câu trả lời của My có nút "Báo cáo". Nếu bạn bấm, chúng tôi chỉ ghi lý do bạn chọn (không phù hợp, sai sự thật, làm bạn lo sợ, lý do khác) và giai đoạn của buổi trò chuyện, gắn với mã ẩn danh như mục e. Chúng tôi không gửi kèm nội dung câu trả lời hay cuộc trò chuyện.
+
 **f. Địa chỉ IP.** Ứng dụng chỉ dùng IP tạm thời trong bộ nhớ để chống lạm dụng (giới hạn tốc độ), không ghi vào cơ sở dữ liệu. Máy chủ web và nhà cung cấp hạ tầng có thể ghi nhật ký truy cập (IP, thời gian) theo cách của họ.
 
 ## 2. Cookie và lưu trữ trong trình duyệt
@@ -61,7 +63,7 @@ Chúng tôi xử lý dữ liệu của bạn dựa trên sự đồng ý của b
 
 ## 7. Quyền của bạn
 Theo pháp luật về bảo vệ dữ liệu cá nhân, bạn có quyền được biết, đồng ý hoặc không đồng ý, truy cập, chỉnh sửa, rút lại đồng ý, xóa, hạn chế xử lý, phản đối và khiếu nại.
-- **Trong ứng dụng:** nút ☺ (Tài khoản) cho phép tắt lưu và xóa bản đã lưu, hoặc xóa tài khoản và dữ liệu.
+- **Trong ứng dụng:** nút ☺ (Tài khoản) cho phép tắt lưu và xóa bản đã lưu, hoặc xóa tài khoản và dữ liệu. Hướng dẫn từng bước, kể cả cách xóa bằng email, có tại [Xóa tài khoản và dữ liệu](/xoa-du-lieu.html).
 - **Qua email:** gửi yêu cầu tới luongviethoang.hcm@gmail.com. Chúng tôi sẽ xác minh yêu cầu và phản hồi trong thời hạn luật định.
 - Bạn cũng có quyền khiếu nại với cơ quan nhà nước có thẩm quyền.
 

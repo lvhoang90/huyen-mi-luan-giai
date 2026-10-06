@@ -96,3 +96,6 @@
 .tf-chips button { font: inherit; font-size: .9rem; color: #e9e3ff; background: rgba(255, 255, 255, .06); border: 1px solid rgba(190, 170, 255, .4); border-radius: 999px; padding: 8px 16px; cursor: pointer; }
 .tf-chips button:hover, .tf-chips button:focus-visible { border-color: #f3d98f; background: rgba(243, 217, 143, .12); }
 .tr-feel .tf-thanks { color: #a79fc9; font-size: .88rem; }
+
+@media (max-width: 360px) { .ex-top { padding-left: 12px; padding-right: 12px; gap: 8px; } .tr-nav { gap: 6px; } .tr-nav .btn.sm { padding-left: 11px; padding-right: 11px; font-size: 13px; } }
+@media (max-width: 340px) { .ex-top { flex-wrap: wrap; } .tr-nav { flex-wrap: wrap; } }

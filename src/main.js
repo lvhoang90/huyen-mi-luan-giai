@@ -1,11 +1,11 @@
+import './pwa.js';
 import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { track, sessionId, ageBand } from './track.js';
-import { shareCard, shareChart } from './share.js';
 import { icon } from './icons.js';
 import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
-import { cardById, vnDay, parseCardIds, topicLabel } from './tarot/cards.js';
+import { vnDay, parseCardIds, topicLabel } from './tarot/ids.js';
 import { shouldNudge, nudgeShown, nudgeSkipped, nudgeAccepted, NUDGE_KEY } from './nudge.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
@@ -13,9 +13,11 @@ import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, famousStory, pickFamous, FIELD_OPTIONS } from './engine/index.js';
-import { renderChart } from './chart-view.js';
 
 const $ = (s) => document.querySelector(s);
+// Phần tạo ảnh chia sẻ (khá nặng) nạp lúc rảnh, không chặn màn chào; khi bấm chia sẻ thì thường đã có sẵn.
+let shareMod = null; const loadShare = () => (shareMod ??= import('./share.js'));
+if ('requestIdleCallback' in window) requestIdleCallback(() => loadShare(), { timeout: 8000 }); else setTimeout(loadShare, 4000);
 const STORE = 'huyenmy.v1';
 const character = createCharacter($('#char'));
 const backdrop = createBackdrop($('#stage'), $('#wheel'));
@@ -183,7 +185,7 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
     // Giờ sinh: hàng chọn buổi để người nhập "1 giờ 20" biết rõ là sáng, trưa, chiều hay tối (mặc định: giờ 24).
     let period = 'h24'; const periodRow = kind === 'time' ? h('div', { className: 'periods', role: 'group', ariaLabel: 'Buổi trong ngày' }, ...PERIODS.map(([k, l]) => h('button', { type: 'button', className: 'chip' + (k === period ? ' on' : ''), textContent: l, ariaPressed: String(k === period), onclick: (e) => { period = k; for (const b of periodRow.children) { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-pressed', String(b === e.currentTarget)); } } }))) : null;
     if (periodRow) composer.append(periodRow);
-    const input = fields[0] ?? h('input', { className: 'field', type: 'text', placeholder, maxLength: 80, autocomplete: 'off' });
+    const input = fields[0] ?? h('input', { className: 'field', type: 'text', placeholder, maxLength: 80, autocomplete: 'off', ariaLabel: placeholder || 'Câu trả lời của bạn' });
     const go = h('button', { className: 'send', innerHTML: icon('send'), ariaLabel: 'Gửi' });
     const p2 = (v) => String(v).padStart(2, '0');
     const bad = (el) => { el.style.borderColor = '#ff8a8a'; };
@@ -223,7 +225,7 @@ function askChat(chips = []) {
     injectAsk = (text) => send(text);
     if (pendingAsk) { const t = pendingAsk; pendingAsk = null; setTimeout(() => send(t), 0); } // câu hỏi bấm từ hình lá số khi My đang bận
     if (chips.length) composer.append(chipsRow(chips, (c) => send(c.value ?? c, c.action ?? false)));
-    const ta = h('textarea', { className: 'field', rows: 1, placeholder: 'Kể với My…', maxLength: 2000 });
+    const ta = h('textarea', { className: 'field', rows: 1, placeholder: 'Kể với My…', maxLength: 2000, ariaLabel: 'Kể với My' });
     const go = h('button', { className: 'send', innerHTML: icon('send'), ariaLabel: 'Gửi' });
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; };
     const submit = () => { const v = ta.value.trim(); if (v) send(v); };
@@ -268,6 +270,17 @@ async function aiTurn(phase) {
   busy = true;
   try { return await aiTurnInner(phase); } finally { busy = false; if (limitHit) closeSession(); }
 }
+
+// Báo cáo câu trả lời của My (Google Play yêu cầu ứng dụng dùng AI tạo lời phải có cách báo cáo ngay trong ứng dụng). Chỉ gửi lý do và giai đoạn, không gửi nội dung trò chuyện.
+const REPORT_REASONS = [['khong_phu_hop', 'Không phù hợp'], ['sai_su_that', 'Sai sự thật'], ['gay_lo_so', 'Làm mình lo sợ'], ['khac', 'Lý do khác']];
+function addReport(b) {
+  const box = h('div', { className: 'rep-box' }), btn = h('button', { className: 'rep', type: 'button', title: 'Báo cáo câu trả lời này', innerHTML: `${icon('flag')}<span>Báo cáo</span>` });
+  box.append(btn); b.el.append(box);
+  const done = () => box.replaceChildren(h('span', { className: 'rep-q', textContent: 'Cảm ơn bạn. My ghi nhận để cải thiện, và không gửi kèm nội dung cuộc trò chuyện.' }));
+  btn.onclick = () => box.replaceChildren(h('span', { className: 'rep-q', textContent: 'Câu trả lời này có vấn đề gì?' }),
+    ...REPORT_REASONS.map(([k, l]) => h('button', { className: 'chip sm', type: 'button', textContent: l, onclick: () => { track('ai_report', { reason: k, phase: S.phase ?? '' }); done(); } })),
+    h('button', { className: 'rep', type: 'button', textContent: 'Hủy', onclick: () => box.replaceChildren(btn) }));
+}
 let suggestions = []; // gợi ý trả lời do chính My đưa ra ở lượt vừa rồi (chỉ khi hợp ngữ cảnh)
 async function aiTurnInner(phase) {
   suggestions = [];
@@ -285,6 +298,7 @@ async function aiTurnInner(phase) {
     return false;
   }
   await b.end();
+  addReport(b);
   suggestions = extractSuggestions(raw);
   S.messages.push({ role: 'assistant', content: stripTags(raw) }); save();
   return true;
@@ -489,10 +503,11 @@ async function askResonance() {
   if (v === 3) { const c = await ask({ kind: 'choice', chips: [{ label: 'Tạo thẻ chia sẻ', value: 'card' }, { label: 'Để sau', value: '' }] }); if (c === 'card') await doShare(); }
 }
 async function doShare() {
+  const { shareCard, shareMessage } = await loadShare();
   const f = pickFamous(S.profile).sameDay[0] ?? pickFamous(S.profile).nearDay[0];
   const r = await shareCard({ nickname: S.profile.nickname, element: chart?.bazi.dayMaster.hanh, trait: hookTrait, famous: f?.name, url: `${location.origin}/?ref=${ACCOUNT.refCode}` });
   track('share_card', { action: r });
-  note(r === 'saved' ? 'Thẻ đã được tải về máy bạn.' : r === 'shared' ? 'Đã mở chia sẻ.' : 'Bạn chưa chia sẻ thẻ.');
+  note(shareMessage(r) || 'Bạn chưa chia sẻ thẻ.');
 }
 function openAccount() {
   if (ACCOUNT.user) { location.href = '/goc-cua-toi'; return; } // đã đăng nhập: vào thẳng Góc của tôi
@@ -602,6 +617,8 @@ async function ritual() {
 }
 
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
+let cardById = () => null; // dữ liệu 78 lá chỉ nạp khi người dùng đến từ trang Tarot
+const wantCards = () => import('./tarot/cards.js').then((m) => { cardById = m.cardById; });
 const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa rút Tarot ${t.length > 1 ? 'ba lá' : 'lá'} ${t.map((c) => c.name).join(', ')}${topicLabel(S.tarotTopic) ? `, mình đang nghĩ về chuyện ${topicLabel(S.tarotTopic).toLowerCase()}` : ''}. My nói giúp mình nhé.` }] : []; };
 const startChips = () => [
   ...tarotChip(),
@@ -686,14 +703,18 @@ function askFromSheet(text) {
   else { pendingAsk = text; note('My ghi nhớ câu hỏi của bạn, nói xong My trả lời ngay.'); }
 }
 async function chartShare(mode) {
+  const { shareChart, shareMessage } = await loadShare();
   const c = chart ?? (chart = buildChart(S.profile));
   const url = ACCOUNT.refCode ? `${location.origin}/?ref=${ACCOUNT.refCode}` : location.origin; // liên kết giới thiệu: người mới vào qua đây được ghi nhận nguồn
   const r = await shareChart({ nickname: S.profile.nickname, chart: c, url }, mode);
   track('share_card', { action: r, via: 'chart', mode });
+  return shareMessage(r);
 }
-function renderSheet() {
+let chartView = null; // bảng lá số và phần giải thích chỉ nạp khi người dùng mở lá số, để màn chào nhanh hơn trên mạng chậm
+async function renderSheet() {
   const p = S.profile, c = chart ?? (chart = buildChart(p));
   sheetState.tab = sheetTab;
+  const { renderChart } = (chartView ??= await import('./chart-view.js'));
   renderChart($('#sheet-body'), {
     profile: p, chart: c, state: sheetState, track,
     ask: canAsk() ? askFromSheet : null, cta: canAsk() ? '' : 'My đang nghỉ hoặc chưa sẵn sàng; khi My quay lại, bạn bấm hỏi tiếp nhé.',
@@ -882,6 +903,7 @@ function offerResume() {
   if (S.restUntil && Date.now() < S.restUntil) restScreen();
 }
 const saved = load();
+if (urlTarot.length || saved?.tarot?.length) wantCards();
 // lá Tarot vừa rút ở trang /tarot được giữ vào trạng thái sau khi trạng thái đã lưu được nạp (nạp xong mới gán, tránh bị ghi đè)
 queueMicrotask(() => { if (urlTarot.length) { S.tarot = urlTarot; S.tarotTopic = urlTopic; try { save(); } catch {} } });
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {

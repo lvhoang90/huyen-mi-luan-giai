@@ -31,3 +31,7 @@ input[type=radio], input[type=checkbox] { accent-color: var(--gold); width: 18px
 
 #ex-result { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; } #ex-result > * { min-width: 0; }
 .tr-nav { display: flex; gap: 8px; }
+
+/* Màn hẹp 320px: thanh trên không được rộng hơn khung */
+@media (max-width: 360px) { .ex-top { padding-left: 12px; padding-right: 12px; gap: 8px; } .tr-nav { gap: 6px; } .tr-nav .btn.sm { padding-left: 11px; padding-right: 11px; font-size: 13px; } }
+@media (max-width: 340px) { .ex-top { flex-wrap: wrap; } .tr-nav { flex-wrap: wrap; } }

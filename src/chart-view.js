@@ -254,7 +254,7 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
   const sp = host.closest('.sheet-card:not(.flat)'), top = sp ? sp.scrollTop : (globalThis.scrollY ?? 0);
   host.innerHTML = `${title ? `<h2>Lá số của ${esc(profile.nickname)}</h2>
     <p class="sub">${esc(profile.fullName)} · ${profile.birth.d}/${profile.birth.m}/${profile.birth.y}${profile.birth.hour !== null ? ` · ${String(profile.birth.hour).padStart(2, '0')}:${String(profile.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>` : ''}
-    ${onShare ? `<div class="cactions"><button type="button" class="btn sm" data-share="download">${icon("download")} Tải ảnh lá số</button><button type="button" class="btn sm primary" data-share="share">${icon("share")} Chia sẻ</button></div>` : ''}
+    ${onShare ? `<div class="cactions"><button type="button" class="btn sm" data-share="download">${icon("download")} Tải ảnh lá số</button><button type="button" class="btn sm primary" data-share="share">${icon("share")} Chia sẻ</button></div><p class="sub" data-share-note role="status" aria-live="polite" hidden></p>` : ''}
     <div class="ctabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === st.tab ? 'on' : ''}" aria-selected="${k === st.tab}">${l}</button>`).join('')}</div>
     ${body}
     ${conventionsBox(c, profile, ctx)}
@@ -263,7 +263,11 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
   const again = () => renderChart(host, { profile, chart, state, ask, cta, onRate, onLeapRule, onShare, track, now, title });
   const tabs = host.querySelector('.ctabs'), on = tabs?.querySelector('button.on'); // giữ tab đang xem ở giữa hàng, không để hàng tab nhảy về đầu
   if (tabs && on) tabs.scrollLeft = on.offsetLeft - (tabs.clientWidth - on.offsetWidth) / 2;
-  for (const b of host.querySelectorAll('[data-share]')) b.onclick = async () => { b.disabled = true; try { await onShare?.(b.dataset.share); } finally { b.disabled = false; } };
+  for (const b of host.querySelectorAll('[data-share]')) b.onclick = async () => {
+    const note = host.querySelector('[data-share-note]'), say = (t) => { if (note) { note.hidden = !t; note.textContent = t || ''; } };
+    b.disabled = true; say('');
+    try { say(await onShare?.(b.dataset.share)); } catch { say('Chưa tạo được ảnh lúc này, bạn thử lại sau ít giây nhé.'); } finally { b.disabled = false; }
+  };
   const go = (tab) => { st.tab = tab; track('chart_tab', { tab }); again(); };
   for (const b of host.querySelectorAll('[data-tab],[data-goto]')) b.onclick = () => go(b.dataset.tab ?? b.dataset.goto);
   for (const b of host.querySelectorAll('[data-year]')) b.onclick = () => { st.year = +b.dataset.year; track('time_year', { offset: st.year - now.getFullYear() }); again(); };

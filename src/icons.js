@@ -2,6 +2,7 @@
 const P = {
   soundOn: '<path d="M11 5 6.5 9H3.5v6h3L11 19z"/><path d="M15.2 9a4.2 4.2 0 0 1 0 6"/><path d="M18.2 6.2a8.2 8.2 0 0 1 0 11.6"/>',
   soundOff: '<path d="M11 5 6.5 9H3.5v6h3L11 19z"/><path d="m16 9.5 4.5 5"/><path d="m20.5 9.5-4.5 5"/>',
+  flag: '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
   paceTap: '<path d="m9.5 6 6 6-6 6"/>',
   paceAuto: '<path d="m6 6 6 6-6 6"/><path d="m13 6 6 6-6 6"/>',
   admin: '<path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2"/><path d="M4 17h3"/><path d="M11 17h9"/><circle cx="9" cy="17" r="2"/>',

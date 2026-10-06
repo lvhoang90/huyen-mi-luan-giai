@@ -511,6 +511,15 @@ test('hành trình Tarot: so các kiểu lời mời đăng ký, cảm xúc và 
   assert.equal(t.habit[0].n, 1); assert.equal(t.habit[1].n, 1); assert.equal(t.habit[2].n, 0);
 });
 
+test('báo cáo câu trả lời của My: đếm theo lý do và theo tỉ lệ lượt trả lời', () => {
+  const db = openDb(':memory:'), now = Date.UTC(2026, 9, 5);
+  ingest(db, { actor: 'a1', userId: null, sid: 's1', events: [{ name: 'ai_report', props: { reason: 'sai_su_that', phase: 'companion' } }, { name: 'ai_report', props: { reason: 'sai_su_that' } }] }, now - 60_000);
+  ingest(db, { actor: 'a2', userId: null, sid: 's2', events: [{ name: 'ai_report', props: { reason: 'gay_lo_so' } }] }, now - 60_000);
+  const r = computeMetrics(db, { days: 7, now }).quality.reports;
+  assert.equal(r.total, 3); assert.equal(r.people, 2);
+  assert.deepEqual(r.byReason, [{ reason: 'sai_su_that', n: 2 }, { reason: 'gay_lo_so', n: 1 }]);
+});
+
 test('thưởng giới thiệu: đủ 10 phút và đã đăng ký thì người giới thiệu được thêm 30 phút mỗi ngày, cộng dồn, có trần', async () => {
   const h = await harness({ HUYENMY_DAILY_MINUTES: '30' });
   const signup = async (email, ref) => {
