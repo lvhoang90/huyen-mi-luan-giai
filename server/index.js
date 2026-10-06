@@ -12,6 +12,7 @@ import { buildSystemPrompt, PHASE_LIST, LENSES } from './persona.js';
 import { demoReply } from './demo.js';
 import { openDb } from './db.js';
 import { createApi } from './routes.js';
+import { safeZaloUrl } from './zalo.js';
 
 try { process.loadEnvFile(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.env')); } catch {}
 
@@ -24,6 +25,7 @@ const client = hasKey ? new Anthropic() : null;
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(root, 'data'));
 const db = openDb(process.env.DATABASE_FILE || path.join(DATA_DIR, 'huyenmy.db'));
 const api = createApi({ db });
+const ZALO_URL = safeZaloUrl(process.env.ZALO_URL);
 const ACCESS_CODE = (process.env.HUYENMY_ACCESS_CODE || '').trim();   // để trống = ai cũng vào được
 
 // ---- mã truy cập: so sánh hằng thời gian, đếm lần nhập sai theo IP ----
@@ -146,7 +148,7 @@ http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/') && await api.handle(req, res, pathname)) return;
   if (pathname === '/admin' || pathname === '/admin/') { req.url = '/admin.html'; pathname = '/admin.html'; }
   if (pathname === '/kham-pha' || pathname === '/kham-pha/') { req.url = '/kham-pha.html'; pathname = '/kham-pha.html'; }
-  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn });
+  if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn, zalo: ZALO_URL });
   if (pathname === '/api/unlock' && req.method === 'POST') return handleUnlock(req, res);
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });
   if (vite) return vite.middlewares(req, res);
@@ -155,7 +157,7 @@ http.createServer(async (req, res) => {
 
 // Email nhắc quay lại (chỉ gửi cho người đã tự chọn nhận): bật bằng HUYENMY_REMINDERS=on và PUBLIC_URL=https://tên-miền
 if (process.env.HUYENMY_REMINDERS === 'on' && api.accountsOn && process.env.PUBLIC_URL && process.env.RESEND_API_KEY) {
-  const tick = () => runReminders({ db, mail: (m) => sendMail(m, process.env), now: Date.now(), baseUrl: process.env.PUBLIC_URL.replace(/\/$/, ''), log: (m) => console.error(m) })
+  const tick = () => runReminders({ db, mail: (m) => sendMail(m, process.env), now: Date.now(), baseUrl: process.env.PUBLIC_URL.replace(/\/$/, ''), zaloUrl: ZALO_URL, log: (m) => console.error(m) })
     .then((n) => n && console.log(`[reminder] đã gửi ${n} thư nhắc`)).catch((e) => console.error('[reminder]', e.message));
   setTimeout(tick, 2 * 60_000); setInterval(tick, 60 * 60_000);
   console.log('Email nhắc quay lại: BẬT');

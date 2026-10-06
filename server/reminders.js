@@ -24,7 +24,7 @@ export function dueReminders(db, now) {
   return out;
 }
 
-export function buildReminder(baseUrl, token) {
+export function buildReminder(baseUrl, token, zaloUrl = '') {
   const unsub = `${baseUrl}/api/unsub?t=${token}`;
   return {
     subject: 'My vẫn ở đây, khi nào bạn rảnh ta kể tiếp nhé',
@@ -33,7 +33,7 @@ export function buildReminder(baseUrl, token) {
 Đây là lời nhắc nhẹ từ Huyền My. Lần trước ta chưa đi hết câu chuyện, và My vẫn sẵn sàng khi nào bạn muốn nói tiếp. Không có gì gấp cả.
 
 Quay lại gặp My: ${baseUrl}
-
+${zaloUrl ? `\nNếu bạn thích, nhóm Zalo của My ở đây (không bắt buộc): ${zaloUrl}\n` : ''}
 Bạn nhận thư này vì đã chọn nhận lời nhắc khi đăng ký. My gửi tối đa một thư mỗi tuần và sẽ dừng hẳn nếu bạn chưa quay lại sau ba thư. Muốn thôi nhận ngay bây giờ: ${unsub}
 
 Huyền My Luận Giải · © 2026 Lương Việt Hoàng`,
@@ -42,11 +42,11 @@ Huyền My Luận Giải · © 2026 Lương Việt Hoàng`,
 }
 
 /** Gửi các thư đến hạn. `mail` là hàm gửi thư (có thể giả lập khi kiểm thử). Trả về số thư đã gửi. */
-export async function runReminders({ db, mail, now = Date.now(), baseUrl, log = () => {} }) {
+export async function runReminders({ db, mail, now = Date.now(), baseUrl, zaloUrl = '', log = () => {} }) {
   let sent = 0;
   for (const u of dueReminders(db, now)) {
     try {
-      const m = buildReminder(baseUrl, u.remind_token);
+      const m = buildReminder(baseUrl, u.remind_token, zaloUrl);
       await mail({ to: u.email, ...m });
       db.prepare('UPDATE users SET remind_last = ?, remind_count = ? WHERE id = ?').run(now, u.count + 1, u.id);
       db.prepare('INSERT INTO events(ts, actor, user_id, sid, name, props) VALUES (?,?,?,?,?,?)').run(now, `u${u.id}`, u.id, null, 'reminder_sent', JSON.stringify({ n: u.count + 1 }));

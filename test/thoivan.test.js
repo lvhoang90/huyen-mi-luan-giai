@@ -6,6 +6,8 @@ import { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, rel
 import { TU_HOA } from '../src/engine/tuvi.js';
 import { demoReply } from '../server/demo.js';
 import { EVENTS } from '../server/events.js';
+import { safeZaloUrl } from '../server/zalo.js';
+import { buildReminder } from '../server/reminders.js';
 
 const NOW = new Date('2026-10-05');
 const mk = (extra = {}) => {
@@ -115,4 +117,12 @@ test('Chế độ demo trả lời câu hỏi bấm từ hình lá số bằng d
   assert.match(ask('My nói giúp mình về cung Quan Lộc (công việc, sự nghiệp) trong năm 2027 nhé.'), /Năm 2027, cung Quan Lộc/);
   assert.match(ask('My nói giúp mình về cung Tài Bạch (tiền bạc, cách kiếm và giữ) trong lá số của mình nhé.'), /Cung Tài Bạch/);
   for (const e of ['time_year', 'time_month', 'cung_pick', 'chart_ask', 'resonance_time']) assert.ok(EVENTS.has(e), e);
+});
+
+test('Zalo: chỉ nhận liên kết https tới Zalo, có trong email nhắc khi được cấu hình', () => {
+  assert.equal(safeZaloUrl('https://zalo.me/g/abcxyz'), 'https://zalo.me/g/abcxyz');
+  assert.equal(safeZaloUrl(' https://chat.zalo.me/?g=1 '), 'https://chat.zalo.me/?g=1');
+  for (const bad of ['http://zalo.me/g/x', 'https://evil.com/zalo.me', 'https://zalo.me.evil.com/', 'javascript:alert(1)', 'https://user:pw@zalo.me/x', '', undefined, 'zalo.me']) assert.equal(safeZaloUrl(bad), '', String(bad));
+  assert.match(buildReminder('https://x.vn', 'tok', 'https://zalo.me/g/abc').text, /https:\/\/zalo\.me\/g\/abc/);
+  assert.doesNotMatch(buildReminder('https://x.vn', 'tok').text, /Zalo/);
 });

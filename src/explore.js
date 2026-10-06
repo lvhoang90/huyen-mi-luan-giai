@@ -106,3 +106,11 @@ function find(q) {
   if (hits.length) track('sample_pick', { id: 'famous' });
 }
 $('#ex-q').addEventListener('input', (e) => find(e.target.value));
+
+// ---- nhóm Zalo (nếu máy chủ có cấu hình) ----
+fetch('/api/status').then((r) => r.json()).then((st) => {
+  if (!st.zalo) return;
+  const a = Object.assign(document.createElement('a'), { href: st.zalo, target: '_blank', rel: 'noopener', textContent: 'Nhóm Zalo của My' });
+  a.onclick = () => track('zalo_click', { via: 'explore' });
+  const foot = document.querySelector('.ex-foot'); foot.append(' · ', a);
+}).catch(() => {});

@@ -30,6 +30,15 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 - **Xem thử với dữ liệu giả lập:** `DATABASE_FILE=./data/demo.db node tools/seed-demo-data.mjs 600`, rồi chạy máy chủ với cùng biến đó. Đây không phải số liệu thật.
 - **Lưu ý triển khai:** SQLite nằm ở `DATA_DIR` (mặc định `./data`), trên host cần gắn ổ đĩa bền vững. Đây là dữ liệu cá nhân (email, và cuộc trò chuyện nếu được đồng ý): cần chính sách quyền riêng tư và căn cứ pháp lý phù hợp, ví dụ Nghị định 13/2023/NĐ-CP, trước khi mở công khai.
 
+## 12 cung, thời vận và trang Khám phá
+
+- **Thời vận** (`src/engine/thoivan.js`): lưu niên theo Lưu Thái Tuế và Lưu Tứ Hóa, lưu nguyệt theo cách Đẩu Quân, Tứ Trụ (hành và địa chi của năm, tháng so với Nhật chủ), năm và tháng cá nhân của thần số học, các giai đoạn đời theo đại hạn. Kết quả là **"mức chú ý" nhẹ, vừa, nhiều**: chỉ đếm số yếu tố đang kích hoạt một lĩnh vực, không phải điểm tốt xấu và không dự báo sự kiện. My nhận khối này làm dữ kiện và chỉ nói theo kiểu "giai đoạn nên chú ý điều gì". Chưa có tiểu hạn và sao lưu khác; phần này chưa có thư viện nào để đối chiếu độc lập, nên cần một người xem Tử Vi duyệt quy tắc trước khi thu phí.
+- **Radar 12 cung và tab Thời vận** trong bảng lá số ☯ (`src/chart-view.js`, dùng chung với trang Khám phá). Bấm một cung hoặc một tháng rồi "Hỏi My" thì câu hỏi đi thẳng vào cuộc trò chuyện. Với năm đã qua, người dùng được hỏi lá số có khớp không; số liệu này hiện ở trang quản trị.
+- **Trang `/kham-pha`**: xem lá số, 12 cung, thời vận không cần đăng nhập, mọi phép tính chạy trên trình duyệt. Có ba hồ sơ mẫu hư cấu và phép tính từ ngày sinh công khai của người nổi tiếng (chỉ từ năm 1800, không diễn giải). Nút "Trò chuyện với My" chuyển hồ sơ sang ứng dụng.
+- **Zalo**: đặt `ZALO_URL` (chỉ nhận https tới tên miền Zalo) để hiện lối vào nhóm ở cuối buổi, màn nghỉ, trang Khám phá và email nhắc.
+- **Góp ý có xin phép trích dẫn**: lý do điểm giới thiệu, người dùng chọn ẩn danh, ghi tên hay không cho trích. Xem tab "Góp ý và trích dẫn" ở `/admin`.
+- Trước khi thu phí: xem `docs/THU-PHI-VA-PHAP-LY.md` và bản nháp `docs/legal/nhap-thu-phi.md` (chưa áp dụng).
+
 ## Chạy
 
 ```bash

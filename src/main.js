@@ -309,6 +309,7 @@ async function closeSession() {
   track('session_close', { min: spent });
   await askMood('end');
   const nps = await askNps(); if (nps !== '' && nps != null) await askWhy('nps', nps);
+  await offerZalo('close');
   await signupGate('close');
   await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
   clearComposer(); watchRest(composer, async () => { S.restUntil = null; save(); startClock(); await say(`[[vui]]Chào ${S.profile.nickname}, My nghỉ xong rồi. ${S.teaser ? `Hôm nay My kể về **${S.teaser}** nhé, hay bạn có điều gì muốn nói trước?` : 'Bạn muốn kể gì với My?'}`, 300); S.teaser = null; save(); converse(); });
@@ -324,6 +325,12 @@ function watchRest(host, onBack) {
   btn.onclick = () => { clearInterval(timer); onBack(); };
   const timer = setInterval(upd, 20000); host.replaceChildren(h('div', { className: 'rest' }, label, btn)); upd();
 }
+/** Màn nghỉ được vẽ trước khi trạng thái máy chủ về, nên nút Zalo được thêm vào sau nếu cần. */
+function paintRestZalo() {
+  const host = document.querySelector('#veil-actions .rest:last-child');
+  if (!ZALO || !host || host.querySelector('.rest-zalo')) return;
+  host.append(h('button', { className: 'btn sm rest-zalo', textContent: 'Vào nhóm Zalo của My', onclick: () => openZalo('rest') }));
+}
 function restScreen() {
   track('rest_view');
   $('#veil').classList.remove('gone'); $('#dialog').hidden = true; intro.showStatic();
@@ -331,6 +338,7 @@ function restScreen() {
   $('#veil-actions').replaceChildren(box, ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
   const viewChart = h('button', { className: 'btn sm', textContent: '☯ Xem lại lá số của bạn (không cần đăng nhập)', onclick: () => { track('static_view', { via: 'rest' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; } });
   $('#veil-actions').append(h('div', { className: 'rest' }, viewChart));
+  paintRestZalo();
   watchRest(box, () => enter(true));
 }
 
@@ -437,6 +445,12 @@ async function askNps() {
   return v;
 }
 /** Hỏi lý do (không bắt buộc) và xin phép trích dẫn ẩn danh: đây là nguồn đánh giá thật để giới thiệu My, người dùng quyết định phần nào được dùng. */
+async function offerZalo(via) {
+  if (!ZALO) return;
+  await say('[[vui]]Nếu bạn thích, My có một nhóm Zalo: nơi nhận lời nhắc nhẹ, góp ý cho My và trao đổi về lá số. Không bắt buộc nhé.', 300);
+  const v = await ask({ kind: 'choice', chips: [{ label: 'Mở nhóm Zalo', value: 'open' }, { label: 'Để sau', value: '' }] });
+  if (v === 'open') openZalo(via);
+}
 async function askWhy(kind, rating) {
   await say('[[lang_nghe]]Nếu bạn muốn, kể My nghe vì sao bạn chọn như vậy: điều gì làm bạn thích, hoặc còn thiếu gì. Một hai câu thôi, bỏ qua cũng được.', 300);
   const text = await ask({ placeholder: 'Vì sao bạn chọn như vậy?', chips: [{ label: 'Bỏ qua', value: '' }] });
@@ -664,6 +678,8 @@ function renderSheet() {
   });
   sheetTab = sheetState.tab;
 }
+let ZALO = ''; // liên kết nhóm hoặc OA Zalo do máy chủ cấu hình (ZALO_URL), trống thì không hiện
+const openZalo = (via) => { track('zalo_click', { via }); window.open(ZALO, '_blank', 'noopener'); };
 const sheet = $('#sheet');
 $('#btn-chart').onclick = () => { track('chart_open'); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; };
 $('#sheet-close').onclick = () => (sheet.hidden = true);
@@ -694,7 +710,7 @@ const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => 
   if (ACCOUNT.user?.consentMemory && await restoreFromServer()) { offerResume(); enter(true); } // thiết bị mới đã đăng nhập sẵn: vào thẳng đúng phiên (không await: enter chờ chính promise này)
 }).catch(() => {});
 const ready = Promise.all([fetch('/api/status').then((r) => r.json()).then(async (s) => {
-  $('#demo-badge').hidden = s.ai;
+  $('#demo-badge').hidden = s.ai; ZALO = s.zalo || ''; paintRestZalo();
   LOCKED = !!s.locked; OPEN = !LOCKED || (!!getCode() && (await tryCode(getCode())) === null);
 }).catch(() => {}), meReady]);
 function askCode(then) {
