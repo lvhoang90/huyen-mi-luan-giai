@@ -460,3 +460,6 @@ a.veil-login { text-wrap: balance; line-height: 1.5; }
   .copy .legal a, .veil-reset, a.veil-login, .cta-later, .rep, .snd { position: relative; }
   .copy .legal a::after, .veil-reset::after, a.veil-login::after, .cta-later::after, .rep::after, .snd::after { content: ""; position: absolute; inset: -11px -8px; }
 }
+
+/* Màn rất hẹp (cỡ hiển thị lớn nhất, khoảng 288px): hàng nút ở thanh trên xuống dòng thay vì tràn ra ngoài khung */
+@media (max-width: 340px) { .topbar { flex-wrap: wrap; row-gap: 4px; } .tools { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; } .icon { width: 32px; height: 32px; } }

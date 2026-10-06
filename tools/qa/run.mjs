@@ -61,6 +61,7 @@ async function runProfile(P, idx, browser) {
   const vp = (pg) => pg.evaluate(() => ({ w: innerWidth, h: innerHeight }));
   const overflow = async (pg, what) => { const o = await pg.evaluate(() => ({ sw: document.documentElement.scrollWidth, bw: document.body.scrollWidth, iw: innerWidth })); const bad = Math.max(o.sw, o.bw) > o.iw + 1; check(`Không tràn ngang: ${what}`, !bad, bad ? `rộng ${Math.max(o.sw, o.bw)} > khung ${o.iw}` : ''); };
   const shot = (pg, n) => pg.screenshot({ path: path.join(OUT, 'shots', `${P.id}-${n}.jpg`), type: 'jpeg', quality: 55 }).catch(() => {});
+  const diagClick = async (loc, what) => { try { await loc.click({ timeout: 6000 }); } catch (e) { const who = await loc.evaluate((el) => { const r = el.getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return `${t?.tagName}.${String(t?.className).slice(0, 30)} tại (${Math.round(r.left)},${Math.round(r.top)}) ${Math.round(r.width)}x${Math.round(r.height)} / khung ${innerWidth}x${innerHeight}`; }).catch(() => 'không đo được'); check(`${what}: bấm được`, false, `bị che bởi hoặc ngoài khung: ${who}`); throw e; } };
   const step = async (name, fn) => { const t0 = Date.now(); try { await fn(); } catch (e) { check(`${name}: chạy được đến cùng`, false, e.message.split('\n')[0]); } R.metrics[`ms_${name}`] = Date.now() - t0; };
 
   // 1. Màn chào
@@ -164,10 +165,12 @@ async function runProfile(P, idx, browser) {
     await pg.locator('.msg.my .rep').last().waitFor({ state: 'visible', timeout: T(40000) }); R.metrics.replyMs = Date.now() - t0;
     check('My trả lời xong', true, `${R.metrics.replyMs}ms`);
     await overflow(pg, 'trò chuyện'); await shot(pg, '4-chat');
-    await pg.locator('.msg.my .rep').last().click(); await pg.locator('.rep-box .chip').first().click(); await sleep(200);
+    const rep = pg.locator('.msg.my .rep').last();
+    try { await rep.click({ timeout: 6000 }); } catch (e) { const who = await rep.evaluate((el) => { const r = el.getBoundingClientRect(), t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return `${t?.tagName}.${String(t?.className).slice(0, 30)}${t?.textContent ? ' "' + t.textContent.trim().slice(0, 20) + '"' : ''} tại y=${Math.round(r.top)}/${innerHeight}`; }).catch(() => '?'); check('Bấm được nút Báo cáo', false, `bị che bởi ${who}`); throw e; }
+    await diagClick(pg.locator('.rep-box .chip').first(), 'Chọn lý do báo cáo'); await sleep(200);
     check('Báo cáo câu trả lời được', /Cảm ơn bạn/.test(await pg.locator('.rep-box').last().innerText()));
     R.audit.chat = await pg.evaluate(AUDIT);
-    const chartBtn = pg.locator('#btn-chart'); if (await chartBtn.isVisible().catch(() => false)) { await chartBtn.click(); await pg.waitForSelector('#sheet:not([hidden])', { timeout: 5000 }); const ov = await pg.evaluate(() => { const s = document.querySelector('#sheet-body'), r0 = s.getBoundingClientRect(), edge = r0.left + s.clientWidth; return { d: s.scrollWidth - s.clientWidth, ox: getComputedStyle(s).overflowX, bad: [...s.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().right > edge + 0.5).slice(0, 4).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 24)} +${Math.round(e.getBoundingClientRect().right - edge)}px`) }; });
+    const chartBtn = pg.locator('#btn-chart'); if (await chartBtn.isVisible().catch(() => false)) { await diagClick(chartBtn, 'Mở bảng lá số'); await pg.waitForSelector('#sheet:not([hidden])', { timeout: 5000 }); const ov = await pg.evaluate(() => { const s = document.querySelector('#sheet-body'), r0 = s.getBoundingClientRect(), edge = r0.left + s.clientWidth; return { d: s.scrollWidth - s.clientWidth, ox: getComputedStyle(s).overflowX, bad: [...s.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().right > edge + 0.5).slice(0, 4).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 24)} +${Math.round(e.getBoundingClientRect().right - edge)}px`) }; });
       const card = await pg.evaluate(() => { const c = document.querySelector('.sheet-card'); return { d: c.scrollWidth - c.clientWidth, ox: getComputedStyle(c).overflowX }; });
       check('Bảng lá số mở được, người dùng không trượt ngang được', card.d <= 1 || ['hidden', 'clip'].includes(card.ox), `khung bảng: lệch ${card.d}px, overflow-x ${card.ox}; nội dung thanh tab lệch ${ov.d}px ${ov.bad.join(', ')}`); await pg.locator('#sheet-close').click().catch(() => {}); }
     await pg.close();
