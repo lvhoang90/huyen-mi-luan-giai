@@ -153,6 +153,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     tarot: {
       visitors: actorsBy(['tarot_view']).size, drew: actorsBy(['tarot_draw']).size, daily: new Set(evs.filter((e) => e.name === 'tarot_draw' && e.p.mode === 'daily').map((e) => e.actor)).size,
       three: new Set(evs.filter((e) => e.name === 'tarot_draw' && e.p.mode === 'three').map((e) => e.actor)).size, returned: new Set(evs.filter((e) => e.name === 'tarot_draw' && e.p.again === true).map((e) => e.actor)).size,
+      nudged: actorsBy(['tarot_nudge']).size, nudgeAccepted: new Set(evs.filter((e) => e.name === 'tarot_nudge' && e.p.action === 'accept').map((e) => e.actor)).size, ctaVeil: new Set(evs.filter((e) => e.name === 'tarot_cta' && e.p.where === 'veil').map((e) => e.actor)).size, ctaTop: new Set(evs.filter((e) => e.name === 'tarot_cta' && e.p.where === 'topbar').map((e) => e.actor)).size,
       shared: actorsBy(['tarot_share']).size, asked: actorsBy(['tarot_ask']).size, browsed: actorsBy(['tarot_browse']).size,
     },
     referral: (() => { // chỉ số lượng, không có email hay danh tính

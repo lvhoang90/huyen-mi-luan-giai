@@ -6,7 +6,8 @@ import { track, sessionId, ageBand } from './track.js';
 import { shareCard, shareChart } from './share.js';
 import { icon } from './icons.js';
 import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
-import { cardById } from './tarot/cards.js';
+import { cardById, vnDay, parseCardIds } from './tarot/cards.js';
+import { shouldNudge, nudgeShown, nudgeSkipped, nudgeAccepted, NUDGE_KEY } from './nudge.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
@@ -773,7 +774,7 @@ async function tryCode(code) {
 // Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
 const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/[^\w-]/g, '').slice(0, 20);
 // Lá Tarot vừa rút ở trang /tarot (liên kết "Hỏi My về lá bài này"): My biết người dùng vừa rút lá nào để nói đúng chuyện đó.
-const urlTarot = (new URLSearchParams(location.search).get('tarot') ?? '').split(',').map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 77).slice(0, 3);
+const urlTarot = parseCardIds(new URLSearchParams(location.search).get('tarot'));
 track('landing_view', { ref: urlRef, gv: GV });
 try { const nav = performance.getEntriesByType('navigation')[0]; if (nav && nav.type !== 'navigate') track('page_reload', { type: nav.type, step: load()?.phase ?? 'new' }); } catch {}
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
@@ -831,13 +832,37 @@ async function askPlace() {
   }
 }
 
-async function enter(resume) {
+// Nhắc khéo xem Tarot cho người quay lại, trước khi vào khung chat (tối đa mỗi ngày một lần, thưa dần nếu bạn bỏ qua; xem src/nudge.js)
+const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+function tarotNudge() {
+  const today = vnDay(), nudge = lsGet(NUDGE_KEY);
+  if (!shouldNudge({ daily: lsGet('huyenmy.tarotdaily'), nudge, today })) return Promise.resolve(false);
+  lsSet(NUDGE_KEY, nudgeShown(nudge, today)); track('tarot_nudge', { action: 'shown' });
+  return new Promise((resolve) => {
+    const done = (go) => { back.remove(); resolve(go); };
+    const back = h('div', { className: 'nudge-back', role: 'dialog', ariaLabel: 'Tarot hôm nay' }, h('div', { className: 'nudge' },
+      h('div', { className: 'nd-card', innerHTML: icon('tarot') }),
+      h('h2', { textContent: 'Hôm nay bạn có muốn xem Tarot không?' }),
+      h('p', { textContent: 'Mỗi ngày một lá, như một câu hỏi nhỏ để soi mình. Chỉ mất chưa đầy một phút.' }),
+      h('div', { className: 'nd-acts' },
+        h('a', { className: 'btn primary', href: '/tarot', textContent: 'Rút lá hôm nay', onclick: () => { lsSet(NUDGE_KEY, nudgeAccepted(today)); track('tarot_nudge', { action: 'accept' }); } }),
+        h('button', { type: 'button', className: 'nd-later', textContent: 'Để sau, vào trò chuyện với My', onclick: () => { lsSet(NUDGE_KEY, nudgeSkipped(lsGet(NUDGE_KEY), today)); track('tarot_nudge', { action: 'later' }); done(false); } }))));
+    document.body.append(back);
+  });
+}
+
+for (const a of document.querySelectorAll('[data-where]')) a.addEventListener('click', () => track('tarot_cta', { where: a.dataset.where }));
+try { if (lsGet('huyenmy.tarotdaily')?.day !== vnDay()) $('#btn-tarot').classList.add('new'); } catch {}
+
+async function enter(resume, { nudge = true } = {}) {
   track(resume ? 'resume_click' : 'enter_click');
   if (resume && (S.sessions ?? 0) >= 1) track('return_visit', { n: S.sessions });
   await ready;
   if (!OPEN) return askCode(() => enter(resume));
   if (resume && S.restUntil && Date.now() < S.restUntil) return restScreen();
   if (resume && S.restUntil) { S.restUntil = null; save(); }
+  if (resume && nudge && !urlTarot.length && await tarotNudge()) return; // đã đi xem Tarot
   intro.release(); $('#veil').classList.add('gone'); $('#dialog').hidden = false;
   await sleep(900);
   if (resume) {
@@ -870,4 +895,4 @@ if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes
   try { S = { ...saved, profile: normalizeProfile(saved.profile) }; offerResume(); } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);
 if (!S.profile && saved?.draft?.fullName && saved.phase === 'collect') { S = { ...saved }; enter(false); } // trang bị nạp lại giữa lúc điền hồ sơ: vào thẳng, nối tiếp
-try { if (sessionStorage.getItem(AUTORESUME)) { sessionStorage.removeItem(AUTORESUME); if (S.profile && S.messages?.length) enter(true); } } catch {}
+try { if (sessionStorage.getItem(AUTORESUME)) { sessionStorage.removeItem(AUTORESUME); if (S.profile && S.messages?.length) enter(true, { nudge: false }); } } catch {}

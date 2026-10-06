@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CARDS, cardById, drawCards, dailyCard, vnDay } from '../src/tarot/cards.js';
+import { CARDS, cardById, drawCards, dailyCard, vnDay, parseCardIds } from '../src/tarot/cards.js';
 import { tarotBlock, buildSystemPrompt } from '../server/persona.js';
 import { normalizeProfile, buildChart } from '../src/engine/index.js';
 
@@ -41,4 +41,10 @@ test('lời nhắc cho My: có lá bài vừa rút, đã lọc và chỉ khi có
   const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } }), chart = buildChart(profile);
   const withT = buildSystemPrompt('companion', profile, chart, [{ role: 'user', content: 'chào' }], { tarot: [13] });
   assert.match(withT, /Chuyển Hóa/); assert.doesNotMatch(buildSystemPrompt('companion', profile, chart, [{ role: 'user', content: 'chào' }], {}), /VỪA RÚT TAROT/);
+});
+
+test('tham số ?tarot=: rỗng hoặc sai thì không có lá nào, không biến thành lá số 0', () => {
+  assert.deepEqual(parseCardIds(''), []); assert.deepEqual(parseCardIds(null), []); assert.deepEqual(parseCardIds('abc,,x'), []);
+  assert.deepEqual(parseCardIds('0'), [0], 'lá số 0 viết rõ thì vẫn nhận');
+  assert.deepEqual(parseCardIds('17, 40,99,5,1'), [17, 40, 5], 'bỏ lá ngoài bộ, tối đa ba lá');
 });

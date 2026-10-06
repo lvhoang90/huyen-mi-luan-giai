@@ -23,7 +23,7 @@ const SEED_KEY = 'huyenmy.tarotseed', DAILY_KEY = 'huyenmy.tarotdaily';
 const rid = () => (crypto.randomUUID?.() ?? String(Math.random()).slice(2)).replace(/-/g, '').slice(0, 20);
 let seed = ''; try { seed = localStorage.getItem(SEED_KEY) || ''; if (!seed) { seed = rid(); localStorage.setItem(SEED_KEY, seed); } } catch { seed = rid(); }
 const getDaily = () => { try { const d = JSON.parse(localStorage.getItem(DAILY_KEY)); return d?.day === vnDay() ? d.id : null; } catch { return null; } };
-const setDaily = (id) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ day: vnDay(), id })); } catch {} };
+const setDaily = (id) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ day: vnDay(), id })); localStorage.setItem('huyenmy.tarotnudge', JSON.stringify({ last: vnDay(), skips: 0 })); } catch {} };
 
 const HIST_KEY = 'huyenmy.tarothist';
 const addHist = (mode, ids) => { try { const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; h.unshift({ d: vnDay(), m: mode, ids }); localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); } catch {} };
