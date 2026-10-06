@@ -21,6 +21,10 @@ Có hiệu lực từ 05/10/2026. Trang này giải thích Huyền My Luận Gi�
 
 **e. Số liệu sử dụng ẩn danh.** Một mã ẩn danh (cookie `hm_a`, và mã phiên trong trình duyệt), tên các bước bạn đi qua (ví dụ đã xem màn chào, đã bắt đầu trò chuyện, đã chấm điểm), nhóm tuổi, lĩnh vực, nguồn giới thiệu, và chỉ số kỹ thuật của mỗi lượt trả lời (số từ, độ trễ, cờ an toàn). **Không có nội dung trò chuyện trong số liệu này.** Chúng tôi dùng nó để sửa lỗi và cải thiện My.
 
+**e2. Góp ý bạn tự viết (chỉ khi bạn chọn).** Cuối buổi My có thể mời bạn nói lý do chấm điểm. Nếu bạn viết, chúng tôi lưu lời đó cùng điểm số và thời điểm, gắn với mã ẩn danh hoặc tài khoản của bạn. Chỉ khi bạn chọn "Được, ẩn danh" hoặc "Được, ghi tên", chúng tôi mới được trích lời bạn khi giới thiệu My; nếu bạn chọn ghi tên thì tên hiển thị là tên gọi bạn đã chọn. Chọn "Không", lời bạn chỉ để chúng tôi đọc và cải thiện. Đừng viết thông tin nhạy cảm vào góp ý. Xóa tài khoản sẽ xóa các góp ý gắn với tài khoản đó.
+
+**e3. Trang Khám phá.** Khi bạn xem lá số ở trang Khám phá, mọi phép tính chạy ngay trên trình duyệt; họ tên, ngày giờ sinh bạn nhập ở đó không được gửi lên máy chủ. Chỉ khi bạn bấm "Trò chuyện với My", thông tin ấy mới được ghi vào bộ nhớ cục bộ của trình duyệt để ứng dụng nối tiếp, và chỉ gửi tới máy chủ khi bạn bắt đầu trò chuyện. Trang này chỉ ghi nhận tên các bước (đã xem trang, đã chọn hồ sơ mẫu) như mục e.
+
 **f. Địa chỉ IP.** Ứng dụng chỉ dùng IP tạm thời trong bộ nhớ để chống lạm dụng (giới hạn tốc độ), không ghi vào cơ sở dữ liệu. Máy chủ web và nhà cung cấp hạ tầng có thể ghi nhật ký truy cập (IP, thời gian) theo cách của họ.
 
 ## 2. Cookie và lưu trữ trong trình duyệt

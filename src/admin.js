@@ -1,12 +1,12 @@
 import './admin.css';
-import { esc, nf, pct, ci } from './admin-ui.js';
+import { esc, nf, pct, ci, download, toCsv } from './admin-ui.js';
 import { renderJourney, wireJourney } from './admin-journey.js';
 import { loadPeople } from './admin-people.js';
 
 const app = document.getElementById('app');
 const SEV = { critical: ['▲', 'Nghiêm trọng'], warn: ['●', 'Cần xem'], info: ['○', 'Gợi ý'] };
 let days = +(new URLSearchParams(location.search).get('days')) || 14, data = null, journey = null;
-const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Hành trình cảm xúc'], ['nguoi', 'Người tham gia'], ['tang-truong', 'Tăng trưởng và giữ chân'], ['chat-luong', 'Chất lượng và an toàn'], ['phuong-phap', 'Phương pháp']];
+const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Hành trình cảm xúc'], ['nguoi', 'Người tham gia'], ['tang-truong', 'Tăng trưởng và giữ chân'], ['chat-luong', 'Chất lượng và an toàn'], ['gop-y', 'Góp ý và trích dẫn'], ['phuong-phap', 'Phương pháp']];
 const tabNow = () => { const h = location.hash.replace(/^#\/?/, ''); return TABS.some(([k]) => k === h) ? h : 'tong-quan'; };
 
 async function load() {
@@ -97,9 +97,10 @@ function satisfaction(s, intro) {
   const r = s.resonance, tot = r.n || 1, cols = ['var(--seq1)', 'var(--seq2)', 'var(--seq4)'], names = ['Chưa đúng lắm', 'Gần đúng', 'Rất đúng'];
   const bar = r.dist.map((v, i) => `<span style="flex:${v};background:${cols[i]}" title="${names[i]}: ${v}"></span>`).join('');
   const key = r.dist.map((v, i) => `<span><i style="background:${cols[i]}"></i>${names[i]} ${Math.round((v / tot) * 100)}% (${v})</span>`).join('');
-  const nps = s.nps;
+  const nps = s.nps, tf = s.timeFit;
   return `<div class="kpis"><div class="kpi"><div class="v">${pct(r.good)}</div><div class="l">Cho rằng My nói đúng (gần đúng trở lên)</div><div class="n">${ci(r.good)}</div></div>
     <div class="kpi"><div class="v">${pct(r.strong)}</div><div class="l">Cho rằng "rất đúng"</div><div class="n">${ci(r.strong)}</div></div>
+    <div class="kpi"><div class="v">${pct(tf?.good)}</div><div class="l">Lớp thời vận khớp với năm đã qua (một phần trở lên)</div><div class="n">${tf?.n ? ci(tf.good) : 'Chưa có ai trả lời'}. Đây là dữ liệu quyết định có nên thu phí cho lớp thời vận.</div></div>
     <div class="kpi"><div class="v">${nps.score ?? '–'}</div><div class="l">NPS (muốn giới thiệu bạn bè)</div><div class="n">n=${nps.n}: ${nps.promoters} ủng hộ, ${nps.passives} trung lập, ${nps.detractors} chưa hài lòng</div></div>
     <div class="kpi"><div class="v">${pct(intro?.skipFirstVisit)}</div><div class="l">Bỏ qua màn mở đầu (lần đầu)</div><div class="n">${ci(intro?.skipFirstVisit) || 'Chưa có dữ liệu'}. Trên 40% thì nên rút ngắn.</div></div></div>
     <div class="stack" role="img" aria-label="Phân bố đánh giá độ đúng">${bar}</div><div class="stackkey">${key}</div>
@@ -142,6 +143,8 @@ function overviewTab(m) {
 }
 const growthTab = (m) => `<div class="grid2"><section class="panel"><h2>Giữ chân</h2><p class="sub">Tỉ lệ người mới quay lại đúng ngày thứ 1, 3, 7 sau lần đầu.</p>${cohorts(m.retention)}</section>
       <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>${satisfaction(m.satisfaction, m.intro)}</section></div>
+    <div class="grid2" style="margin-top:16px"><section class="panel"><h2>Trang Khám phá (xem lá số không cần đăng nhập)</h2><p class="sub">Số người (không trùng).</p>${listTable([{ n: 'Vào trang', v: m.explore.visitors }, { n: 'Xem một lá số', v: m.explore.viewedChart }, { n: 'Chọn hồ sơ mẫu', v: m.explore.pickedSample }, { n: 'Bấm sang trò chuyện với My', v: m.explore.toChat }, { n: 'Đã đến ứng dụng với hồ sơ', v: m.explore.arrived }, { n: 'Bấm vào Zalo', v: m.explore.zalo }], 'n', 'v')}</section>
+      <section class="panel"><h2>Lớp 12 cung và thời vận</h2><p class="sub">Số người (không trùng).</p>${listTable([{ n: 'Mở tab 12 cung hoặc Thời vận', v: m.thoivan.openedTab }, { n: 'Xem chi tiết một tháng', v: m.thoivan.monthViews }, { n: 'Bấm hỏi My từ lá số', v: m.thoivan.asked }, { n: 'Trả lời năm đã qua có khớp không', v: m.thoivan.rated }], 'n', 'v')}</section></div>
     <div class="grid2" style="margin-top:16px">${segTable('Theo nhóm tuổi', m.segments.age)}${segTable('Theo lĩnh vực làm việc', m.segments.field)}</div>
     <div class="grid2" style="margin-top:16px"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${listTable(m.startChoices, 'name', 'n')}</section><section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}).</p>${listTable(m.growth.referrals, 'ref', 'n')}</section></div>`;
 const qualityTab = (m) => `<section class="panel"><h2>Chất lượng tư vấn</h2><p class="sub">An toàn, độ bám người dùng, độ lặp và tốc độ của từng lượt trả lời.</p>${quality(m.quality)}</section>`;
@@ -157,6 +160,7 @@ async function paintTab(tab) {
   if (tab === 'tong-quan') host.innerHTML = overviewTab(data), wireLine(data.series);
   else if (tab === 'tang-truong') host.innerHTML = growthTab(data);
   else if (tab === 'chat-luong') host.innerHTML = qualityTab(data);
+  else if (tab === 'gop-y') await loadFeedback(host);
   else if (tab === 'phuong-phap') host.innerHTML = methodTab();
   else if (tab === 'nguoi') await loadPeople(host, 0);
   else if (tab === 'cam-xuc') {
@@ -164,6 +168,18 @@ async function paintTab(tab) {
     if (!journey) { const r = await fetch(`/api/admin/journey?days=${days}`, { cache: 'no-store' }); if (!r.ok) { host.innerHTML = `<p class="err">Không tải được (${r.status}).</p>`; return; } journey = await r.json(); }
     host.innerHTML = renderJourney(journey); wireJourney(journey, days);
   }
+}
+async function loadFeedback(host) {
+  host.innerHTML = '<p class="muted" style="padding:16px">Đang tải…</p>';
+  const r = await fetch(`/api/admin/feedback?days=${days}`, { cache: 'no-store' });
+  if (!r.ok) { host.innerHTML = `<p class="err">Không tải được (${r.status}).</p>`; return; }
+  const rows = await r.json(), KIND = { nps: 'Lý do điểm giới thiệu', resonance: 'Độ đúng', time: 'Thời vận', general: 'Góp ý chung' };
+  const quotable = rows.filter((x) => x.quoteOk);
+  host.innerHTML = `<section class="panel"><h2>Góp ý và lời được phép trích dẫn</h2>
+    <p class="sub">${rows.length} góp ý trong kỳ, ${quotable.length} người cho phép trích dẫn ẩn danh khi giới thiệu My. Chỉ dùng đúng phần được phép; không đoán danh tính. Lời trích ghi theo tên hiển thị người ấy tự chọn.</p>
+    <div class="row-actions"><button class="btn" id="fb-csv">Tải CSV</button></div>
+    <div class="scroll"><table><thead><tr><th>Ngày</th><th>Loại</th><th class="num">Điểm</th><th>Lời góp ý</th><th>Trích dẫn</th></tr></thead><tbody>${rows.map((x) => `<tr><td>${new Date(x.ts).toLocaleDateString('vi-VN')}</td><td>${esc(KIND[x.kind] ?? x.kind)}</td><td class="num">${x.rating ?? '–'}</td><td>${esc(x.text)}</td><td>${x.quoteOk ? `Được phép${x.display ? `, ghi "${esc(x.display)}"` : ', ẩn danh'}` : 'Không'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Chưa có góp ý.</td></tr>'}</tbody></table></div></section>`;
+  document.getElementById('fb-csv').onclick = () => download('huyenmy-gop-y.csv', toCsv([{ key: 'date', label: 'Ngày' }, { key: 'kind', label: 'Loại' }, { key: 'rating', label: 'Điểm' }, { key: 'text', label: 'Lời góp ý' }, { key: 'quoteOk', label: 'Được trích dẫn' }, { key: 'display', label: 'Tên hiển thị' }], rows.map((x) => ({ ...x, date: new Date(x.ts).toISOString().slice(0, 10) }))));
 }
 addEventListener('hashchange', () => { if (data) render(); });
 load();

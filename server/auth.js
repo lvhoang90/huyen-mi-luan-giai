@@ -101,6 +101,7 @@ export function createAuth({ db, pepper, adminEmails = [], mailer = sendMail, no
     db.prepare('DELETE FROM anon_links WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM turns WHERE actor = ?').run(`u${userId}`);
     db.prepare('DELETE FROM events WHERE actor = ?').run(`u${userId}`);
+    db.prepare('DELETE FROM feedback WHERE actor = ? OR user_id = ?').run(`u${userId}`, userId);
     db.prepare('UPDATE events SET user_id = NULL WHERE user_id = ?').run(userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
   }
