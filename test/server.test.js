@@ -524,3 +524,10 @@ test('hết phút trong ngày thì mời giới thiệu, sang ngày mới đư�
   assert.equal(h.api.rewards.referralsOf(1).length, 0);
   h.close();
 });
+
+test('số liệu quản trị có mục giới thiệu bạn bè', async () => {
+  const h = await harness();
+  const m = computeMetrics(h.db, { days: 14, now: Date.UTC(2026, 9, 5) });
+  assert.deepEqual(Object.keys(m.referral).sort(), ['copied', 'invited', 'opened', 'qualified', 'referrers', 'totalInvited', 'totalQualified']);
+  h.close();
+});
