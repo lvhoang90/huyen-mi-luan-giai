@@ -496,23 +496,15 @@ async function doShare() {
   note(r === 'saved' ? 'Thẻ đã được tải về máy bạn.' : r === 'shared' ? 'Đã mở chia sẻ.' : 'Bạn chưa chia sẻ thẻ.');
 }
 function openAccount() {
+  if (ACCOUNT.user) { location.href = '/goc-cua-toi'; return; } // đã đăng nhập: vào thẳng Góc của tôi
   if ($('.modal')) return;
   const close = () => $('.modal')?.remove();
   const card = h('div', { className: 'modal-card', role: 'dialog', ariaLabel: 'Tài khoản' });
   const host = h('div', { className: 'signup' });
   const render = () => {
-    card.replaceChildren(h('button', { className: 'icon close', textContent: '×', ariaLabel: 'Đóng', onclick: close }));
+    card.replaceChildren(h('button', { className: 'icon close', innerHTML: icon('close'), ariaLabel: 'Đóng', title: 'Đóng', onclick: close }));
     if (!ACCOUNT.user) { card.append(host); buildSignup(host, { title: 'Đăng nhập hoặc đăng ký bằng email', canSkip: false, done: () => render() }); return; }
-    const u = ACCOUNT.user;
-    card.append(h('p', { className: 'su-title', textContent: u.email }),
-      h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
-      h('div', { className: 'su-actions' },
-        h('a', { className: 'btn primary', href: '/goc-cua-toi', textContent: 'Góc của tôi' }),
-        ...(u.role === 'admin' ? [h('a', { className: 'btn primary', href: '/admin', textContent: 'Trang quản trị' })] : []),
-        h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
-        h('button', { className: 'btn', textContent: u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại', onclick: async () => { const r = await apiJson('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) { u.remind = r.remind; render(); } } }),
-        h('button', { className: 'btn', textContent: 'Đăng xuất', onclick: async () => { await apiJson('/api/auth/logout', 'POST'); ACCOUNT.user = null; showAdmin(); close(); } }),
-        h('button', { className: 'btn danger', textContent: 'Xóa tài khoản và dữ liệu', onclick: (e) => { if (e.target.dataset.sure) { apiJson('/api/account/delete', 'POST').then(() => { ACCOUNT.user = null; try { localStorage.removeItem(STORE); } catch {} location.reload(); }); } else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa'; } } })));
+    close(); // đã đăng nhập: không còn gì để hiện ở đây, Góc của tôi mở bằng nút tài khoản
   };
   render();
   document.body.append(h('div', { className: 'modal', onclick: (e) => { if (e.target.classList.contains('modal')) close(); } }, card));
@@ -733,7 +725,7 @@ function openUpgrade(where, price) {
   const v = price / 1000, close = () => $('.modal')?.remove();
   track('upgrade_open', { v, where });
   const card = h('div', { className: 'modal-card upg', role: 'dialog', ariaLabel: 'Gói Đồng hành' });
-  const x = h('button', { className: 'icon close', textContent: '×', ariaLabel: 'Đóng', onclick: close });
+  const x = h('button', { className: 'icon close', innerHTML: icon('close'), ariaLabel: 'Đóng', title: 'Đóng', onclick: close });
   const plan = (key, label, sub) => h('button', { className: 'btn primary upg-plan', onclick: () => { track('upgrade_click', { v, where, plan: key }); feel(); } }, h('b', { textContent: label }), h('span', { textContent: sub }));
   const feel = () => {
     card.replaceChildren(x, h('p', { className: 'su-title', textContent: 'Cảm ơn bạn.' }),

@@ -25,7 +25,7 @@ async function main() {
   let data = null, status = 0;
   try { const r = await fetch('/api/panel'); status = r.status; data = r.ok ? await r.json() : null; } catch {}
   if (!data) return root.innerHTML = guest(status);
-  root.innerHTML = [hero(data), timeCard(data), inviteCard(data), cardsCard(), chartCard(), shareCard(data)].join('');
+  root.innerHTML = [hero(data), timeCard(data), inviteCard(data), cardsCard(), chartCard(), shareCard(data), settings(data)].join('');
   wire(data); lazyArt();
 }
 
@@ -105,7 +105,27 @@ function shareCard(d) {
     <div><b>${d.referral.invited}</b><span>bạn đã đăng ký</span></div><div><b>${d.referral.qualified}</b><span>bạn đã tặng giờ</span></div></div></section>`;
 }
 
+function settings(d) {
+  const u = d.user;
+  return `<details class="me-set"><summary>Cài đặt tài khoản</summary><div class="me-set-in"><p class="em">${esc(u.email)}</p>
+    <p class="sm">${u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.'}</p>
+    <div class="links"><button type="button" id="st-mem">${u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện'}</button><button type="button" id="st-rem">${u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại'}</button>${u.role === 'admin' ? '<a href="/admin">Trang quản trị</a>' : ''}<button type="button" id="st-out">Đăng xuất</button></div>
+    <button type="button" class="del" id="st-del">Xóa tài khoản và dữ liệu</button></div></details>`;
+}
+async function api(path, method = 'POST', body) {
+  const r = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  return { ok: r.ok, ...(await r.json().catch(() => ({}))) };
+}
+function wireSettings(d) {
+  const u = d.user, again = () => location.reload();
+  $('#st-mem').onclick = async () => { const want = !u.consentMemory; const state = read('huyenmy.v1'); const r = await api('/api/state', 'PUT', want ? { consentMemory: true, state } : { consentMemory: false }); if (r.ok || !want) again(); };
+  $('#st-rem').onclick = async () => { const r = await api('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) again(); };
+  $('#st-out').onclick = async () => { await api('/api/auth/logout'); location.href = '/'; };
+  $('#st-del').onclick = (e) => { if (e.target.dataset.sure) api('/api/account/delete').then(() => { try { localStorage.removeItem('huyenmy.v1'); } catch {} location.href = '/'; }); else { e.target.dataset.sure = '1'; e.target.textContent = 'Bấm lần nữa để xác nhận xóa tài khoản và toàn bộ dữ liệu'; } };
+}
+
 function wire(d) {
+  wireSettings(d);
   const link = `${location.origin}/?ref=${d.refCode}`;
   $('#me-copy').onclick = async (e) => { try { await navigator.clipboard.writeText(link); } catch { $('#me-link').select(); document.execCommand?.('copy'); } e.target.textContent = 'Đã chép ✓'; setTimeout(() => (e.target.textContent = 'Sao chép'), 1800); track('me_copy'); };
   $('#me-share').onclick = async () => { track('me_share'); if (navigator.share) { try { await navigator.share({ title: 'Huyền My Luận Giải', text: 'Mình đang trò chuyện với My, một người bạn đồng hành xem lá số và Tarot. Bạn thử cùng mình nhé.', url: link }); } catch {} } else $('#me-copy').click(); };

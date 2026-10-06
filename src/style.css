@@ -424,3 +424,6 @@ details.howto ul { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 5px;
 
 /* chọn buổi cho giờ sinh */
 .periods { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; } .periods .chip.on { background: rgba(226, 194, 125, .22); border-color: var(--gold); color: #fbeecb; }
+
+/* nút đóng: to, nền sáng, dễ thấy trên mọi nền */
+.icon.close { width: 44px; height: 44px; background: rgba(255, 255, 255, .14); border: 1.5px solid rgba(255, 255, 255, .55); color: #fff; z-index: 3; } .icon.close .ic { width: 22px; height: 22px; stroke-width: 2.2; } .icon.close:hover, .icon.close:focus-visible { background: rgba(226, 194, 125, .35); border-color: var(--gold); }

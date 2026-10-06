@@ -3,6 +3,7 @@
 import rigSvg from '../assets/huyenmy-rig.svg?raw';
 import { EMOTIONS } from '../character.js';
 import { SUITS } from './minor.js';
+import { dress, lookFor } from './looks.js';
 
 export const ART_W = 260, ART_H = 364;
 const GOLD = '#e2c27d', CREAM = '#fbeecb', INK = '#141428';
@@ -159,10 +160,10 @@ function minorScene(card) {
 }
 
 /** Tệp rig của Huyền My, cắt sát khung hình toàn thân và gắn biểu cảm bằng thuộc tính (không cần mã chạy). */
-function rig(emoKey, { x, y, w, h, flip = false }) {
+function rig(emoKey, { x, y, w, h, flip = false, look = {}, uid = 'x' }) {
   const e = EMOTIONS[emoKey] ?? EMOTIONS.binh_thuong;
   const open = `<svg xmlns="http://www.w3.org/2000/svg" class="hm" viewBox="20 120 560 680" x="${x}" y="${y}" width="${w}" height="${h}" data-eyes="${e.eyes}" data-brows="${e.brows}" data-mouth="${e.mouth}" data-pose="${e.pose}" data-blush="${e.blush}" data-fx="${e.fx.join(' ')}">`;
-  const svg = rigSvg.replace(/<svg[^>]*>/, open);
+  const svg = dress(rigSvg, look, uid).replace(/<svg[^>]*>/, open);
   return flip ? `<g transform="rotate(180 ${x + w / 2} ${y + h / 2})">${svg}</g>` : svg;
 }
 
@@ -171,7 +172,7 @@ export function cardArtSvg(card, uid = 'a') {
   const s = card.minor ? minorScene(card) : SCENES[card.id](), W = 210, H = 255;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ART_W} ${ART_H}" role="img" aria-label="Tranh lá ${card.name}" preserveAspectRatio="xMidYMid slice">
 <defs><linearGradient id="bg-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.bg[0]}"/><stop offset="1" stop-color="${s.bg[1]}"/></linearGradient></defs>
-<rect width="${ART_W}" height="${ART_H}" fill="url(#bg-${uid})"/>${s.back}${rig(card.emo, { x: (ART_W - W) / 2, y: ART_H - H + 10, w: W, h: H, flip: !!s.flip })}${s.front}</svg>`;
+<rect width="${ART_W}" height="${ART_H}" fill="url(#bg-${uid})"/>${s.back}${rig(card.emo, { x: (ART_W - W) / 2, y: ART_H - H + 10, w: W, h: H, flip: !!s.flip, look: lookFor(card), uid })}${s.front}</svg>`;
 }
 
 /** Mặt sau lá bài: nền tím, sao vàng, quả cầu của Huyền My. */
