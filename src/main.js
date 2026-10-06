@@ -751,10 +751,11 @@ $('#sheet-close').onclick = () => (sheet.hidden = true);
 sheet.onclick = (e) => { if (e.target === sheet) sheet.hidden = true; };
 addEventListener('keydown', (e) => e.key === 'Escape' && (sheet.hidden = true));
 
-$('#btn-reset').onclick = () => {
+function resetAll() {
   if (!confirm('Bắt đầu lại từ đầu? Cuộc trò chuyện và hồ sơ trên thiết bị này sẽ được xóa.')) return;
   try { localStorage.removeItem(STORE); } catch {} location.reload();
-};
+}
+$('#sheet-reset').onclick = resetAll; // nút nhỏ ở cuối bảng lá số, tránh bấm nhầm
 
 // ---------------- khởi động ----------------
 let LOCKED = false, OPEN = true;
@@ -876,8 +877,8 @@ async function enter(resume, { nudge = true } = {}) {
 
 function offerResume() {
   $('#veil-actions').replaceChildren(
-    h('button', { className: 'btn primary', textContent: `Tiếp tục cùng ${S.profile.nickname}`, onclick: () => enter(true) }),
-    h('button', { className: 'btn', textContent: 'Bắt đầu lại', onclick: () => { try { localStorage.removeItem(STORE); } catch {} S = { profile: null, messages: [], phase: 'intro' }; location.reload(); } }));
+    h('button', { className: 'btn primary', textContent: `Tiếp tục cùng ${S.profile.nickname}`, onclick: () => enter(true) }));
+  $('#veil-reset-wrap').hidden = false; $('#veil-reset').onclick = resetAll; // đường lui nhỏ ở cuối màn chào, không đặt cạnh nút chính
   if (S.restUntil && Date.now() < S.restUntil) restScreen();
 }
 const saved = load();

@@ -30,6 +30,13 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 - **Xem thử với dữ liệu giả lập:** `DATABASE_FILE=./data/demo.db node tools/seed-demo-data.mjs 600`, rồi chạy máy chủ với cùng biến đó. Đây không phải số liệu thật.
 - **Lưu ý triển khai:** SQLite nằm ở `DATA_DIR` (mặc định `./data`), trên host cần gắn ổ đĩa bền vững. Đây là dữ liệu cá nhân (email, và cuộc trò chuyện nếu được đồng ý): cần chính sách quyền riêng tư và căn cứ pháp lý phù hợp, ví dụ Nghị định 13/2023/NĐ-CP, trước khi mở công khai.
 
+## Lời mời đăng ký và đo hiệu quả Tarot
+
+- **Lời mời đăng ký** (`src/cta.js`): sau khi người chưa đăng nhập rút bài ở `/tarot` hoặc xem lá số ở `/kham-pha`, hiện một lời mời. Mỗi người được gán ngẫu nhiên một kiểu và giữ nguyên kiểu đó (lưu trên máy): `gift` (thời gian trò chuyện mỗi ngày), `corner` (Góc của tôi), `voice` (My mời trò chuyện), `remind` (nhắc nhẹ ngày mai, opt-in) và `none` là nhóm đối chứng không hiện gì. Chỉnh trọng số ở `WEIGHTS`.
+- **Đo**: các sự kiện `cta_shown`, `cta_click`, `cta_dismiss`; các bước `enter_click`, `intake_done`, `first_message`, `signup_submit`, `signup_verified` tự mang thêm `cta` và `csrc` (kiểu và nơi đã thấy, hiệu lực 14 ngày), nên đăng ký được tính cho kiểu đã gán, kể cả khi người đó không bấm.
+- **Cảm xúc sau lá bài**: sự kiện `tarot_feel` (1 băn khoăn, 2 bình thường, 3 tò mò, 4 nhẹ nhõm), tối đa một lần mỗi ngày, ẩn danh.
+- **Trang quản trị, tab Tăng trưởng, mục Tarot** (`src/admin-tarot.js`, `tarotStats` trong `server/admin.js`): phễu từ vào trang tới đăng ký, bảng so các kiểu lời mời với đối chứng (kèm khoảng tin cậy, cần từ 100 người mỗi kiểu), cảm xúc theo lá của ngày, ba lá và độ dài chuỗi, quay lại D1/D3/D7 theo nhóm ngày đầu (chỉ xem, rút bài, thấy nhẹ nhõm, còn băn khoăn) và nhịp bốc. Người rút nhiều ngày tự chọn quay lại nên bảng nhịp bốc chỉ để mô tả, không kết luận nhân quả.
+
 ## 12 cung, thời vận và trang Khám phá
 
 - **Thời vận** (`src/engine/thoivan.js`): lưu niên theo Lưu Thái Tuế và Lưu Tứ Hóa, lưu nguyệt theo cách Đẩu Quân, Tứ Trụ (hành và địa chi của năm, tháng so với Nhật chủ), năm và tháng cá nhân của thần số học, các giai đoạn đời theo đại hạn. Kết quả là **"mức chú ý" nhẹ, vừa, nhiều**: chỉ đếm số yếu tố đang kích hoạt một lĩnh vực, không phải điểm tốt xấu và không dự báo sự kiện. My nhận khối này làm dữ kiện và chỉ nói theo kiểu "giai đoạn nên chú ý điều gì". Chưa có tiểu hạn và sao lưu khác; đã đối chiếu với một thư viện Tử Vi độc lập khác: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và lưu nguyệt Đẩu Quân khớp 100% trên 379 lá số có gốc trùng (1.137 lượt năm, 13.644 lượt tháng) bằng `tools/compare-external.mjs`. Thư viện đó cùng trường phái Trung Hoa phổ biến, nên vẫn nên có một người xem Tử Vi duyệt quy tắc trước khi thu phí.

@@ -10,6 +10,7 @@ import { nextStreak, liveStreak, msUntilNextVnDay, fmtCountdown } from './tarot/
 import { icon } from './icons.js';
 import { SUITS } from './tarot/minor.js';
 import { cardArtSvg, cardBackSvg } from './tarot/art.js';
+import { mountCta } from './cta.js';
 import { shareTarot } from './share.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -78,9 +79,32 @@ function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = fals
       } catch (e) { track('tarot_share', { action: 'error', mode: m, n: ids.length }); say('Chưa tạo được ảnh lúc này, bạn thử lại sau ít giây nhé.'); }
     };
     $('#tr-dl').onclick = () => share('download'); $('#tr-share').onclick = () => share('share');
+    afterReading(read, { ids, topicKey });
   }, flipDelay + shown.length * 420 + 700);
 }
 
+
+// ---------- sau khi xem lá: hỏi cảm xúc (đo hiệu quả) và lời mời đăng ký cho người chưa có tài khoản ----------
+const FEEL = [['Nhẹ nhõm', 4], ['Tò mò', 3], ['Bình thường', 2], ['Băn khoăn', 1]], FEEL_KEY = 'huyenmy.tarotfeel';
+const feelDone = () => { try { return localStorage.getItem(FEEL_KEY) === String(vnDay()); } catch { return false; } };
+function afterReading(read, { ids, topicKey }) {
+  read.querySelector('.tr-after')?.remove();
+  const box = document.createElement('div'); box.className = 'tr-after'; read.append(box);
+  if (!feelDone()) {
+    box.innerHTML = `<div class="tr-feel" role="group" aria-label="Cảm xúc sau khi xem lá"><p>Lá này làm bạn thấy thế nào?</p><div class="tf-chips">${FEEL.map(([l, v]) => `<button type="button" data-v="${v}">${l}</button>`).join('')}</div></div>`;
+    box.querySelector('.tr-feel').onclick = (e) => {
+      const b = e.target.closest('button[data-v]'); if (!b) return;
+      track('tarot_feel', { value: +b.dataset.v, mode: shown.length > 1 ? 'three' : 'daily', streak: streakNow() });
+      try { localStorage.setItem(FEEL_KEY, String(vnDay())); } catch {}
+      box.querySelector('.tr-feel').innerHTML = '<p class="tf-thanks">Cảm ơn bạn. My ghi lại để hiểu bộ bài này hợp với mọi người đến đâu.</p>';
+    };
+  }
+  const host = document.createElement('div'); host.id = 'tr-cta'; box.append(host);
+  meReady.then((me) => {
+    if (!me || me.user || me.accounts === false) return; // đã đăng nhập hoặc chưa mở đăng ký: không mời
+    mountCta(host, { src: 'tarot', onChat: () => { location.href = `/?tarot=${ids.join(',')}${topicKey ? `&chu=${topicKey}` : ''}`; } });
+  });
+}
 
 // ---------- nghi thức trước khi bốc bài ----------
 const R = $('#tr-ritual'), REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;

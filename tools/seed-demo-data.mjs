@@ -33,5 +33,23 @@ for (let i = 0; i < N; i++) {
   if (rnd() < 0.3) ev.run(t0 + DAY + 3_600_000, a, `${sid}r`, 'return_visit', '{}');
   if (rnd() < 0.18) ev.run(t0 + 7 * DAY, a, `${sid}w`, 'return_visit', '{}');
 }
+
+// ---- người vào trang Tarot: rút bài, cảm xúc, các kiểu lời mời đăng ký, quay lại (số liệu giả để xem thử mục Tarot) ----
+const VARS = ['none', 'gift', 'corner', 'voice', 'remind'], LIFT = { none: 0.02, gift: 0.07, corner: 0.05, voice: 0.09, remind: 0.04 };
+for (let i = 0; i < Math.round(N * 0.7); i++) {
+  const a = `tj${i}`, d0 = now - Math.floor(rnd() * 12 * DAY) - 3600_000, sid = `ts${i}`, v = VARS[i % VARS.length];
+  let t = d0; const e = (name, props = {}, at = null) => { t = at ?? t + 15_000 + Math.floor(rnd() * 40_000); ev.run(t, a, sid, name, JSON.stringify(props)); };
+  e('tarot_view'); if (rnd() < 0.2) continue;
+  e('tarot_start', { mode: 'daily' }); if (rnd() < 0.7) e('tarot_topic', { topic: pick(['tinh-cam', 'cong-viec', 'tien-bac', 'ban-than']) });
+  if (rnd() < 0.12) continue; const three = rnd() < 0.2; e('tarot_draw', { mode: three ? 'three' : 'daily', id: Math.floor(rnd() * 78) });
+  const mood = rnd() < 0.55 ? (rnd() < 0.55 ? 4 : 3) : (rnd() < 0.6 ? 2 : 1);
+  if (rnd() < 0.55) e('tarot_feel', { value: mood, mode: three ? 'three' : 'daily', streak: 1 });
+  if (rnd() < 0.25) e('tarot_ask', { n: three ? 3 : 1 }); else if (rnd() < 0.2) e('tarot_share', { action: 'saved', mode: 'download', n: 1 });
+  e('cta_shown', { v, src: 'tarot' });
+  const click = v !== 'none' && rnd() < (v === 'voice' ? 0.22 : 0.12); if (click) e('cta_click', { v, src: 'tarot' });
+  const signs = rnd() < LIFT[v] + (click ? 0.18 : 0) + (mood >= 3 ? 0.02 : 0);
+  if (signs) { e('signup_submit', { cta: v, csrc: 'tarot' }); if (rnd() < 0.8) { ev.run(t + 60_000, `tu${i}`, `${sid}v`, 'signup_verified', JSON.stringify({ cta: v, csrc: 'tarot' })); } }
+  if (rnd() < 0.15 + (mood >= 3 ? 0.18 : 0)) { const k = 1 + Math.floor(rnd() * 3); for (let j = 1; j <= k; j++) { const at = d0 + j * DAY + 3_600_000; if (at < now) { e('tarot_view', {}, at); if (rnd() < 0.8) e('tarot_draw', { mode: 'daily', id: Math.floor(rnd() * 78), again: false }, at + 60_000); if (rnd() < 0.5) e('tarot_feel', { value: rnd() < 0.7 ? 4 : 3, mode: 'daily', streak: j + 1 }, at + 90_000); } } }
+}
 db.exec('COMMIT');
 console.log(`Đã sinh dữ liệu giả lập cho ${N} người vào ${file}`);

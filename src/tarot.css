@@ -87,3 +87,12 @@
 .fan.grid .fan-card { position: relative; left: auto; bottom: auto; transform: rotate(var(--a)); transform-origin: 50% 50%; }
 .fan.grid .fan-card:hover, .fan.grid .fan-card:focus-visible, .fan.grid .fan-card:active { transform: translateY(-6px) scale(1.06) rotate(var(--a)); }
 .fan.grid .fan-card.picked { transform: translateY(-8px) scale(1.08) rotate(0deg); }
+
+/* sau khi xem lá: hỏi cảm xúc và lời mời đăng ký */
+.tr-after { margin-top: 18px; }
+.tr-feel { text-align: center; padding: 12px 0 2px; }
+.tr-feel p { margin: 0 0 10px; color: #d9d2f2; font-size: .95rem; }
+.tf-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.tf-chips button { font: inherit; font-size: .9rem; color: #e9e3ff; background: rgba(255, 255, 255, .06); border: 1px solid rgba(190, 170, 255, .4); border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+.tf-chips button:hover, .tf-chips button:focus-visible { border-color: #f3d98f; background: rgba(243, 217, 143, .12); }
+.tr-feel .tf-thanks { color: #a79fc9; font-size: .88rem; }

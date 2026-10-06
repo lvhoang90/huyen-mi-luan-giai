@@ -440,3 +440,9 @@ a.veil-login { text-wrap: balance; line-height: 1.5; }
 .copy { text-wrap: balance; }
 .copy .legal { display: block; margin-top: 4px; }
 .copy a.nw { white-space: nowrap; }
+
+/* Nút bắt đầu lại: rất nhỏ, mờ, nằm cuối trang để không bấm nhầm */
+.veil-reset-wrap { margin: clamp(6px, 1.4vh, 12px) 0 0; }
+.veil-reset { background: none; border: 0; padding: 6px 8px; font: inherit; font-size: 11px; color: #6f6896; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.veil-reset:hover, .veil-reset:focus-visible { color: #b9b0dc; }
+.sheet-foot { margin: 22px 0 6px; text-align: center; }
