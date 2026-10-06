@@ -4,6 +4,8 @@ import { lunarMonthsOfYear } from '../src/engine/lunar.js';
 import { normalizeProfile, buildChart, describeChart } from '../src/engine/index.js';
 import { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, relation, chiRelation, LEVELS } from '../src/engine/thoivan.js';
 import { TU_HOA } from '../src/engine/tuvi.js';
+import { demoReply } from '../server/demo.js';
+import { EVENTS } from '../server/events.js';
 
 const NOW = new Date('2026-10-05');
 const mk = (extra = {}) => {
@@ -104,4 +106,13 @@ test('Phân bố mức chú ý không dồn vào một mức (hiệu chỉnh tr�
   }
   const share = (a, i) => a[i] / a.reduce((p, q) => p + q, 0);
   for (const a of [mo, cu]) { assert.ok(share(a, 0) < 0.7, 'quá nhiều mức nhẹ'); assert.ok(share(a, 2) > 0.08, 'gần như không có mức nhiều'); assert.ok(share(a, 2) < 0.4, 'quá nhiều mức nhiều'); }
+});
+
+test('Chế độ demo trả lời câu hỏi bấm từ hình lá số bằng dữ kiện đã tính; sự kiện mới được phép ghi', () => {
+  const { profile, chart } = mk();
+  const ask = (q) => demoReply({ phase: 'companion', profile, chart, messages: [{ role: 'user', content: q }] });
+  assert.match(ask('My nói giúp mình về tháng 6 âm lịch năm 2026 nhé, tháng đó mình nên để ý điều gì?'), /Tháng 6 âm lịch năm 2026, mức chú ý (nhẹ|vừa|nhiều)/);
+  assert.match(ask('My nói giúp mình về cung Quan Lộc (công việc, sự nghiệp) trong năm 2027 nhé.'), /Năm 2027, cung Quan Lộc/);
+  assert.match(ask('My nói giúp mình về cung Tài Bạch (tiền bạc, cách kiếm và giữ) trong lá số của mình nhé.'), /Cung Tài Bạch/);
+  for (const e of ['time_year', 'time_month', 'cung_pick', 'chart_ask', 'resonance_time']) assert.ok(EVENTS.has(e), e);
 });

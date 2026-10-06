@@ -1,11 +1,33 @@
 // Chế độ demo khi chưa có ANTHROPIC_API_KEY: trả lời có cấu trúc từ chính dữ liệu lá số,
 // không giả làm AI. Giao diện hiển thị rõ "chế độ demo".
 import { NUMBER_KEYWORDS } from '../src/engine/numerology.js';
+import { timeCycle, natalAttention, CUNG_DOI_THUONG } from '../src/engine/thoivan.js';
+
+/** Câu hỏi bấm từ hình lá số (cung, năm, tháng): trả lời thẳng bằng dữ kiện đã tính, theo kiểu "nên chú ý điều gì". */
+function thoiVanReply({ last, profile, chart }) {
+  const name = profile.nickname, tail = '\n\n[[binh_thuong]](Chế độ demo chưa kết nối AI nên lời My là mẫu từ dữ kiện đã tính. Khi có ANTHROPIC_API_KEY, My sẽ trò chuyện trọn vẹn.)';
+  const mMonth = last.match(/tháng (\d{1,2}) âm lịch năm (\d{4})/), mYear = last.match(/cung (.+?) \(.*?\) trong năm (\d{4})/), mNatal = last.match(/cung (.+?) \(.*?\) trong lá số/);
+  if (mMonth) {
+    const t = timeCycle(profile, chart, +mMonth[2]), mo = t.months.find((x) => x.month === +mMonth[1]);
+    if (mo) return `[[chiem_nghiem]]Tháng ${mo.month} âm lịch năm ${t.year}, mức chú ý ${['nhẹ', 'vừa', 'nhiều'][mo.level]}. ${mo.notes.slice(0, 2).join('. ')}.\n\n[[lang_nghe]]Đây chỉ là gợi ý để ${name} chuẩn bị. Tháng ấy ngoài đời của bạn đang có chuyện gì nổi lên?${tail}`;
+  }
+  if (mYear) {
+    const t = timeCycle(profile, chart, +mYear[2]), c = t.tuvi?.cungs.find((x) => x.name === mYear[1]);
+    if (c) return `[[chiem_nghiem]]Năm ${t.year}, cung ${c.name} (${CUNG_DOI_THUONG[c.name]}) ở mức chú ý ${['nhẹ', 'vừa', 'nhiều'][c.level]}. ${c.tags.length ? c.tags.join('. ') + '.' : 'Không có yếu tố nổi bật nào rơi vào cung này.'}\n\n[[lang_nghe]]Chuyện ${CUNG_DOI_THUONG[c.name]} của ${name} dạo này thế nào?${tail}`;
+  }
+  if (mNatal) {
+    const c = natalAttention(chart.tuvi)?.find((x) => x.name === mNatal[1]);
+    if (c) return `[[chiem_nghiem]]Cung ${c.name} (${CUNG_DOI_THUONG[c.name]}) ở mức chú ý ${['nhẹ', 'vừa', 'nhiều'][c.level]}. ${c.tags.length ? c.tags.join('. ') + '.' : 'Không có yếu tố nổi bật nào rơi vào cung này.'}\n\n[[lang_nghe]]${name} muốn kể My nghe chuyện ${CUNG_DOI_THUONG[c.name]} của mình không?${tail}`;
+  }
+  return null;
+}
 
 export function demoReply({ phase, profile, chart, messages }) {
   const name = profile.nickname;
   const last = messages[messages.length - 1]?.content ?? '';
   const { bazi, numerology: n, astro } = chart;
+  const fromChart = phase !== 'reading' ? thoiVanReply({ last, profile, chart }) : null;
+  if (fromChart) return fromChart;
 
   // Mỗi lượt chọn một cách vào chuyện và một câu hỏi khác nhau, không nhắc lại nguyên văn lời người dùng quá một lần.
   const turn = messages.filter((m) => m.role === 'assistant').length;
