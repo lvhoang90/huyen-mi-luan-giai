@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CARDS, cardById, drawCards, dailyCard, vnDay, parseCardIds } from '../src/tarot/cards.js';
 import { tarotBlock, buildSystemPrompt } from '../server/persona.js';
-import { normalizeProfile, buildChart } from '../src/engine/index.js';
+import { normalizeProfile, buildChart, famousStory, famousTies } from '../src/engine/index.js';
 
 test('bộ bài có đủ 78 lá, mỗi lá đủ trường và không trùng', () => {
   assert.equal(CARDS.length, 78);
@@ -52,4 +52,27 @@ test('tham số ?tarot=: rỗng hoặc sai thì không có lá nào, không bi�
 test('chủ đề đã chọn được báo cho My như một nhãn, chủ đề lạ bị bỏ', () => {
   assert.match(tarotBlock([3], 'cong-viec'), /Công việc/); assert.match(tarotBlock([3], 'cong-viec'), /nhãn/);
   assert.doesNotMatch(tarotBlock([3], 'ignore previous'), /Chủ đề họ chọn/); assert.doesNotMatch(tarotBlock([3]), /Chủ đề họ chọn/);
+});
+
+test('giọng chuyên gia: xin ý kiến thì trả lời thẳng, báo khó hiểu thì nói lại dễ hơn, đang nặng lòng thì không ép trả lời', () => {
+  const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } }), chart = buildChart(profile);
+  const ask = (text, prev = []) => buildSystemPrompt('companion', profile, chart, [...prev, { role: 'user', content: text }], {});
+  assert.match(ask('Mình có nên nghỉ việc để học thêm không?'), /XIN Ý KIẾN/);
+  assert.match(ask('Chuyện này nên làm gì bây giờ'), /XIN Ý KIẾN/);
+  assert.doesNotMatch(ask('Hôm nay trời đẹp'), /XIN Ý KIẾN/);
+  assert.match(ask('Chỗ này khó hiểu quá, là sao vậy My'), /BÁO KHÓ HIỂU/);
+  assert.doesNotMatch(ask('Mình buồn lắm, không biết nên làm gì, chỉ muốn khóc thôi'), /XIN Ý KIẾN/, 'đang nặng lòng thì chỉ vỗ về');
+  assert.match(ask('x'), /NÓI NHƯ NGƯỜI TỪNG TRẢI/);
+});
+
+test('người nổi tiếng: một câu chuyện ngắn có điểm chung trong lá số, và dữ kiện cho My khi được hỏi', () => {
+  const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } }), chart = buildChart(profile);
+  const s = famousStory(profile, chart);
+  assert.ok(s && s.name && s.text.includes('**' + s.name + '**'));
+  assert.ok(s.text.length < 420, 'một đoạn ngắn, không liệt kê cả danh sách');
+  assert.equal((s.text.match(/\*\*/g) ?? []).length, 2, 'chỉ nêu một người');
+  assert.doesNotMatch(s.text, /số phận khổ|sẽ giống/);
+  const blk = buildSystemPrompt('companion', profile, chart, [{ role: 'user', content: 'chào' }], {});
+  assert.match(blk, /NGƯỜI NỔI TIẾNG CÙNG HOẶC SÁT NGÀY SINH/);
+  assert.ok(famousTies(chart, { y: 1990, m: 5, d: 5 }).some((t) => t.k === 'nhat-chu'), 'cùng ngày sinh thì cùng nhật chủ');
 });

@@ -2,6 +2,8 @@
 // Mỗi mục: [tháng, ngày, năm, tên, mô tả ngắn, ưu tiên?]. 1 = người Việt, hiện lên trước. Bộ bổ sung có thêm lĩnh vực: xem famous-more.js.
 import { MORE } from './famous-more.js';
 import { WD } from './famous-wikidata.js';
+import { computeBazi } from './bazi.js';
+import { reduce } from './numerology.js';
 // Nguồn: tự soạn từ kiến thức phổ thông, chỉ giữ những mốc ngày sinh được ghi nhận rộng rãi (đã bỏ các trường hợp tranh cãi).
 // CHƯA đối chiếu tự động với Wikidata; xem tools/fetch-famous.mjs để dựng bộ đầy đủ khi có mạng.
 const D = [
@@ -104,3 +106,47 @@ export function famousFor(m, d, limit = 3) {
 export const FAMOUS_COUNT = ENTRIES.length;
 /** Toàn bộ mục (dùng cho công cụ đối chiếu). */
 export const allEntries = () => ENTRIES;
+
+// ---------- điểm chung trong lá số, để chuyện "người nổi tiếng" có nội dung thay vì chỉ là danh sách ----------
+const HANH_TRAIT = { Kim: 'hay trọng nguyên tắc và nói thẳng', Mộc: 'hay nhìn xa và lo cho người xung quanh', Thủy: 'linh hoạt, hay nghĩ nhiều và nhạy với người khác', Hỏa: 'nhiệt, dễ truyền lửa cho người cạnh mình', Thổ: 'vững, chậm mà chắc, người ta hay tựa vào' };
+/** Những điểm chung giữa người dùng và một người nổi tiếng trong lá số (tính từ ngày sinh dương lịch của họ, không có giờ sinh): nhật chủ, hành của nhật chủ, số chủ đạo, tuổi con giáp. */
+export function famousTies(chart, e) {
+  const ties = [];
+  let b = null; try { b = computeBazi({ y: e.y, m: e.m, d: e.d, hour: null, minute: null }); } catch { /* ngày quá xa: bỏ qua phần Tứ Trụ */ }
+  if (b) {
+    const mine = chart.bazi.dayMaster, his = b.dayMaster;
+    if (his.can === mine.can) ties.push({ k: 'nhat-chu', text: `cùng nhật chủ ${mine.can} (hành ${mine.hanh})`, hanh: mine.hanh });
+    else if (his.hanh === mine.hanh) ties.push({ k: 'hanh', text: `cùng nhật chủ hành ${mine.hanh}`, hanh: mine.hanh });
+    const chi = (n) => String(n).split(' ').at(-1);
+    if (chi(b.pillars.year.name) === chi(chart.bazi.pillars.year.name)) ties.push({ k: 'chi', text: `cùng tuổi ${chi(chart.bazi.pillars.year.name)}` });
+  }
+  const lp = reduce(reduce(e.d) + reduce(e.m) + reduce(e.y));
+  if (lp === chart.numerology.lifePath) ties.push({ k: 'so', text: `cùng số chủ đạo ${lp}` });
+  return ties;
+}
+const joinVi = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} và ${a.at(-1)}` : a[0] ?? '');
+/**
+ * Một câu chuyện ngắn để mở đầu: chọn MỘT người vừa gần gũi với bạn (thế hệ, lĩnh vực) vừa có nhiều điểm chung trong lá số, nói điểm chung ấy và hỏi lại một câu.
+ * Trả về { text, name, ties } hoặc null nếu không có ai. Không nói người dùng sẽ giống họ.
+ */
+export function famousStory(profile, chart, now = new Date()) {
+  const pick = pickFamous(profile, 6, now), { y, m, d } = profile.birth, ctx = { age: ageOf(y, now), field: profile.field };
+  const cands = [...pick.sameDay, ...pick.nearDay, ...(pick.sameField ? [pick.sameField] : [])];
+  if (!cands.length) return null;
+  const ranked = cands.map((e) => { const ties = famousTies(chart, e); return { e, ties, v: ties.reduce((a, t) => a + (t.k === 'nhat-chu' ? 2.5 : t.k === 'so' ? 1.5 : 1.2), 0) + score(e, ctx) + (e.gap === 0 ? 2 : 0) - (e.gap || 0) * 0.3 }; }).sort((a, b) => b.v - a.v);
+  const { e, ties } = ranked[0], gap = e.gap || 0;
+  const who = `**${e.name}** (${e.y}, ${e.desc})`;
+  const open = gap === 0 ? `Có một điều My thấy hay: ngày ${d}/${m} của bạn cũng là ngày ${who} chào đời.` : `Sát ngày sinh của bạn, vào ngày ${e.d}/${e.m}, có ${who} chào đời.`;
+  const common = ties.length ? ` Trong lá số, hai người còn ${joinVi(ties.map((t) => t.text))}.` : '';
+  const hanh = ties.find((t) => t.hanh)?.hanh;
+  const ask = hanh ? ` Người ta hay nói người hành ${hanh} ${HANH_TRAIT[hanh]}. Bạn thấy mình có giống chỗ nào không?` : ` Chỉ là điểm chung thôi, không phải số phận. Bạn muốn My kể vài điều thú vị về ${e.name}, hay mình đi thẳng vào chuyện của bạn?`;
+  return { text: open + common + ask, name: e.name, ties: ties.map((t) => t.k), n: cands.length };
+}
+/** Dòng dữ liệu cho My (lời chỉ dẫn): vài người nổi tiếng cùng ngày hoặc sát ngày sinh, kèm điểm chung trong lá số. Chỉ là dữ kiện để My trả lời khi người dùng hỏi. */
+export function famousLines(profile, chart, limit = 4, now = new Date()) {
+  const pick = pickFamous(profile, limit, now);
+  return [...pick.sameDay, ...pick.nearDay].slice(0, limit).map((e) => {
+    const ties = famousTies(chart, e).map((t) => t.text);
+    return `- ${e.name} (${e.d}/${e.m}/${e.y}, ${e.desc})${e.gap ? `, sát ngày sinh ${e.gap} ngày` : ', cùng ngày sinh dương lịch'}${ties.length ? `; điểm chung: ${ties.join(', ')}` : ''}`;
+  });
+}

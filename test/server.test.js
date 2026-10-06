@@ -532,3 +532,12 @@ test('số liệu quản trị có mục giới thiệu bạn bè', async () => 
   assert.deepEqual(Object.keys(m.referral).sort(), ['copied', 'invited', 'opened', 'qualified', 'referrers', 'totalInvited', 'totalQualified']);
   h.close();
 });
+
+test('chấm chất lượng: bắt chữ trừu tượng và việc né câu xin ý kiến', () => {
+  const a = assessTurn({ phase: 'companion', reply: 'Đây là hành trình chữa lành, năng lượng của bạn đang chuyển hóa.', userMsg: 'Mình nên làm gì tiếp theo', userHistory: '', prevReplies: [] });
+  assert.ok(a.flags.includes('tu_truu_tuong'));
+  const b = assessTurn({ phase: 'companion', reply: 'Bạn đang nghĩ gì về chuyện này? Nói My nghe thêm.', userMsg: 'Mình có nên nghỉ việc không', userHistory: '', prevReplies: [] });
+  assert.ok(b.flags.includes('ne_cau_hoi'));
+  const c = assessTurn({ phase: 'companion', reply: 'Theo My thì chưa nên nghỉ ngay. Bạn thử xin nghỉ phép một tuần trước. Bạn nghĩ sao?', userMsg: 'Mình có nên nghỉ việc không', userHistory: '', prevReplies: [] });
+  assert.ok(!c.flags.includes('ne_cau_hoi') && !c.flags.includes('tu_truu_tuong'));
+});

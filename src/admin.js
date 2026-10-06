@@ -32,7 +32,7 @@ function renderDenied() {
   document.getElementById('out').onclick = async () => { await fetch('/api/auth/logout', { method: 'POST' }); load(); };
 }
 
-const FLAG_LABEL = { qua_nhieu_cau_hoi: 'Hỏi dồn nhiều câu', qua_dai: 'Trả lời quá dài', lap_lai: 'Lặp ý hoặc lặp lời mở đầu', noi_chac_nich: 'Nói chắc nịch, tiên đoán', doa_han_hoac_ban_cung: 'Dọa hạn, gợi ý cúng bái', thieu_nhan_tang: 'Luận giải thiếu nhãn tầng', thieu_canh_bao_gioi_han: 'Luận giải thiếu cảnh báo giới hạn', khong_bam_loi_nguoi_dung: 'Không bám lời người dùng', cum_sao_ron: 'Khuôn sáo nghe như máy viết sẵn', lap_cum_tu: 'Lặp cụm từ giữa các lượt', qua_nhieu_he: 'Trộn nhiều hệ (Tử Vi, Tứ Trụ, chiêm tinh…) một lượt', vien_dan_nhieu: 'Viện dẫn tâm lý học, khoa học quá dày' };
+const FLAG_LABEL = { qua_nhieu_cau_hoi: 'Hỏi dồn nhiều câu', qua_dai: 'Trả lời quá dài', lap_lai: 'Lặp ý hoặc lặp lời mở đầu', noi_chac_nich: 'Nói chắc nịch, tiên đoán', doa_han_hoac_ban_cung: 'Dọa hạn, gợi ý cúng bái', thieu_nhan_tang: 'Luận giải thiếu nhãn tầng', thieu_canh_bao_gioi_han: 'Luận giải thiếu cảnh báo giới hạn', khong_bam_loi_nguoi_dung: 'Không bám lời người dùng', cum_sao_ron: 'Khuôn sáo nghe như máy viết sẵn', lap_cum_tu: 'Lặp cụm từ giữa các lượt', qua_nhieu_he: 'Trộn nhiều hệ (Tử Vi, Tứ Trụ, chiêm tinh…) một lượt', vien_dan_nhieu: 'Viện dẫn tâm lý học, khoa học quá dày', tu_truu_tuong: 'Nhiều chữ trừu tượng, khó hiểu', ne_cau_hoi: 'Né câu xin ý kiến bằng câu hỏi ngược' };
 /* ---------- thành phần (bố cục ưu tiên điện thoại, biểu đồ trong admin-viz.js) ---------- */
 /** Nửa sau kỳ so với nửa đầu kỳ: chỉ nói hướng và độ lớn, không phán tốt xấu. */
 function half(series, k) {

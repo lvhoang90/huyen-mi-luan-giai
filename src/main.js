@@ -12,7 +12,7 @@ import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
-import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, pickFamous, FIELD_OPTIONS } from './engine/index.js';
+import { normalizeProfile, buildChart, PLACES, findPlaces, distinctiveTraits, famousStory, pickFamous, FIELD_OPTIONS } from './engine/index.js';
 import { renderChart } from './chart-view.js';
 
 const $ = (s) => document.querySelector(s);
@@ -587,18 +587,11 @@ async function ritual() {
   dock();
   const y = chart.bazi.pillars.year;
   await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút radar (hình sao sáu cạnh) ở góc phải để xem My đã tính ra sao.`, 650, true);
-  // Điểm chung có thật để mở chuyện: cùng ngày sinh, cùng nghề, cùng năm sinh; chọn theo tuổi và lĩnh vực của người dùng.
-  const { d, m, y: by } = p.birth;
-  const pick = pickFamous(p);
-  const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
-  const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
-  if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
-  else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
-  track('hook_shown', { same: pick.sameDay.length, near: pick.nearDay.length, field: !!pick.sameField, year: pick.sameYear.length > 0 });
-  const extra = [];
-  if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
-  if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
-  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); }
+  // Điểm chung có thật để mở chuyện: MỘT người nổi tiếng gần gũi, cùng ngày hoặc sát ngày sinh, kèm điểm chung trong lá số (nhật chủ, số chủ đạo, tuổi), rồi hỏi lại một câu.
+  const story = famousStory(p, chart);
+  if (story) { await say(`[[hao_hung]]${story.text}`, 650, true); S.famousShown = story.name; }
+  else await say(`[[binh_thuong]]Trong sổ của My chưa có ai trùng ngày sinh với bạn. Cũng không sao, ta đi thẳng vào chuyện của bạn.`, 650, true);
+  track('hook_shown', { found: !!story, ties: story?.ties?.length ?? 0, n: story?.n ?? 0 });
   note('Hình lá số của bạn nằm ở nút hình sao sáu cạnh (radar) ở góc trên bên phải. Bạn bấm xem bất cứ lúc nào để theo dõi cùng My.');
   hookTrait = distinctiveTraits(p, chart)[0] ?? null;
   if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
@@ -612,6 +605,7 @@ const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xon
 const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa rút Tarot ${t.length > 1 ? 'ba lá' : 'lá'} ${t.map((c) => c.name).join(', ')}${topicLabel(S.tarotTopic) ? `, mình đang nghĩ về chuyện ${topicLabel(S.tarotTopic).toLowerCase()}` : ''}. My nói giúp mình nhé.` }] : []; };
 const startChips = () => [
   ...tarotChip(),
+  ...(S.famousShown ? [{ label: 'Còn ai nổi tiếng cùng ngày sinh nữa?', value: 'Còn ai nổi tiếng sinh cùng ngày hoặc sát ngày sinh với mình nữa không, My kể thử xem?' }] : []),
   ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
   { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
   { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },
