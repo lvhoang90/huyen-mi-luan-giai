@@ -6,6 +6,7 @@ import { track, sessionId, ageBand } from './track.js';
 import { shareCard, shareChart } from './share.js';
 import { icon } from './icons.js';
 import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
+import { cardById } from './tarot/cards.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
@@ -247,7 +248,7 @@ const lastAsk = (msgs) => {
 };
 let resumeGreet = null; // { at: số tin nhắn lúc chào, text }
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null }) });
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null, tarot: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? S.tarot : null }) });
   if (!res.ok) { const j = await res.json().catch(() => ({})); if (j.needAuth) throw Object.assign(new Error(j.error), { needAuth: true }); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {
@@ -615,7 +616,9 @@ async function ritual() {
 }
 
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
+const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa rút Tarot ${t.length > 1 ? 'ba lá' : 'lá'} ${t.map((c) => c.name).join(', ')}. My nói giúp mình nhé.` }] : []; };
 const startChips = () => [
+  ...tarotChip(),
   ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
   { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
   { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },
@@ -775,6 +778,8 @@ async function tryCode(code) {
 }
 // Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
 const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/[^\w-]/g, '').slice(0, 20);
+// Lá Tarot vừa rút ở trang /tarot (liên kết "Hỏi My về lá bài này"): My biết người dùng vừa rút lá nào để nói đúng chuyện đó.
+const urlTarot = (new URLSearchParams(location.search).get('tarot') ?? '').split(',').map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 21).slice(0, 3);
 track('landing_view', { ref: urlRef, gv: GV });
 try { const nav = performance.getEntriesByType('navigation')[0]; if (nav && nav.type !== 'navigate') track('page_reload', { type: nav.type, step: load()?.phase ?? 'new' }); } catch {}
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
@@ -865,6 +870,8 @@ function offerResume() {
   if (S.restUntil && Date.now() < S.restUntil) restScreen();
 }
 const saved = load();
+// lá Tarot vừa rút ở trang /tarot được giữ vào trạng thái sau khi trạng thái đã lưu được nạp (nạp xong mới gán, tránh bị ghi đè)
+queueMicrotask(() => { if (urlTarot.length) { S.tarot = urlTarot; try { save(); } catch {} } });
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {
   try { S = { ...saved, profile: normalizeProfile(saved.profile) }; offerResume(); } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);

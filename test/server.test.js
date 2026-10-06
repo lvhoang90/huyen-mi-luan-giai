@@ -468,3 +468,13 @@ test('cách xem người dùng chọn gồm cả 12 cung và thời vận, My ng
   assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'cung12' }), /LĂNG KÍNH NGƯỜI NÀY CHỌN: Tử Vi nhìn theo 12 cung/);
   assert.match(buildSystemPrompt('reading', profile, chart, [], { lens: 'thoivan' }), /LĂNG KÍNH NGƯỜI NÀY CHỌN: thời vận/);
 });
+
+test('số liệu Tarot: rút, chia sẻ, hỏi My và quay lại xem lá hôm nay', () => {
+  const db = openDb(':memory:'), now = Date.UTC(2026, 9, 5), ing = (actor, events) => ingest(db, { actor, userId: null, sid: 's', events }, now - 60_000);
+  ing('a1', [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'daily', id: 3, again: false } }, { name: 'tarot_share', props: { action: 'saved', mode: 'download', n: 1 } }]);
+  ing('a2', [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'three', id: 5 } }, { name: 'tarot_ask', props: { n: 3 } }]);
+  ing('a3', [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'daily', id: 1, again: true } }, { name: 'tarot_browse', props: { id: 4 } }]);
+  ing('a4', [{ name: 'tarot_view' }]);
+  const t = computeMetrics(db, { days: 7, now }).tarot;
+  assert.deepEqual(t, { visitors: 4, drew: 3, daily: 2, three: 1, returned: 1, shared: 1, asked: 1, browsed: 1 });
+});

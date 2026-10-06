@@ -30,3 +30,4 @@ input[type=radio], input[type=checkbox] { accent-color: var(--gold); width: 18px
 @media (max-width: 720px) { .ex-samples { grid-template-columns: 1fr; } .ex-card { padding: 16px 14px; } }
 
 #ex-result { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; } #ex-result > * { min-width: 0; }
+.tr-nav { display: flex; gap: 8px; }

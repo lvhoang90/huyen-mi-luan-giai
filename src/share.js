@@ -122,3 +122,47 @@ async function deliver(blob, name, { mode, url, text }) {
 const SHARE_TEXT = 'Mình vừa được Huyền My soi lá số, bạn thử xem sao';
 export async function shareCard(info, mode = 'share') { return deliver(await makeCard(info), 'huyen-my.png', { mode, url: info.url, text: SHARE_TEXT }); }
 export async function shareChart(info, mode = 'share') { return deliver(await makeChartCard(info), 'la-so-huyen-my.png', { mode, url: info.url, text: SHARE_TEXT }); }
+
+// ---------- thẻ Tarot (một lá hoặc ba lá) ----------
+const svgImage = async (svg, w, h) => { const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace('<svg ', `<svg width="${w}" height="${h}" `)); await img.decode(); return img; };
+const rr = (g, x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); };
+/** Vẽ một lá bài theo hệ toạ độ thiết kế 300 x 500, thu phóng theo chiều rộng w. */
+function drawTarotCard(g, card, art, x, y, w) {
+  const s = w / 300; g.save(); g.translate(x, y); g.scale(s, s);
+  g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 40 / s; g.shadowOffsetY = 14 / s;
+  const bg = g.createLinearGradient(0, 0, 0, 500); bg.addColorStop(0, '#1d1650'); bg.addColorStop(1, '#0c0a28');
+  rr(g, 0, 0, 300, 500, 16); g.fillStyle = bg; g.fill(); g.shadowColor = 'transparent';
+  g.lineWidth = 3; g.strokeStyle = '#e2c27d'; rr(g, 1.5, 1.5, 297, 497, 16); g.stroke();
+  g.textAlign = 'center'; g.fillStyle = '#e2c27d'; g.font = '500 24px "Cormorant Garamond", Georgia, serif'; g.fillText(card.roman.split('').join(' '), 150, 40);
+  g.save(); rr(g, 20, 56, 260, 364, 10); g.clip(); g.drawImage(art, 20, 56, 260, 364); g.restore();
+  g.lineWidth = 1.2; g.strokeStyle = 'rgba(226,194,125,.6)'; rr(g, 20, 56, 260, 364, 10); g.stroke();
+  g.fillStyle = '#fbeecb'; g.font = '600 26px "Cormorant Garamond", Georgia, serif'; g.fillText(card.name, 150, 454);
+  g.fillStyle = '#b9b1dc'; g.font = '300 11px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(card.en.toUpperCase(), 150, 478);
+  g.restore();
+}
+/** Thẻ Tarot 1080 x 1350: một lá lớn hoặc ba lá có nhãn vị trí. Không chứa điều người dùng nghĩ, chỉ tên lá bài. */
+export async function makeTarotCard({ cards, positions = null, url }) {
+  await fonts();
+  const { cardArtSvg } = await import('./tarot/art.js');
+  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const bg = g.createRadialGradient(W / 2, H * 0.32, 80, W / 2, H * 0.42, H);
+  bg.addColorStop(0, '#3a2490'); bg.addColorStop(0.6, '#130c3a'); bg.addColorStop(1, '#070716');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(235,232,255,${0.15 + rnd() * 0.6})`; g.beginPath(); g.arc(rnd() * W, rnd() * H, rnd() * 2.2 + 0.4, 0, 6.283); g.fill(); }
+  g.strokeStyle = 'rgba(226,194,125,.5)'; g.lineWidth = 2; g.strokeRect(40, 40, W - 80, H - 80);
+  g.textAlign = 'center'; g.fillStyle = '#e2c27d'; g.font = '600 52px "Cormorant Garamond", Georgia, serif'; g.fillText('Tarot Huyền My', W / 2, 120);
+  g.fillStyle = '#d9cdf7'; g.font = '300 28px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(cards.length > 1 ? 'Ba lá của mình' : 'Lá bài hôm nay của mình', W / 2, 168);
+  const arts = await Promise.all(cards.map((card, i) => svgImage(cardArtSvg(card, `s${i}`), 520, 728)));
+  if (cards.length === 1) drawTarotCard(g, cards[0], arts[0], 260, 205, 560);
+  else cards.forEach((card, i) => {
+    const x = 45 + i * 345; drawTarotCard(g, card, arts[i], x, 375, 300);
+    g.textAlign = 'center'; g.fillStyle = '#e2c27d'; g.font = '400 24px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText((positions?.[i] ?? '').toUpperCase(), x + 150, 345);
+    g.fillStyle = '#ece7fb'; g.font = '300 25px "Be Vietnam Pro", system-ui, sans-serif'; card.keys.forEach((k, j) => g.fillText(k, x + 150, 937 + j * 40));
+  });
+  g.fillStyle = 'rgba(236,231,251,.75)'; g.font = '300 27px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('Để suy ngẫm, không phải lời tiên đoán', W / 2, H - 118);
+  g.fillStyle = '#e2c27d'; g.font = '500 36px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('Rút bài cùng My: ' + url.replace(/^https?:\/\//, ''), W / 2, H - 68);
+  return new Promise((r) => c.toBlob(r, 'image/png'));
+}
+export async function shareTarot(info, mode = 'share') { return deliver(await makeTarotCard(info), 'tarot-huyen-my.png', { mode, url: info.url, text: 'Mình vừa rút một lá Tarot cùng Huyền My, bạn thử xem sao' }); }

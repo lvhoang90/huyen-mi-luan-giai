@@ -150,6 +150,11 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     satisfaction, quality, series,
     upgrade: upgradeRows(evs),
     compare: compareStats(evs, actorsBy),
+    tarot: {
+      visitors: actorsBy(['tarot_view']).size, drew: actorsBy(['tarot_draw']).size, daily: new Set(evs.filter((e) => e.name === 'tarot_draw' && e.p.mode === 'daily').map((e) => e.actor)).size,
+      three: new Set(evs.filter((e) => e.name === 'tarot_draw' && e.p.mode === 'three').map((e) => e.actor)).size, returned: new Set(evs.filter((e) => e.name === 'tarot_draw' && e.p.again === true).map((e) => e.actor)).size,
+      shared: actorsBy(['tarot_share']).size, asked: actorsBy(['tarot_ask']).size, browsed: actorsBy(['tarot_browse']).size,
+    },
     explore: { visitors: actorsBy(['sample_view']).size, viewedChart: actorsBy(['static_view']).size, pickedSample: actorsBy(['sample_pick']).size, toChat: new Set(evs.filter((e) => e.name === 'sample_cta' && e.p.via === 'chat').map((e) => e.actor)).size, arrived: actorsBy(['explore_handoff']).size, zalo: actorsBy(['zalo_click']).size },
     thoivan: { openedTab: new Set(evs.filter((e) => e.name === 'chart_tab' && ['thoivan', 'cung12'].includes(e.p.tab)).map((e) => e.actor)).size, monthViews: actorsBy(['time_month']).size, asked: actorsBy(['chart_ask']).size, rated: actorsBy(['resonance_time']).size },
     segments: { age: seg('ageBand'), field: seg('field') }, startChoices: dist('start_choice', 'chip'), pace: dist('pace_toggle', 'mode'),
