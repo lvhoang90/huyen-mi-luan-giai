@@ -3,7 +3,7 @@ export const EVENTS = new Set([
   'landing_view', 'enter_click', 'resume_click', 'intake_step', 'intake_done', 'hook_shown', 'start_choice', 'first_message', 'message_sent',
   'reading_requested', 'reading_received', 'resonance', 'share_card', 'chart_open', 'pace_toggle', 'warn_shown', 'session_close',
   'intro_view', 'intro_skip', 'sound_toggle', 'nps', 'signup_view', 'signup_submit', 'signup_verified', 'signup_skip', 'login_click', 'mood_check', 'lens_pick', 'page_reload', 'chart_tab', 'return_visit', 'rest_view', 'rest_over', 'age_gate', 'age_gate_answer', 'client_error', 'feedback',
-  'time_year', 'time_month', 'cung_pick', 'chart_ask', 'resonance_time', 'sample_view', 'sample_pick', 'sample_cta', 'static_view', 'zalo_click', 'feedback_text', 'explore_handoff', 'upgrade_view', 'upgrade_open', 'upgrade_click', 'upgrade_feel', 'compare_run',
+  'time_year', 'time_month', 'cung_pick', 'chart_ask', 'resonance_time', 'sample_view', 'sample_pick', 'sample_cta', 'static_view', 'zalo_click', 'feedback_text', 'explore_handoff', 'upgrade_view', 'upgrade_open', 'upgrade_click', 'upgrade_feel', 'compare_run', 'leap_rule',
 ]);
 const KEY_RE = /^[a-zA-Z_]{1,24}$/;
 

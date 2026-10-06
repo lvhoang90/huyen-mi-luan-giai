@@ -146,7 +146,7 @@ export function timeCycle(profile, chart, year, { withMonths = true } = {}) {
   // Các tháng âm lịch (bỏ tháng nhuận khỏi danh sách chính; tháng nhuận dùng chung nhận định với tháng thường trước nó)
   const lunarMonths = withMonths ? lunarMonthsOfYear(year) : [];
   const hasHour = profile.birth.hour !== null && profile.birth.hour !== undefined;
-  const dq = ty && hasHour ? mod(ty.tt - (tuvi.lunar.month - 1) + HOUR_BRANCH(profile.birth.hour)) : null;
+  const dq = ty && hasHour ? mod(ty.tt - ((tuvi.monthUsed ?? tuvi.lunar.month) - 1) + HOUR_BRANCH(profile.birth.hour)) : null;
   const months = lunarMonths.filter((lm) => !lm.leap).map((lm) => {
     const midJdn = lm.startJdn + 14, mid = new Date((midJdn - 2440588) * 86400000);
     const mp = computeBazi({ y: mid.getUTCFullYear(), m: mid.getUTCMonth() + 1, d: mid.getUTCDate(), hour: 12, minute: 0 }).pillars.month;

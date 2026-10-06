@@ -677,6 +677,7 @@ function renderSheet() {
     profile: p, chart: c, state: sheetState, track,
     ask: canAsk() ? askFromSheet : null, cta: canAsk() ? '' : 'My đang nghỉ hoặc chưa sẵn sàng; khi My quay lại, bạn bấm hỏi tiếp nhé.',
     onRate: ({ year, value }) => track('resonance_time', { value, ago: new Date().getFullYear() - year }),
+    onLeapRule: (rule) => { S.profile = { ...S.profile, leapRule: rule }; chart = buildChart(S.profile); save(); sheetTab = sheetState.tab; renderSheet(); }, // giữ nguyên tab đang xem
   });
   sheetTab = sheetState.tab;
 }

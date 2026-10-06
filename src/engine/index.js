@@ -1,7 +1,7 @@
 import { natalAstro, PLACES } from './astro.js';
 import { FIELD_OPTIONS } from './famous.js';
 import { computeBazi, cungMenh, yearPillarOfYear } from './bazi.js';
-import { computeTuVi } from './tuvi.js';
+import { computeTuVi, DEFAULT_LEAP_RULE } from './tuvi.js';
 import { solarToLunar } from './lunar.js';
 import { computeNumerology, NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './numerology.js';
 import { CUNG_TEN } from './tuvi.js';
@@ -33,7 +33,8 @@ export function normalizeProfile(p) {
   }
   const place = PLACES[p?.place] ? p.place : null;
   const field = FIELD_OPTIONS.some((o) => o.key === p?.field) ? p.field : null;
-  return { fullName, nickname, gender, birth: { y, m, d, hour, minute }, place, field };
+  const leapRule = p?.leapRule === 'goc' ? 'goc' : DEFAULT_LEAP_RULE;
+  return { fullName, nickname, gender, birth: { y, m, d, hour, minute }, place, field, leapRule };
 }
 
 export function buildChart(profile, now = new Date()) {
@@ -43,7 +44,7 @@ export function buildChart(profile, now = new Date()) {
   const astro = natalAstro(birth, profile.place);
   const cung = cungMenh(bazi.baziYear, profile.gender);
   const thisYear = yearPillarOfYear(now.getFullYear());
-  const tuvi = computeTuVi(birth, profile.gender);
+  const tuvi = computeTuVi(birth, profile.gender, { leapRule: profile.leapRule });
   const lunar = solarToLunar(birth.y, birth.m, birth.d);
 
   const caveats = [];
@@ -53,6 +54,9 @@ export function buildChart(profile, now = new Date()) {
   if (bazi.lateRatHour) caveats.push('Sinh trong giờ Tý muộn (23:00-24:00): theo quy ước phổ biến, Trụ Ngày tính sang ngày kế.');
   if (!tuvi) caveats.push(birth.hour === null ? 'Không rõ giờ sinh: không lập được lá số Tử Vi Đẩu Số (cần giờ sinh).' : 'Tử Vi Đẩu Số cần giới tính nam/nữ để xác định chiều đại hạn và vị trí Hỏa/Linh Tinh: chưa lập.');
   if (tuvi) caveats.push('Tử Vi lập theo trường phái phổ biến ở Việt Nam; chưa có độ sáng (miếu/hãm) của sao, Tuần/Triệt, tiểu hạn. Giờ Tý (23h-1h) tính cùng ngày sinh dương.');
+  if (lunar.leap && tuvi) caveats.push(lunar.day <= 15 ? `Bạn sinh ngày ${lunar.day} tháng ${lunar.month} nhuận (nửa đầu tháng): Tử Vi lập theo tháng ${lunar.month}, trùng cả hai quy ước tháng nhuận phổ biến.`
+    : tuvi.leapRule === 'goc' ? `Bạn sinh ngày ${lunar.day} tháng ${lunar.month} nhuận (nửa sau tháng): Tử Vi đang lập theo số tháng gốc (${lunar.month}). Nhiều ứng dụng chia đôi tháng nhuận và lập như tháng ${lunar.month % 12 + 1}; bạn đổi được ở khung "Quy ước đang dùng".`
+    : `Bạn sinh ngày ${lunar.day} tháng ${lunar.month} nhuận (nửa sau tháng): theo quy ước chia đôi, Tử Vi được lập như tháng ${tuvi.monthUsed}. Một số ứng dụng lấy số tháng gốc (${lunar.month}) cho cả tháng nhuận; bạn đổi được ở khung "Quy ước đang dùng".`);
   if (birth.y >= 1968 && birth.y <= 1975) caveats.push('Lịch âm giai đoạn 1968-1975 từng khác nhau giữa hai miền; My dùng múi giờ UTC+7.');
   if (astro.moonUncertain) caveats.push('Mặt Trăng sát ranh cung và không rõ giờ sinh: cung Mặt Trăng chỉ mang tính tham khảo.');
   if (birth.y < 1976) caveats.push('Múi giờ Việt Nam từng thay đổi trước 1976; nếu giờ sinh ghi theo múi giờ khác (+8) thì kết quả có thể lệch.');
@@ -99,6 +103,7 @@ export function describeChart(profile, chart, now = new Date()) {
   L.push('TỬ VI ĐẨU SỐ (âm lịch Việt Nam, UTC+7):');
   L.push(`- Ngày sinh âm lịch: ${chart.lunar.day}/${chart.lunar.month}${chart.lunar.leap ? ' nhuận' : ''}/${chart.lunar.year}${tv ? ` (năm ${tv.lunar.canChiYear})` : ''}`);
   if (tv) {
+    if (tv.monthUsed !== chart.lunar.month) L.push(`- Người này sinh nửa sau tháng ${chart.lunar.month} nhuận; lá số được lập như tháng ${tv.monthUsed} theo quy ước chia đôi tháng nhuận (có thể khác ứng dụng khác)`);
     L.push(`- ${tv.cuc.ten}; ${tv.amDuong}; Mệnh tại ${tv.palaces[tv.menh].chi}, Thân cư ${tv.thanCu} (${tv.palaces[tv.than].chi})${tv.menhVoChinhDieu ? '; Mệnh VÔ CHÍNH DIỆU (xem sao cung Thiên Di)' : ''}`);
     L.push(`- Tứ Hóa (can năm ${tv.lunar.canChiYear.split(' ')[0]}): ${Object.entries(tv.hoaAt).map(([h, v]) => `${h} → ${v.star} tại cung ${tv.palaces[v.pos].name}`).join('; ')}`);
     for (const p of tv.palaces) {

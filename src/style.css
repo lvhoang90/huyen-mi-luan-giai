@@ -365,3 +365,5 @@ a.veil-login { display: block; width: fit-content; margin: 8px auto 0; text-alig
 .cmp-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px 10px; margin-top: 8px; } .cmp-checks label { display: flex; gap: 6px; align-items: center; }
 .cmp-res { margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); font-size: 14px; line-height: 1.6; }
 .cmp-res.ok { border-color: rgba(226, 194, 125, .6); background: rgba(226, 194, 125, .08); } .cmp-res.why { border-color: rgba(138, 107, 255, .6); background: rgba(138, 107, 255, .08); } .cmp-res.unk { border-style: dashed; }
+
+.conv-rule { display: grid; gap: 4px; margin-top: 8px; font-size: 13px; color: var(--dim); } .conv-rule select { max-width: 100%; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: #14103a; color: var(--ink); font: inherit; font-size: 13.5px; }

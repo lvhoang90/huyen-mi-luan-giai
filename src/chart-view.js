@@ -1,7 +1,7 @@
 // Hình lá số dùng chung cho ứng dụng (bảng ☯) và trang Khám phá mẫu: các tab Tóm tắt, 12 cung, Thời vận, Tử Vi, Tứ Trụ, Chiêm tinh, Thần số.
 // "Mức chú ý" (nhẹ/vừa/nhiều) chỉ đếm số yếu tố đang kích hoạt một lĩnh vực theo quy tắc cổ truyền, không phải điểm tốt xấu (xem src/engine/thoivan.js).
 import { HANH, CHI } from './engine/bazi.js';
-import { conventionsFor, compareTuVi, CUC_OPTIONS } from './engine/doichieu.js';
+import { conventionsFor, compareTuVi, CUC_OPTIONS, LEAP_RULES } from './engine/doichieu.js';
 import { CUNG_TEN } from './engine/tuvi.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { natalAttention, lifeStages, timeCycle, timeline, LEVELS, CUNG_DOI_THUONG } from './engine/thoivan.js';
@@ -207,11 +207,11 @@ function retroBox(t, rated) {
 
 // ---------------- quy ước đang dùng, đối chiếu lá số từ ứng dụng khác ----------------
 const CHINH_TINH = ['Tử Vi', 'Thiên Cơ', 'Thái Dương', 'Vũ Khúc', 'Thiên Đồng', 'Liêm Trinh', 'Thiên Phủ', 'Thái Âm', 'Tham Lang', 'Cự Môn', 'Thiên Tướng', 'Thiên Lương', 'Thất Sát', 'Phá Quân'];
-function conventionsBox(c, profile) {
+function conventionsBox(c, profile, ctx = {}) {
   const list = conventionsFor(profile, c), hit = list.filter((x) => x.affects);
   return `<details class="conv"${hit.length ? ' open' : ''}><summary><b>Quy ước đang dùng</b>${hit.length ? ` <span class="lvl lv2">${hit.length} điều chạm vào ngày sinh của bạn</span>` : ''}</summary>
     <p class="sub">Hai ứng dụng Tử Vi có thể ra hai lá số khác nhau cho cùng một người mà không ai sai, vì khác quy ước. Đây là ba quy ước My đang dùng.</p>
-    <ul class="conv-list">${list.map((x) => `<li><b>${esc(x.title)}.</b> ${esc(x.text)}${x.affects ? `<em class="you">${esc(x.you)}</em>` : ''}</li>`).join('')}</ul></details>`;
+    <ul class="conv-list">${list.map((x) => `<li><b>${esc(x.title)}.</b> ${esc(x.text)}${x.affects ? `<em class="you">${esc(x.you)}</em>` : ''}${x.key === 'leap' && x.affects && ctx.onLeapRule ? `<label class="conv-rule">Cách tính cho lá số của bạn <select data-leaprule>${Object.entries(LEAP_RULES).map(([k, l]) => `<option value="${k}"${k === x.rule ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>` : ''}</li>`).join('')}</ul></details>`;
 }
 function tabCompare(c, profile, st) {
   const f = (st.cmp ??= { cuc: '', menh: '', stars: [], result: null });
@@ -242,20 +242,20 @@ const TABS = [['tomtat', 'Tóm tắt'], ['cung12', '12 cung'], ['thoivan', 'Th�
  * ask(text): có thì hiện nút "Hỏi My", gọi khi người dùng bấm. cta: HTML thay cho nút hỏi (trang mẫu không có My).
  * onRate({year, value}): người dùng nói năm đã qua có khớp không. track(name, props): ghi nhận hành vi (có thể bỏ trống).
  */
-export function renderChart(host, { profile, chart, state, ask = null, cta = '', onRate = null, track = () => {}, now = new Date(), title = true }) {
+export function renderChart(host, { profile, chart, state, ask = null, cta = '', onRate = null, onLeapRule = null, track = () => {}, now = new Date(), title = true }) {
   const st = state, a = chart.astro, c = chart;
   st.tab ||= 'tomtat'; st.rated ??= {};
-  const ctx = { ask, cta, now, rated: st.rated };
+  const ctx = { ask, cta, now, rated: st.rated, onLeapRule };
   const body = { tomtat: () => tabOverview(c) + newBanner(), cung12: () => tab12(c, profile, st, ctx), thoivan: () => tabTime(c, profile, st, ctx), tuvi: () => tabTuVi(c, profile), tutru: () => tabTuTru(c), astro: () => tabAstro(c), thanso: () => tabThanSo(c), doichieu: () => tabCompare(c, profile, st) }[st.tab]();
   const sp = host.closest('.sheet-card:not(.flat)'), top = sp ? sp.scrollTop : (globalThis.scrollY ?? 0);
   host.innerHTML = `${title ? `<h2>Lá số của ${esc(profile.nickname)}</h2>
     <p class="sub">${esc(profile.fullName)} · ${profile.birth.d}/${profile.birth.m}/${profile.birth.y}${profile.birth.hour !== null ? ` · ${String(profile.birth.hour).padStart(2, '0')}:${String(profile.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>` : ''}
     <div class="tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === st.tab ? 'on' : ''}" aria-selected="${k === st.tab}">${l}</button>`).join('')}</div>
     ${body}
-    ${conventionsBox(c, profile)}
+    ${conventionsBox(c, profile, ctx)}
     <div class="src"><b>Minh chứng và giới hạn.</b> Các con số được <b>tính</b> bằng thuật toán thiên văn (astronomy-engine) và quy tắc cổ truyền, không do AI đoán. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b>, là một lăng kính biểu tượng; chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận. Đừng quyết định chuyện lớn chỉ dựa vào lá số.
     <ul>${c.caveats.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
-  const again = () => renderChart(host, { profile, chart, state, ask, cta, onRate, track, now, title });
+  const again = () => renderChart(host, { profile, chart, state, ask, cta, onRate, onLeapRule, track, now, title });
   const go = (tab) => { st.tab = tab; track('chart_tab', { tab }); again(); };
   for (const b of host.querySelectorAll('[data-tab],[data-goto]')) b.onclick = () => go(b.dataset.tab ?? b.dataset.goto);
   for (const b of host.querySelectorAll('[data-year]')) b.onclick = () => { st.year = +b.dataset.year; track('time_year', { offset: st.year - now.getFullYear() }); again(); };
@@ -268,6 +268,7 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
     if (v) onRate?.({ year: y, value: +v });
     again();
   };
+  for (const sel of host.querySelectorAll('[data-leaprule]')) sel.onchange = () => { track('leap_rule', { rule: sel.value }); onLeapRule?.(sel.value); };
   for (const sel of host.querySelectorAll('[data-cmp]')) sel.onchange = () => { (st.cmp ??= {})[sel.dataset.cmp] = sel.value; };
   for (const cb of host.querySelectorAll('[data-cmp-star]')) cb.onchange = () => { const f = (st.cmp ??= { stars: [] }); f.stars = cb.checked ? [...new Set([...(f.stars ?? []), cb.dataset.cmpStar])] : (f.stars ?? []).filter((x) => x !== cb.dataset.cmpStar); };
   for (const b of host.querySelectorAll('[data-cmp-run]')) b.onclick = () => {

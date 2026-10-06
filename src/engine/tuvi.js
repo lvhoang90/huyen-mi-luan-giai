@@ -34,19 +34,22 @@ export function cucFromMenh(stem, branch) {
  * @param {{y,m,d,hour,minute}} birth dương lịch, giờ VN
  * @param {'nam'|'nu'} gender
  */
-export function computeTuVi(birth, gender) {
+/** Quy ước tháng nhuận khi lập Tử Vi: 'chia-doi' = nửa đầu (ngày 1-15) lấy số tháng gốc, nửa sau (từ ngày 16) lấy tháng kế; 'goc' = số tháng gốc cho cả tháng nhuận. */
+export const DEFAULT_LEAP_RULE = 'chia-doi';
+export function computeTuVi(birth, gender, opts = {}) {
   if (birth.hour === null || birth.hour === undefined) return null;
   if (gender !== 'nam' && gender !== 'nu') return null;
-  return computeTuViLunar(solarToLunar(birth.y, birth.m, birth.d), birth.hour, gender);
+  return computeTuViLunar(solarToLunar(birth.y, birth.m, birth.d), birth.hour, gender, opts);
 }
 
 /** Lập lá số từ ngày âm lịch đã biết (dùng cho test đối chiếu và khi người dùng cho sẵn ngày âm). */
-export function computeTuViLunar(lunar, hour, gender) {
+export function computeTuViLunar(lunar, hour, gender, { leapRule = DEFAULT_LEAP_RULE } = {}) {
   const birth = { hour };
   const ys = (((lunar.year - 4) % 10) + 10) % 10, yb = (((lunar.year - 4) % 12) + 12) % 12;
   const yearCan = CAN[ys], yearChi = CHI[yb];
   const h = HOUR_BRANCH(birth.hour);
-  const month = lunar.month; // tháng nhuận: theo thông lệ phổ biến, dùng số tháng gốc
+  // Tháng nhuận là một tháng hoàn chỉnh mang tên tháng trước nó; riêng việc lập Tử Vi có hai cách được dùng (xem DEFAULT_LEAP_RULE).
+  const month = lunar.leap && leapRule === 'chia-doi' && lunar.day > 15 ? (lunar.month % 12) + 1 : lunar.month;
 
   // Mệnh / Thân
   const menh = mod(2 + (month - 1) - h);
@@ -121,7 +124,7 @@ export function computeTuViLunar(lunar, hour, gender) {
   });
   const menhP = palaces[menh];
   return {
-    lunar: { ...lunar, canChiYear: `${yearCan} ${yearChi}` },
+    lunar: { ...lunar, canChiYear: `${yearCan} ${yearChi}` }, monthUsed: month, leapRule,
     menh, than, thanCu: palaces[than].name,
     cuc: { hanh: hanhCuc, so: cuc, ten: CUC_TEN[cuc] },
     amDuong: `${ys % 2 === 0 ? 'Dương' : 'Âm'} ${gender === 'nam' ? 'nam' : 'nữ'} (đại hạn ${duongNamAmNu ? 'thuận' : 'nghịch'})`,
