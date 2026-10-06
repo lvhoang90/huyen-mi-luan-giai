@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lunarMonthsOfYear } from '../src/engine/lunar.js';
 import { normalizeProfile, buildChart, describeChart } from '../src/engine/index.js';
-import { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, relation, chiRelation, LEVELS } from '../src/engine/thoivan.js';
+import { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, describeTimeExtra, relation, chiRelation, LEVELS } from '../src/engine/thoivan.js';
 import { TU_HOA } from '../src/engine/tuvi.js';
 import { demoReply } from '../server/demo.js';
 import { EVENTS } from '../server/events.js';
@@ -97,7 +97,11 @@ test('Thiếu giờ sinh hoặc giới tính: vẫn có thời vận theo Tứ T
 test('Lời cho AI có khối thời vận, không chứa từ dọa hạn', () => {
   const { profile, chart } = mk();
   const txt = describeChart(profile, chart, NOW);
-  assert.match(txt, /THỜI VẬN/); assert.match(txt, /Năm 2026 \(Bính Ngọ, năm nay\)/); assert.match(txt, /Tháng 1 \(17\/2/);
+  assert.match(txt, /THỜI VẬN/); assert.match(txt, /Năm 2026 \(Bính Ngọ, năm nay\)/); 
+  // bản gọn: năm nay đầy đủ, năm trước và năm sau một dòng, chỉ ba tháng âm lịch gần nhất (5/10/2026 là tháng 8 âm)
+  assert.match(txt, /Năm 2025 \(/); assert.match(txt, /Năm 2027 \(/); assert.doesNotMatch(txt, /Năm 2024 \(|Năm 2028 \(/);
+  assert.equal((txt.match(/^- Tháng \d+ \(/gm) ?? []).length, 3); assert.match(txt, /^- Tháng 8 \(/m); assert.doesNotMatch(txt, /^- Tháng 1 \(/m);
+  assert.equal((txt.match(/Lưu Tứ Hóa: /g) ?? []).length, 1, 'chỉ năm nay có Lưu Tứ Hóa đầy đủ');
   assert.doesNotMatch(describeTimeCycle(profile, chart, NOW), /hạn nặng|sao xấu|vận đen|đại họa|tai họa|đoản mệnh|số khổ/i);
 });
 
@@ -158,4 +162,15 @@ test('Đối chiếu thư viện khác (cố định): lưu nguyệt Đẩu Quâ
   assert.deepEqual(t.months.map((m) => m.cung.pos), [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3]);
   assert.equal(t.tuvi.ttChi, 'Ngọ'); assert.equal(chart.tuvi.palaces[t.tuvi.tt].name, 'Phúc Đức');
   assert.deepEqual(t.tuvi.luuHoa.map((h) => [h.hoa, h.star]), [['Hóa Lộc', 'Thiên Đồng'], ['Hóa Quyền', 'Thiên Cơ'], ['Hóa Khoa', 'Văn Xương'], ['Hóa Kỵ', 'Liêm Trinh']]);
+});
+
+test('Thời vận bổ sung chỉ có khi người dùng nhắc năm hay tháng cụ thể', () => {
+  const { profile, chart } = mk();
+  assert.equal(describeTimeExtra(profile, chart, 'mình thấy mệt', NOW), '');
+  const y = describeTimeExtra(profile, chart, 'Năm 2029 của mình thế nào?', NOW);
+  assert.match(y, /THỜI VẬN BỔ SUNG/); assert.match(y, /Năm 2029 \(/); assert.match(y, /Lưu Tứ Hóa/);
+  assert.match(describeTimeExtra(profile, chart, 'năm sau thì sao', NOW), /Năm 2027 \(/);
+  assert.match(describeTimeExtra(profile, chart, 'còn tháng 2 năm 2027', NOW), /\(năm 2027\) Tháng 2 \(/);
+  assert.doesNotMatch(describeTimeExtra(profile, chart, 'năm 1900 và năm 2099', NOW), /Năm 1900|Năm 2099/, 'năm quá xa không tính');
+  assert.doesNotMatch(y, /hạn nặng|sao xấu|vận đen|đại họa|tai họa|đoản mệnh|số khổ/i);
 });
