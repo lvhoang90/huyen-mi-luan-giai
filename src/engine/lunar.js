@@ -28,8 +28,8 @@ const termDay = (lon, from, tz) => {
  * Đổi dương lịch → âm lịch.
  * Trả về { day, month, year, leap, monthStartJdn }.
  */
-export function solarToLunar(y, m, d) {
-  const tz = tzOf(y);
+export function solarToLunar(y, m, d, { tz: tzOpt } = {}) { // tz: ép múi giờ (ví dụ 8 để xem lịch Trung Quốc); mặc định theo lịch Việt Nam
+  const tz = tzOpt ?? tzOf(y);
   const D = julianDayNumber(y, m, d);
   const S = newMoonDays(y - 2, y + 1, tz); // đầu các tháng âm
   const idx = (day) => { let i = 0; while (i + 1 < S.length && S[i + 1] <= day) i++; return i; };

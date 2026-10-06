@@ -1,6 +1,7 @@
 // Hình lá số dùng chung cho ứng dụng (bảng ☯) và trang Khám phá mẫu: các tab Tóm tắt, 12 cung, Thời vận, Tử Vi, Tứ Trụ, Chiêm tinh, Thần số.
 // "Mức chú ý" (nhẹ/vừa/nhiều) chỉ đếm số yếu tố đang kích hoạt một lĩnh vực theo quy tắc cổ truyền, không phải điểm tốt xấu (xem src/engine/thoivan.js).
-import { HANH } from './engine/bazi.js';
+import { HANH, CHI } from './engine/bazi.js';
+import { conventionsFor, compareTuVi, CUC_OPTIONS } from './engine/doichieu.js';
 import { CUNG_TEN } from './engine/tuvi.js';
 import { NUMBER_KEYWORDS, PERSONAL_YEAR_THEME } from './engine/numerology.js';
 import { natalAttention, lifeStages, timeCycle, timeline, LEVELS, CUNG_DOI_THUONG } from './engine/thoivan.js';
@@ -203,8 +204,38 @@ function retroBox(t, rated) {
     <div class="retro-btns">${[['3', 'Khớp'], ['2', 'Một phần'], ['1', 'Không khớp'], ['', 'Bỏ qua']].map(([v, l]) => `<button type="button" class="btn sm" data-rate="${v}" data-ryear="${t.year}">${l}</button>`).join('')}</div></div>`;
 }
 
+
+// ---------------- quy ước đang dùng, đối chiếu lá số từ ứng dụng khác ----------------
+const CHINH_TINH = ['Tử Vi', 'Thiên Cơ', 'Thái Dương', 'Vũ Khúc', 'Thiên Đồng', 'Liêm Trinh', 'Thiên Phủ', 'Thái Âm', 'Tham Lang', 'Cự Môn', 'Thiên Tướng', 'Thiên Lương', 'Thất Sát', 'Phá Quân'];
+function conventionsBox(c, profile) {
+  const list = conventionsFor(profile, c), hit = list.filter((x) => x.affects);
+  return `<details class="conv"${hit.length ? ' open' : ''}><summary><b>Quy ước đang dùng</b>${hit.length ? ` <span class="lvl lv2">${hit.length} điều chạm vào ngày sinh của bạn</span>` : ''}</summary>
+    <p class="sub">Hai ứng dụng Tử Vi có thể ra hai lá số khác nhau cho cùng một người mà không ai sai, vì khác quy ước. Đây là ba quy ước My đang dùng.</p>
+    <ul class="conv-list">${list.map((x) => `<li><b>${esc(x.title)}.</b> ${esc(x.text)}${x.affects ? `<em class="you">${esc(x.you)}</em>` : ''}</li>`).join('')}</ul></details>`;
+}
+function tabCompare(c, profile, st) {
+  const f = (st.cmp ??= { cuc: '', menh: '', stars: [], result: null });
+  if (!c.tuvi) return `<h3>Đối chiếu lá số bạn đã có</h3><p class="sub">Cần giờ sinh và giới tính nam/nữ để lập Tử Vi rồi mới đối chiếu được.</p>`;
+  const opt = (v, l, cur) => `<option value="${v}"${String(cur) === String(v) ? ' selected' : ''}>${esc(l)}</option>`;
+  const r = f.result;
+  const diffs = r?.diffs?.length ? `<ul class="tags">${r.diffs.map((d) => `<li><b>${esc(d.field)}:</b> lá số này ra <b>${esc(d.mine)}</b>, ứng dụng kia ra <b>${esc(d.theirs)}</b>.</li>`).join('')}</ul>` : '';
+  const out = !r ? '' : r.verdict === 'thieu_nhap' ? `<div class="cmp-res unk">${esc(r.tips[0])}</div>` : r.verdict === 'khop' ? `<div class="cmp-res ok"><b>Khớp.</b> Cục, cung Mệnh${f.stars.length ? ' và chính tinh ở Mệnh' : ''} giống hệt ứng dụng kia. Hai lá số cùng quy ước với nhau ở phần này.</div>`
+    : r.verdict === 'lech_giai_thich_duoc' ? `<div class="cmp-res why"><b>Lệch, nhưng giải thích được.</b>${diffs}<ul class="tags">${r.explain.map((e) => `<li>${esc(e.text)}</li>`).join('')}</ul><p class="sub">${esc(r.tips[0])}</p></div>`
+    : `<div class="cmp-res unk"><b>Lệch và My chưa giải thích được.</b>${diffs}<ul class="tags">${r.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  return `<h3>Đối chiếu lá số bạn đã có <small>so với ứng dụng hoặc thầy khác</small></h3>
+    <p class="sub">Nếu bạn đã có lá số Tử Vi từ nơi khác, nhập Cục và cung Mệnh của lá số đó. My báo khớp hay lệch và, nếu lệch, thử ba quy ước ở dưới xem quy ước nào giải thích được. Thông tin nhập ở đây không gửi đi đâu.</p>
+    <div class="cmp-form">
+      <label>Cục <select data-cmp="cuc"><option value="">Chọn</option>${CUC_OPTIONS.map(([n, l]) => opt(n, l, f.cuc)).join('')}</select></label>
+      <label>Cung Mệnh (địa chi) <select data-cmp="menh"><option value="">Chọn</option>${CHI.map((x, i) => opt(i, x, f.menh)).join('')}</select></label>
+    </div>
+    <details class="cmp-stars"${f.stars.length ? ' open' : ''}><summary>Thêm chính tinh ở cung Mệnh (không bắt buộc, giúp so chắc hơn)</summary>
+      <div class="cmp-checks">${CHINH_TINH.map((n) => `<label><input type="checkbox" data-cmp-star="${esc(n)}"${f.stars.includes(n) ? ' checked' : ''}> ${esc(n)}</label>`).join('')}</div></details>
+    <button type="button" class="btn primary" data-cmp-run>Đối chiếu</button>
+    <div aria-live="polite">${out}</div>`;
+}
+
 // ---------------- khung chung ----------------
-const TABS = [['tomtat', 'Tóm tắt'], ['cung12', '12 cung'], ['thoivan', 'Thời vận'], ['tuvi', 'Tử Vi'], ['tutru', 'Tứ Trụ'], ['astro', 'Chiêm tinh'], ['thanso', 'Thần số']];
+const TABS = [['tomtat', 'Tóm tắt'], ['cung12', '12 cung'], ['thoivan', 'Thời vận'], ['tuvi', 'Tử Vi'], ['tutru', 'Tứ Trụ'], ['astro', 'Chiêm tinh'], ['thanso', 'Thần số'], ['doichieu', 'Đối chiếu']];
 
 /**
  * Vẽ hình lá số vào host. state do bên gọi giữ (tab, year, cung, month) để mở lại đúng chỗ.
@@ -215,12 +246,13 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
   const st = state, a = chart.astro, c = chart;
   st.tab ||= 'tomtat'; st.rated ??= {};
   const ctx = { ask, cta, now, rated: st.rated };
-  const body = { tomtat: () => tabOverview(c) + newBanner(), cung12: () => tab12(c, profile, st, ctx), thoivan: () => tabTime(c, profile, st, ctx), tuvi: () => tabTuVi(c, profile), tutru: () => tabTuTru(c), astro: () => tabAstro(c), thanso: () => tabThanSo(c) }[st.tab]();
+  const body = { tomtat: () => tabOverview(c) + newBanner(), cung12: () => tab12(c, profile, st, ctx), thoivan: () => tabTime(c, profile, st, ctx), tuvi: () => tabTuVi(c, profile), tutru: () => tabTuTru(c), astro: () => tabAstro(c), thanso: () => tabThanSo(c), doichieu: () => tabCompare(c, profile, st) }[st.tab]();
   const sp = host.closest('.sheet-card:not(.flat)'), top = sp ? sp.scrollTop : (globalThis.scrollY ?? 0);
   host.innerHTML = `${title ? `<h2>Lá số của ${esc(profile.nickname)}</h2>
     <p class="sub">${esc(profile.fullName)} · ${profile.birth.d}/${profile.birth.m}/${profile.birth.y}${profile.birth.hour !== null ? ` · ${String(profile.birth.hour).padStart(2, '0')}:${String(profile.birth.minute).padStart(2, '0')}` : ' · không rõ giờ'}${a.place ? ' · ' + esc(a.place) : ''}</p>` : ''}
     <div class="tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" class="${k === st.tab ? 'on' : ''}" aria-selected="${k === st.tab}">${l}</button>`).join('')}</div>
     ${body}
+    ${conventionsBox(c, profile)}
     <div class="src"><b>Minh chứng và giới hạn.</b> Các con số được <b>tính</b> bằng thuật toán thiên văn (astronomy-engine) và quy tắc cổ truyền, không do AI đoán. Ý nghĩa gán cho chúng thuộc tầng <b>truyền thống</b>, là một lăng kính biểu tượng; chưa có bằng chứng khoa học cho thấy ngày giờ sinh quyết định số phận. Đừng quyết định chuyện lớn chỉ dựa vào lá số.
     <ul>${c.caveats.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
   const again = () => renderChart(host, { profile, chart, state, ask, cta, onRate, track, now, title });
@@ -235,6 +267,14 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
     const y = +b.dataset.ryear, v = b.dataset.rate; st.rated[y] = v || 'skip';
     if (v) onRate?.({ year: y, value: +v });
     again();
+  };
+  for (const sel of host.querySelectorAll('[data-cmp]')) sel.onchange = () => { (st.cmp ??= {})[sel.dataset.cmp] = sel.value; };
+  for (const cb of host.querySelectorAll('[data-cmp-star]')) cb.onchange = () => { const f = (st.cmp ??= { stars: [] }); f.stars = cb.checked ? [...new Set([...(f.stars ?? []), cb.dataset.cmpStar])] : (f.stars ?? []).filter((x) => x !== cb.dataset.cmpStar); };
+  for (const b of host.querySelectorAll('[data-cmp-run]')) b.onclick = () => {
+    const f = (st.cmp ??= { stars: [] });
+    if (f.cuc === '' || f.cuc == null || f.menh === '' || f.menh == null) { f.result = { verdict: 'thieu_nhap', diffs: [], explain: [], tips: ['Bạn chọn giúp My cả Cục và cung Mệnh của lá số kia nhé.'] }; return again(); }
+    f.result = compareTuVi(profile, chart, { cucSo: +f.cuc, menhPos: +f.menh, stars: f.stars ?? [] });
+    track('compare_run', { result: f.result.verdict }); again();
   };
   if (sp) sp.scrollTop = top; else globalThis.scrollTo?.(0, top);
 }

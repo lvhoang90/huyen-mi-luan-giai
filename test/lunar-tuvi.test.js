@@ -18,7 +18,7 @@ test('Âm lịch: tháng nhuận (đối chiếu lịch thực)', () => {
 });
 const pick = (l) => [l.day, l.month, l.year, l.leap];
 
-test('Tử Vi: lá số 22/7 Nhâm Thân, giờ Mão, nữ (đối chiếu độc lập 4.000 lá số với tuvi-neo)', () => {
+test('Tử Vi: lá số 22/7 Nhâm Thân, giờ Mão, nữ (đối chiếu độc lập 4.000 lá số với một thư viện Tử Vi độc lập khác)', () => {
   const t = computeTuViLunar({ day: 22, month: 7, year: 1992 }, 6, 'nu');
   assert.equal(t.cuc.ten, 'Hỏa lục cục');
   assert.equal(t.palaces[t.menh].chi, 'Tỵ');
@@ -56,4 +56,13 @@ test('Nét riêng khác nhau giữa hai người', () => {
   const b = mk('Lê Văn Hùng', 'nam', { y: 1978, m: 1, d: 3, hour: 22, minute: 10 });
   assert.notEqual(a, b);
   assert.match(describeChart(normalizeProfile({ fullName: 'Lê Văn Hùng', gender: 'nam', birth: { y: 1978, m: 1, d: 3, hour: 22, minute: 10 } }), buildChart(normalizeProfile({ fullName: 'Lê Văn Hùng', gender: 'nam', birth: { y: 1978, m: 1, d: 3, hour: 22, minute: 10 } }), new Date('2026-10-03'))), /TỬ VI ĐẨU SỐ/);
+});
+
+test('Lịch âm Việt Nam khác Trung Quốc ở 1984-1985 (UTC+7): không nhuận 10, Tết Ất Sửu là 21/1/1985', () => {
+  // Đông chí 1984 rơi 23:23 ngày 21/12 giờ Việt Nam (00:23 ngày 22/12 giờ Trung Quốc) nên hai nước chia tháng khác nhau.
+  // Mùng 1 Tết Ất Sửu 1985 ở Việt Nam là 21/1/1985 (xác nhận bởi lịch chính thức); lịch Trung Quốc có nhuận 10 và Tết 20/2. KHÔNG sửa theo lịch Trung Quốc.
+  assert.deepEqual(pick(solarToLunar(1985, 1, 21)), [1, 1, 1985, false]);
+  assert.deepEqual(pick(solarToLunar(1984, 12, 22)), [1, 12, 1984, false]);
+  assert.deepEqual(pick(solarToLunar(1984, 11, 25)), [3, 11, 1984, false]);
+  assert.deepEqual(pick(solarToLunar(1985, 2, 20)), [1, 2, 1985, false]);
 });
