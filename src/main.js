@@ -68,7 +68,23 @@ let chart = null;
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const md = (t) => esc(t).split(/\n{2,}/).map((p) => `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/\n/g, '<br>')}</p>`).join('');
 const log = $('#log');
-const scrollDown = () => { log.scrollTop = log.scrollHeight; };
+// Cuộn khi My đang nói: lời ngắn thì giữ ở cuối khung; lời dài hơn khung thì giữ ĐẦU lời đó ở trên cùng để người đọc đọc từ đầu
+// và tự cuộn xuống (không đẩy chữ lên liên tục). Người đọc vừa tự cuộn thì không kéo nữa. Nút "Còn nữa" báo còn chữ phía dưới.
+let hold = false;
+for (const ev of ['wheel', 'touchmove']) log.addEventListener(ev, () => { hold = true; }, { passive: true });
+const moreBtn = $('#more');
+const updateMore = () => { moreBtn.hidden = log.scrollHeight - log.scrollTop - log.clientHeight <= 56; };
+log.addEventListener('scroll', updateMore, { passive: true });
+try { new ResizeObserver(updateMore).observe(log); } catch {} // khung đổi cỡ (ô nhập hiện ra, xoay máy) mà không có sự kiện cuộn
+moreBtn.onclick = () => { hold = true; log.scrollBy({ top: Math.round(log.clientHeight * 0.8), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
+const scrollDown = () => { hold = false; log.scrollTop = log.scrollHeight; updateMore(); };
+function follow(el) {
+  if (!hold) {
+    if (el.offsetHeight <= log.clientHeight - 16) log.scrollTop = log.scrollHeight;
+    else log.scrollTop = el.getBoundingClientRect().top - log.getBoundingClientRect().top + log.scrollTop - 6;
+  }
+  updateMore();
+}
 
 // Huyền My chỉ trò chuyện bằng chữ: miệng mấp máy theo từng chữ hiện ra, không dùng giọng đọc.
 let typing = false;
@@ -79,7 +95,7 @@ let current = null; // bong bóng đang gõ dở: chạm vào để hiện hết
 class Bubble {
   constructor(instant = false) {
     this.el = document.createElement('div'); this.el.className = 'msg my' + (instant ? '' : ' typing');
-    log.append(this.el); this.raw = ''; this.shown = 0; this.fired = 0; this.ended = false; this.instant = instant; this.talking = false; this.rush = false; this.finished = false;
+    log.append(this.el); hold = false; this.raw = ''; this.shown = 0; this.fired = 0; this.ended = false; this.instant = instant; this.talking = false; this.rush = false; this.finished = false;
     this.done = new Promise((r) => (this.resolve = r));
     if (!instant) this.timer = setInterval(() => this.tick(), 38);
     if (!instant) current = this;
@@ -103,7 +119,7 @@ class Bubble {
   render(p = parseTagged(this.raw)) {
     let t = this.instant ? p.text : p.text.slice(0, this.shown);
     if (!this.instant && this.shown < p.text.length && (t.match(/\*/g) ?? []).length % 2) t += '*'; // đóng tạm dấu nghiêng khi đang gõ dở
-    this.el.innerHTML = md(t); scrollDown();
+    this.el.innerHTML = md(t); follow(this.el);
   }
   end() { this.ended = true; if (this.instant) { this.render(); this.resolve(); } return this.done; }
   finish(p) {
