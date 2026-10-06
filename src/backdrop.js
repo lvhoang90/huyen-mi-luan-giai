@@ -79,7 +79,11 @@ export function createBackdrop(canvas, wheelSvg) {
     dpr = Math.min(devicePixelRatio || 1, Q.dpr); W = innerWidth; H = innerHeight; canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const zs = Math.round(Math.max(16, Math.min(W, H) * 0.04)); zsprites = ZODIAC.map((_, i) => zodiacSprite(i, zs, dpr)); zsprites.size = zs;
   }
-  addEventListener('resize', resize); resize();
+  // Chỉ đổi cỡ khung vẽ khi kích thước thật sự đổi và đã yên: mỗi lần gán lại cỡ là khung bị xóa trắng (chớp) và phải dựng lại các biểu tượng cung hoàng đạo (giật).
+  // Trình duyệt nhúng (Zalo, Facebook) bắn resize liên tục khi cuộn vì thanh địa chỉ co giãn.
+  let rzT = 0;
+  addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(() => { if (Math.abs(innerWidth - W) >= 3 || Math.abs(innerHeight - H) >= 120) resize(); }, 250); });
+  resize();
   // Hạ mức khi máy yếu: bớt số lượng hạt, bỏ vệt sáng, giảm độ phân giải và số khung hình mỗi giây.
   perf.onChange(() => { Object.assign(Q, TIERS.low); stars.length = Math.min(stars.length, Q.stars); flies.length = Math.min(flies.length, Q.flies); wanderers.length = Math.min(wanderers.length, Q.wand); petals.length = Math.min(petals.length, Q.petals); cons.length = Math.min(cons.length, Q.cons); for (const w of wanderers) w.trail.length = 0; resize(); });
   let last = performance.now(), t = 0, raf = 0;

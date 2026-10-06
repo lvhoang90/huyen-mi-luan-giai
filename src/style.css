@@ -299,3 +299,5 @@ a.btn, a.icon { text-decoration: none; color: inherit; display: inline-flex; ali
 .row .field.num { flex: none; width: 4.4em; min-width: 0; text-align: center; padding-left: 8px; padding-right: 8px; } .row .field.num:nth-child(3), .row .field.num:nth-last-child(2):not(:nth-child(2)) { width: 5.6em; }
 
 .greet.on { max-height: 3.6em; opacity: .9; font-size: clamp(14px, 2.3vh, 18px); line-height: 1.4; text-wrap: balance; max-width: 22em; margin-left: auto; margin-right: auto; }
+
+.greet.reserve { max-height: none; min-height: 2.9em; transition: opacity 1.2s ease; } .greet.reserve:not(.on) { opacity: 0; } .greet.reserve.on { margin-bottom: clamp(2px, .8vh, 8px); }
