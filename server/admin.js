@@ -70,9 +70,11 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
   // ---- hài lòng ----
   const res = evs.filter((e) => e.name === 'resonance').map((e) => +e.p.value).filter((v) => v >= 1 && v <= 3);
   const nps = evs.filter((e) => e.name === 'nps').map((e) => +e.p.value).filter((v) => v >= 0 && v <= 10);
+  const tfit = evs.filter((e) => e.name === 'resonance_time').map((e) => +e.p.value).filter((v) => v >= 1 && v <= 3);
   const prom = nps.filter((v) => v >= 9).length, det = nps.filter((v) => v <= 6).length;
   const satisfaction = {
     resonance: { n: res.length, dist: [1, 2, 3].map((v) => res.filter((x) => x === v).length), good: pct(res.filter((v) => v >= 2).length, res.length), strong: pct(res.filter((v) => v === 3).length, res.length) },
+    timeFit: { n: tfit.length, dist: [1, 2, 3].map((v) => tfit.filter((x) => x === v).length), good: pct(tfit.filter((v) => v >= 2).length, tfit.length), strong: pct(tfit.filter((v) => v === 3).length, tfit.length) },
     nps: { n: nps.length, score: nps.length ? Math.round((100 * (prom - det)) / nps.length) : null, promoters: prom, passives: nps.length - prom - det, detractors: det },
   };
 
@@ -121,6 +123,8 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     range: { days, from: new Date(from).toISOString(), to: new Date(now).toISOString() },
     visitors: funnel[0].actors.size || allActors.size, funnel: funnelOut, sessions, retention: { d1: ret(1), d3: ret(3), d7: ret(7), cohorts: cohortRows.slice(-10) },
     satisfaction, quality, series,
+    explore: { visitors: actorsBy(['sample_view']).size, viewedChart: actorsBy(['static_view']).size, pickedSample: actorsBy(['sample_pick']).size, toChat: new Set(evs.filter((e) => e.name === 'sample_cta' && e.p.via === 'chat').map((e) => e.actor)).size, arrived: actorsBy(['explore_handoff']).size, zalo: actorsBy(['zalo_click']).size },
+    thoivan: { openedTab: new Set(evs.filter((e) => e.name === 'chart_tab' && ['thoivan', 'cung12'].includes(e.p.tab)).map((e) => e.actor)).size, monthViews: actorsBy(['time_month']).size, asked: actorsBy(['chart_ask']).size, rated: actorsBy(['resonance_time']).size },
     segments: { age: seg('ageBand'), field: seg('field') }, startChoices: dist('start_choice', 'chip'), pace: dist('pace_toggle', 'mode'),
     growth: { share: pct(sharers, readers), referrals: [...refs].map(([k, v]) => ({ ref: k, n: v })).sort((a, b) => b.n - a.n).slice(0, 8) },
     accounts: { total: users.c ?? 0, newInRange: users.n ?? 0, memoryConsent: pct(users.m ?? 0, users.c ?? 0) },

@@ -308,7 +308,7 @@ async function closeSession() {
   await say(`[[chiem_nghiem]]Hôm nay ta đã đi được một đoạn. Còn một điều My chưa kể: **${next}**. My để dành cho lần sau, khoảng ${hhmm(S.restUntil)} My lại ngồi đây.`, 500);
   track('session_close', { min: spent });
   await askMood('end');
-  await askNps();
+  const nps = await askNps(); if (nps !== '' && nps != null) await askWhy('nps', nps);
   await signupGate('close');
   await say('[[vui]]Trong lúc chờ, bạn thử để ý xem điều gì hôm nay chạm bạn nhất. Hẹn gặp lại.', 300);
   clearComposer(); watchRest(composer, async () => { S.restUntil = null; save(); startClock(); await say(`[[vui]]Chào ${S.profile.nickname}, My nghỉ xong rồi. ${S.teaser ? `Hôm nay My kể về **${S.teaser}** nhé, hay bạn có điều gì muốn nói trước?` : 'Bạn muốn kể gì với My?'}`, 300); S.teaser = null; save(); converse(); });
@@ -434,6 +434,18 @@ async function askNps() {
   await say('[[lang_nghe]]Một câu cuối thôi: bạn có muốn giới thiệu My cho bạn bè không? Chọn từ 0 (không) đến 10 (chắc chắn).', 300);
   const v = await ask({ kind: 'choice', chips: [...Array.from({ length: 11 }, (_, i) => ({ label: String(i), value: i })), { label: 'Bỏ qua', value: '' }] });
   if (v !== '') track('nps', { value: v });
+  return v;
+}
+/** Hỏi lý do (không bắt buộc) và xin phép trích dẫn ẩn danh: đây là nguồn đánh giá thật để giới thiệu My, người dùng quyết định phần nào được dùng. */
+async function askWhy(kind, rating) {
+  await say('[[lang_nghe]]Nếu bạn muốn, kể My nghe vì sao bạn chọn như vậy: điều gì làm bạn thích, hoặc còn thiếu gì. Một hai câu thôi, bỏ qua cũng được.', 300);
+  const text = await ask({ placeholder: 'Vì sao bạn chọn như vậy?', chips: [{ label: 'Bỏ qua', value: '' }] });
+  if (!text) return;
+  await say('[[vui]]Cảm ơn bạn. Một câu nữa thôi: My có được trích lời bạn khi giới thiệu My tới người khác không? Bạn chọn cách ghi, và My chỉ dùng đúng phần bạn cho phép.', 300);
+  const q = await ask({ kind: 'choice', chips: [{ label: 'Được, ẩn danh', value: 'anon' }, { label: `Được, ghi "${S.profile.nickname}"`, value: 'name' }, { label: 'Không, chỉ để My đọc', value: '' }] });
+  const r = await apiJson('/api/feedback', 'POST', { kind, rating: Number(rating), text, quoteOk: !!q, display: q === 'name' ? S.profile.nickname : '' }).catch(() => ({ ok: false }));
+  if (r.ok) { track('feedback_text', { kind, quote: q || 'no' }); await say('[[xuc_dong]]My đã ghi lại. Cảm ơn bạn nhiều.', 300); }
+  else note(r.error || 'Chưa gửi được góp ý, bạn thử lại sau nhé.');
 }
 async function askResonance() {
   await say('[[lang_nghe]]Điều My vừa nói có đúng với bạn không? Bạn cứ nói thật, My không phật lòng đâu.', 300);

@@ -123,6 +123,20 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       } catch (e) { console.error('[device]', e.message); }
       return res.writeHead(204).end(), true;
     }
+    if (pathname === '/api/feedback' && method === 'POST') {
+      let b; try { b = await readBody(req, 4096); } catch (e) { return json(res, 400, { error: e.message }), true; }
+      const id = identify(req, res), t = now();
+      const kind = ['nps', 'resonance', 'time', 'general'].includes(b.kind) ? b.kind : 'general';
+      const text = String(b.text ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600);
+      if (!text) return json(res, 400, { error: 'Bạn viết giúp My vài chữ nhé.' }), true;
+      const recent = db.prepare('SELECT COUNT(*) n FROM feedback WHERE actor = ? AND ts > ?').get(id.actor, t - 3600_000).n;
+      if (recent >= 6) return json(res, 429, { error: 'Bạn góp ý nhiều rồi, My cảm ơn. Thử lại sau một lúc nhé.' }), true;
+      const rating = Number.isInteger(+b.rating) && +b.rating >= 0 && +b.rating <= 10 ? +b.rating : null;
+      const display = String(b.display ?? '').replace(/[\u0000-\u001f\u007f<>"`\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30) || null;
+      db.prepare('INSERT INTO feedback(ts, actor, user_id, kind, rating, text, quote_ok, display) VALUES (?,?,?,?,?,?,?,?)')
+        .run(t, id.actor, id.user?.id ?? null, kind, rating, text, b.quoteOk === true ? 1 : 0, b.quoteOk === true ? display : null);
+      return json(res, 200, { ok: true }), true;
+    }
     if (pathname === '/api/state') {
       const id = identify(req, res);
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
@@ -184,6 +198,10 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       const q = new URL(req.url, 'http://x').searchParams, days = Math.min(365, Math.max(0, +q.get('days') || 0));
       if (pathname === '/api/admin/participants') return json(res, 200, listParticipants(db, { days, now: now() })), true;
       if (pathname === '/api/admin/participant') { const d = participantDetail(db, String(q.get('id') ?? ''), { now: now() }); return d ? json(res, 200, d) : json(res, 404, { error: 'Không thấy người này.' }), true; }
+      if (pathname === '/api/admin/feedback') {
+        const since = days ? now() - days * DAY : 0;
+        return json(res, 200, db.prepare('SELECT id, ts, kind, rating, text, quote_ok quoteOk, display FROM feedback WHERE ts >= ? ORDER BY ts DESC LIMIT 500').all(since).map((r) => ({ ...r, quoteOk: !!r.quoteOk }))), true;
+      }
       if (pathname === '/api/admin/journey') return json(res, 200, computeJourney(db, { days, now: now() })), true;
       if (pathname === '/api/admin/export/turns.csv') {
         const rows = exportTurns(db, { days, now: now(), salt: pepper }, (x) => crypto.createHash('sha256').update(x).digest('hex').slice(0, 10));

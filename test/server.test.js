@@ -336,3 +336,36 @@ test('thử nghiệm lời chào: gom theo biến thể và chỉ kết luận k
   assert.ok(listParticipants(h.db, { now: N }).rows.every((r) => r.greet), 'mỗi người có lời chào được gán');
   h.close();
 });
+
+test('góp ý: lưu lời kèm quyền trích dẫn, chống lạm dụng, quản trị xem được, xóa tài khoản thì xóa góp ý', async () => {
+  const h = await harness();
+  assert.equal((await h.call('POST', '/api/feedback', { kind: 'nps', text: '   ' })).status, 400, 'không nhận lời rỗng');
+  assert.equal((await h.call('POST', '/api/feedback', { kind: 'nps', rating: 9, text: 'My lắng nghe thật, mình thấy nhẹ lòng.', quoteOk: true, display: 'An <b>' })).status, 200);
+  assert.equal((await h.call('POST', '/api/feedback', { kind: 'bậy', rating: 99, text: 'Chưa đồng ý cho trích', quoteOk: false, display: 'Tên không được lưu' })).status, 200);
+  const rows = h.db.prepare('SELECT kind, rating, text, quote_ok, display FROM feedback ORDER BY id').all();
+  assert.equal(rows[0].quote_ok, 1); assert.equal(rows[0].display, 'An b'); assert.equal(rows[0].rating, 9);
+  assert.equal(rows[1].kind, 'general'); assert.equal(rows[1].rating, null); assert.equal(rows[1].quote_ok, 0); assert.equal(rows[1].display, null, 'không lưu tên khi không cho trích');
+  for (let i = 0; i < 4; i++) await h.call('POST', '/api/feedback', { text: `lần ${i}` });
+  assert.equal((await h.call('POST', '/api/feedback', { text: 'quá nhiều' })).status, 429);
+  assert.equal((await h.call('GET', '/api/admin/feedback')).status, 401, 'chỉ quản trị mới xem');
+  // đăng nhập admin rồi xem
+  await h.call('POST', '/api/auth/request', { email: 'admin@x.vn' });
+  await h.call('POST', '/api/auth/verify', { email: 'admin@x.vn', code: codeOf(h.mails.at(-1)) });
+  const list = await h.call('GET', '/api/admin/feedback'); assert.equal(list.status, 200); assert.equal(list.body.length, 6);
+  assert.ok(list.body.some((r) => r.quoteOk && r.display === 'An b'));
+  await h.call('POST', '/api/feedback', { text: 'góp ý khi đã đăng nhập', quoteOk: false });
+  await h.call('POST', '/api/account/delete');
+  assert.equal(h.db.prepare("SELECT COUNT(*) n FROM feedback WHERE text = 'góp ý khi đã đăng nhập'").get().n, 0);
+  h.close();
+});
+
+test('số liệu quản trị có độ đúng thời vận và phễu Khám phá', () => {
+  const db = openDb(':memory:'), T0 = 1_800_000_000_000;
+  const add = (actor, name, props = {}) => ingest(db, { actor, userId: null, sid: 's' + actor, events: [{ name, props, t: T0 }] }, T0);
+  add('a', 'sample_view'); add('b', 'sample_view'); add('a', 'static_view', { via: 'form' }); add('a', 'sample_cta', { via: 'chat' }); add('a', 'explore_handoff');
+  add('a', 'resonance_time', { value: 3 }); add('b', 'resonance_time', { value: 1 }); add('a', 'chart_tab', { tab: 'thoivan' }); add('a', 'chart_ask', { tab: 'thoivan' });
+  const m = computeMetrics(db, { days: 7, now: T0 + 1000 });
+  assert.equal(m.explore.visitors, 2); assert.equal(m.explore.viewedChart, 1); assert.equal(m.explore.toChat, 1); assert.equal(m.explore.arrived, 1);
+  assert.deepEqual(m.satisfaction.timeFit.dist, [1, 0, 1]); assert.equal(m.satisfaction.timeFit.n, 2);
+  assert.equal(m.thoivan.openedTab, 1); assert.equal(m.thoivan.asked, 1); assert.equal(m.thoivan.rated, 2);
+});
