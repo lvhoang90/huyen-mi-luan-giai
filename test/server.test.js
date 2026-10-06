@@ -440,3 +440,22 @@ test('giọng My: tiết chế gọi tên, chỉ vỗ về khi nặng lòng, hi�
   const h = resumeHint('Chào mừng trở lại.', 'Bạn muốn nói tiếp chuyện nhà hay chuyện phần mềm?');
   assert.match(h, /đồng ý bắt đầu lại/); assert.match(h, /chuyện nhà hay chuyện phần mềm/); assert.match(h, /dưới 15 từ/);
 });
+
+test('lời chỉ dẫn chia khối để dùng bộ nhớ đệm: hai khối đầu không đổi giữa các lượt, chỉ khối cuối đổi', async () => {
+  const { buildSystemBlocks, buildSystemPrompt } = await import('../server/persona.js');
+  const { normalizeProfile, buildChart } = await import('../src/engine/index.js');
+  const mk = (n, y) => { const p = normalizeProfile({ fullName: n, gender: 'nu', birth: { y, m: 5, d: 5, hour: 9, minute: 0 } }); return [p, buildChart(p)]; };
+  const [p1, c1] = mk('Trần An', 1990), [p2, c2] = mk('Lê Bình', 1985);
+  const u = (c) => ({ role: 'user', content: c }), a = (c) => ({ role: 'assistant', content: c });
+  const t1 = buildSystemBlocks('companion', p1, c1, [u('chào')], { minute: 2 });
+  const t2 = buildSystemBlocks('reading', p1, c1, [u('chào'), a('Chào bạn, kể My nghe nhé?'), u('mình mệt vì công việc')], { minute: 14 });
+  const other = buildSystemBlocks('companion', p2, c2, [u('chào')], { minute: 2 });
+  assert.equal(t1.length, 3);
+  assert.equal(t1[0].text, t2[0].text); assert.equal(t1[1].text, t2[1].text, 'khối của người này giữ nguyên giữa các lượt và giữa các giai đoạn');
+  assert.notEqual(t1[2].text, t2[2].text, 'khối đổi theo lượt phải nằm riêng');
+  assert.equal(t1[0].text, other[0].text, 'khối CORE dùng chung giữa mọi người');
+  assert.notEqual(t1[1].text, other[1].text);
+  assert.equal(t1[0].cache_control.ttl, '1h'); assert.equal(t1[1].cache_control.type, 'ephemeral'); assert.equal(t1[2].cache_control, undefined);
+  assert.match(t2[2].text, /LUẬN GIẢI LẦN ĐẦU/); assert.doesNotMatch(t1[0].text + t1[1].text, /NHỊP BUỔI|CỤM TỪ My đã lặp/);
+  assert.match(buildSystemPrompt('companion', p1, c1, [u('chào')], {}), /HUYỀN MY/);
+});
