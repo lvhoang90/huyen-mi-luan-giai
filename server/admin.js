@@ -137,7 +137,8 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     series.push({ day: dayLabel(d), visitors: of(['landing_view']), started: of(['first_message']), signups: of(['signup_verified']) });
   }
   const refs = new Map(); for (const e of evs) if (e.name === 'landing_view' && e.p.ref) refs.set(e.p.ref, (refs.get(e.p.ref) ?? 0) + 1);
-  const users = db.prepare("SELECT COUNT(*) c, SUM(created_at >= ?) n, SUM(consent_memory) m FROM users WHERE role = 'user'").get(from);
+  // tài khoản đã xóa vẫn được tính (chỉ còn ngày đăng ký và lựa chọn đồng ý nhớ) để số tổng hợp không đổi khi có người xóa
+  const users = db.prepare("SELECT COUNT(*) c, SUM(created_at >= ?) n, SUM(consent_memory) m FROM (SELECT created_at, consent_memory FROM users WHERE role = 'user' UNION ALL SELECT created_at, consent_memory FROM users_gone)").get(from);
   const sharers = actorsBy(['share_card']).size, readers = funnel[5].actors.size;
   const introSeen = actorsBy(['intro_view']).size, introSkipped = actorsBy(['intro_skip']).size;
   const introFull = new Set(evs.filter((e) => e.name === 'intro_view' && e.p.kind === 'full').map((e) => e.actor));
