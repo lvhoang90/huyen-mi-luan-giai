@@ -507,6 +507,7 @@ function openAccount() {
     card.append(h('p', { className: 'su-title', textContent: u.email }),
       h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
       h('div', { className: 'su-actions' },
+        h('a', { className: 'btn primary', href: '/goc-cua-toi', textContent: 'Góc của tôi' }),
         ...(u.role === 'admin' ? [h('a', { className: 'btn primary', href: '/admin', textContent: 'Trang quản trị' })] : []),
         h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
         h('button', { className: 'btn', textContent: u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại', onclick: async () => { const r = await apiJson('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) { u.remind = r.remind; render(); } } }),
@@ -517,6 +518,7 @@ function openAccount() {
   document.body.append(h('div', { className: 'modal', onclick: (e) => { if (e.target.classList.contains('modal')) close(); } }, card));
 }
 $('#btn-account').onclick = openAccount;
+if (/[?&]login=1/.test(location.search)) setTimeout(() => { if (!ACCOUNT.user) openAccount(); }, 900);
 $('#veil-login').onclick = () => { track('login_click', { where: 'landing' }); openAccount(); };
 
 // ---------------- hành trình ----------------

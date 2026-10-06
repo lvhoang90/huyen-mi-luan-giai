@@ -152,6 +152,7 @@ http.createServer(async (req, res) => {
   if (pathname === '/admin' || pathname === '/admin/') { req.url = '/admin.html'; pathname = '/admin.html'; }
   if (pathname === '/kham-pha' || pathname === '/kham-pha/') { req.url = '/kham-pha.html'; pathname = '/kham-pha.html'; }
   if (pathname === '/tarot' || pathname === '/tarot/') { req.url = '/tarot.html'; pathname = '/tarot.html'; }
+  if (pathname === '/goc-cua-toi' || pathname === '/goc-cua-toi/') { req.url = '/goc-cua-toi.html'; pathname = '/goc-cua-toi.html'; }
   if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn, zalo: ZALO_URL, upgrade: upgradePrices() });
   if (pathname === '/api/unlock' && req.method === 'POST') return handleUnlock(req, res);
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });

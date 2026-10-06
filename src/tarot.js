@@ -25,6 +25,8 @@ let seed = ''; try { seed = localStorage.getItem(SEED_KEY) || ''; if (!seed) { s
 const getDaily = () => { try { const d = JSON.parse(localStorage.getItem(DAILY_KEY)); return d?.day === vnDay() ? d.id : null; } catch { return null; } };
 const setDaily = (id) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ day: vnDay(), id })); } catch {} };
 
+const HIST_KEY = 'huyenmy.tarothist';
+const addHist = (mode, ids) => { try { const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; h.unshift({ d: vnDay(), m: mode, ids }); localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); } catch {} };
 const POS = [['Điều đang diễn ra', 'gist'], ['Điều nên để ý', 'mirror'], ['Bước nhỏ nên thử', 'step']];
 const HINT = { daily: 'Mỗi ngày một lá, cùng một lá cho cả ngày. Sáng mai bạn sẽ được lá mới.', three: 'Hãy nghĩ tới một điều bạn đang băn khoăn, rồi rút ba lá. Bạn không cần nói điều đó với ai.' };
 let mode = 'daily', shown = [], uidN = 0;
@@ -68,10 +70,10 @@ function go() {
   if (mode === 'daily') {
     let id = getDaily(); const again = id != null;
     if (id == null) { id = dailyCard(seed, vnDay()); setDaily(id); }
-    track('tarot_draw', { mode: 'daily', id, again });
+    track('tarot_draw', { mode: 'daily', id, again }); if (!again) addHist('daily', [id]);
     show([id]);
   } else {
-    const ids = drawCards(3); track('tarot_draw', { mode: 'three', id: ids[0] }); show(ids);
+    const ids = drawCards(3); addHist('three', ids); track('tarot_draw', { mode: 'three', id: ids[0] }); show(ids);
   }
 }
 for (const b of document.querySelectorAll('.tr-modes button')) b.onclick = () => {

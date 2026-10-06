@@ -478,3 +478,49 @@ test('số liệu Tarot: rút, chia sẻ, hỏi My và quay lại xem lá hôm n
   const t = computeMetrics(db, { days: 7, now }).tarot;
   assert.deepEqual(t, { visitors: 4, drew: 3, daily: 2, three: 1, returned: 1, shared: 1, asked: 1, browsed: 1 });
 });
+
+test('thưởng giới thiệu: đủ 10 phút và đã đăng ký thì người giới thiệu được thêm 30 phút mỗi ngày, cộng dồn, có trần', async () => {
+  const h = await harness({ HUYENMY_DAILY_MINUTES: '30' });
+  const signup = async (email, ref) => {
+    h.newJar(); await h.call('GET', '/api/me' + (ref ? `?ref=${ref}` : ''));
+    await h.call('POST', '/api/auth/request', { email }); const m = h.mails.at(-1);
+    const v = await h.call('POST', '/api/auth/verify', { email, code: codeOf(m) }); assert.equal(v.status, 200); h.tick(61_000); return v.body.user;
+  };
+  const chatFor = async (minutes) => { for (let i = 0; i < minutes; i++) { assert.equal((await h.call('GET', '/__gate')).status, 200, `phút ${i}`); h.tick(60_000); } };
+  const A = await signup('a@x.vn');
+  const code = (await h.call('GET', '/api/me')).body.refCode; assert.match(code, /^[a-f0-9]{8}$/);
+  assert.equal((await h.call('GET', '/api/panel')).body.time.totalMin, 30);
+  const B = await signup('b@x.vn', code);
+  await chatFor(5); // chưa đủ 10 phút
+  h.api.recordTurn({ actor: `u${B.id}`, phase: 'companion', reply: 'x', userMsg: 'chào', userHistory: [], prevReplies: [], ok: true });
+  h.newJar(); await h.call('POST', '/api/auth/request', { email: 'a@x.vn' }); h.tick(61_000);
+  await h.call('POST', '/api/auth/verify', { email: 'a@x.vn', code: codeOf(h.mails.at(-1)) });
+  let p = (await h.call('GET', '/api/panel')).body; assert.equal(p.referral.invited, 1); assert.equal(p.referral.qualified, 0); assert.equal(p.time.totalMin, 30);
+  // B trò chuyện thêm cho đủ 11 phút rồi A xem lại
+  h.newJar(); await h.call('POST', '/api/auth/request', { email: 'b@x.vn' }); h.tick(61_000);
+  await h.call('POST', '/api/auth/verify', { email: 'b@x.vn', code: codeOf(h.mails.at(-1)) });
+  await chatFor(11);
+  h.api.recordTurn({ actor: `u${B.id}`, phase: 'companion', reply: 'x', userMsg: 'chào', userHistory: [], prevReplies: [], ok: true });
+  h.newJar(); await h.call('POST', '/api/auth/request', { email: 'a@x.vn' }); h.tick(61_000);
+  await h.call('POST', '/api/auth/verify', { email: 'a@x.vn', code: codeOf(h.mails.at(-1)) });
+  p = (await h.call('GET', '/api/panel')).body; assert.equal(p.referral.qualified, 1); assert.equal(p.time.bonusMin, 30); assert.equal(p.time.totalMin, 60);
+  assert.equal((await h.call('GET', '/api/panel')).body.refCode, code, 'mã giới thiệu giữ nguyên khi đăng nhập lại');
+  h.close();
+});
+
+test('hết phút trong ngày thì mời giới thiệu, sang ngày mới được dùng lại; người tự giới thiệu mình không được tính', async () => {
+  const h = await harness({ HUYENMY_DAILY_MINUTES: '3' });
+  h.newJar(); await h.call('GET', '/api/me'); await h.call('POST', '/api/auth/request', { email: 'c@x.vn' });
+  const code0 = (await h.call('GET', '/api/me')).body.refCode;
+  await h.call('POST', '/api/auth/verify', { email: 'c@x.vn', code: codeOf(h.mails.at(-1)) });
+  let blocked = null;
+  for (let i = 0; i < 8 && !blocked; i++) { const r = await h.call('GET', '/__gate'); if (r.status === 429) blocked = r; h.tick(60_000); }
+  assert.ok(blocked, 'bị chặn sau 3 phút'); assert.match(blocked.text, /Góc của tôi/);
+  h.tick(24 * 3600_000); assert.equal((await h.call('GET', '/__gate')).status, 200, 'sang ngày mới dùng lại');
+  // cùng trình duyệt tạo tài khoản thứ hai bằng chính liên kết của mình: không tính
+  await h.call('POST', '/api/auth/logout'); await h.call('GET', `/api/me?ref=${code0}`);
+  await h.call('POST', '/api/auth/request', { email: 'c2@x.vn' }); const v = await h.call('POST', '/api/auth/verify', { email: 'c2@x.vn', code: codeOf(h.mails.at(-1)) });
+  assert.equal(v.status, 200);
+  assert.equal(h.api.rewards.referralsOf(1).length, 0);
+  h.close();
+});
