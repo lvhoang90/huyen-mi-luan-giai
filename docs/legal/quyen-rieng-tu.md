@@ -52,7 +52,7 @@ Chúng tôi xử lý dữ liệu của bạn dựa trên sự đồng ý của b
 - Hồ sơ và trò chuyện trong trình duyệt: cho tới khi bạn xóa.
 - Cuộc trò chuyện lưu trên máy chủ: cho tới khi bạn tắt lưu hoặc xóa tài khoản.
 - Tài khoản và email: cho tới khi bạn xóa tài khoản.
-- Số liệu ẩn danh (mục 1e): được giữ để thống kê. Khi bạn xóa tài khoản, chúng được gỡ khỏi tài khoản của bạn nhưng vẫn là số liệu ẩn danh.
+- Số liệu ẩn danh (mục 1e): được giữ để thống kê gộp. Khi bạn xóa tài khoản, email, phiên đăng nhập, liên kết với thiết bị, cuộc trò chuyện đã lưu và góp ý bạn viết đều bị xóa. Số liệu ẩn danh được đổi sang một mã ngẫu nhiên dùng một lần, không lưu bảng đối chiếu, nên không còn gắn với email hay tài khoản của bạn. Chúng chỉ dùng để thống kê gộp, không bán và không chia sẻ cho bên thứ ba nào ngoài nhà cung cấp lưu trữ nêu ở mục 3.
 - Bản sao lưu: ghi đè theo vòng khoảng 7 ngày, nên dữ liệu đã xóa có thể còn trong bản sao lưu tối đa chừng đó thời gian.
 
 ## 7. Quyền của bạn

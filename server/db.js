@@ -27,6 +27,7 @@ export function openDb(file) {
     CREATE INDEX IF NOT EXISTS tr_ts ON turns(ts);
     CREATE TABLE IF NOT EXISTS feedback (id INTEGER PRIMARY KEY, ts INTEGER NOT NULL, actor TEXT NOT NULL, user_id INTEGER, kind TEXT NOT NULL, rating INTEGER, text TEXT NOT NULL, quote_ok INTEGER NOT NULL DEFAULT 0, display TEXT);
     CREATE INDEX IF NOT EXISTS fb_ts ON feedback(ts);
+    CREATE TABLE IF NOT EXISTS users_gone (id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL, consent_memory INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS anon_links (anon_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, linked_at INTEGER NOT NULL);
   `);
   // di chuyển dữ liệu cũ: thời gian trò chuyện thực (không tính lúc người dùng vắng mặt)

@@ -96,14 +96,24 @@ export function createAuth({ db, pepper, adminEmails = [], mailer = sendMail, no
     return publicUser(row);
   }
   const logout = (token) => { if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha(token)); };
+  // Xóa tài khoản: xóa mọi thứ nhận dạng được (email, phiên, liên kết thiết bị, trạng thái đã lưu, góp ý viết tay).
+  // Số liệu hành vi (sự kiện, số đo từng lượt, không có nội dung) được ẩn danh hóa tại chỗ: mã người dùng đổi sang một mã ngẫu nhiên
+  // dùng một lần, không lưu bảng đối chiếu, nên số liệu tổng hợp không đổi nhưng không còn lần ngược về người đã xóa.
+  // Bản ghi "đã xóa" chỉ giữ ngày đăng ký và lựa chọn đồng ý nhớ, không có email hay mã người dùng.
   function deleteAccount(userId) {
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM anon_links WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM turns WHERE actor = ?').run(`u${userId}`);
-    db.prepare('DELETE FROM events WHERE actor = ?').run(`u${userId}`);
-    db.prepare('DELETE FROM feedback WHERE actor = ? OR user_id = ?').run(`u${userId}`, userId);
-    db.prepare('UPDATE events SET user_id = NULL WHERE user_id = ?').run(userId);
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    const actor = `u${userId}`, alias = `d${crypto.randomBytes(9).toString('hex')}`;
+    db.exec('BEGIN');
+    try {
+      const u = db.prepare('SELECT role, created_at, consent_memory FROM users WHERE id = ?').get(userId);
+      if (u?.role === 'user') db.prepare('INSERT INTO users_gone(created_at, consent_memory, deleted_at) VALUES (?,?,?)').run(u.created_at, u.consent_memory ? 1 : 0, Date.now());
+      db.prepare('UPDATE events SET actor = ?, user_id = NULL WHERE actor = ? OR user_id = ?').run(alias, actor, userId);
+      db.prepare('UPDATE turns SET actor = ? WHERE actor = ?').run(alias, actor);
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+      db.prepare('DELETE FROM anon_links WHERE user_id = ?').run(userId);
+      db.prepare('DELETE FROM feedback WHERE actor = ? OR user_id = ?').run(actor, userId);
+      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
   }
   return { requestCode, verify, fromToken, logout, deleteAccount, publicUser };
 }
