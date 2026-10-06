@@ -593,7 +593,6 @@ async function ritual() {
   const pick = pickFamous(p);
   const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
   const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
-  const plain = (t) => stripTags(t).replace(/\*/g, '');
   if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
   else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
   track('hook_shown', { same: pick.sameDay.length, near: pick.nearDay.length, field: !!pick.sameField, year: pick.sameYear.length > 0 });
