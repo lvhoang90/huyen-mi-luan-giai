@@ -348,3 +348,4 @@ a.btn, a.icon { text-decoration: none; color: inherit; display: inline-flex; ali
 }
 
 a.veil-login { display: block; width: fit-content; margin: 8px auto 0; text-align: center; }
+.greet.reserve { max-height: none; min-height: 2.9em; transition: opacity 1.2s ease; } .greet.reserve:not(.on) { opacity: 0; } .greet.reserve.on { margin-bottom: clamp(2px, .8vh, 8px); }

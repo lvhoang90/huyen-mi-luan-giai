@@ -31,6 +31,7 @@ export function createIntro({ veil, area, setEmo, poke, greeting, variant = '' }
   function finish() {
     timers.forEach(clearTimeout); timers = []; running = false; finished = true;
     phase('done'); body.classList.add('veil-on', 'intro-done'); flag.set(); if (skipBtn) skipBtn.hidden = true;
+    later(60, () => instant(() => place(atSlot()))); // bố cục có thể nhích vài điểm ảnh sau khi phông chữ nạp xong: đặt lại cho khớp, không có chuyển động
   }
   function skip() {
     if (!running) return;
@@ -40,7 +41,7 @@ export function createIntro({ veil, area, setEmo, poke, greeting, variant = '' }
   }
   function full() {
     kind = 'full'; t0 = performance.now(); track('intro_view', { kind, gv: variant });
-    const g = greeting?.(); if (greet && g) greet.textContent = g;
+    const g = greeting?.(); if (greet && g) { greet.textContent = g; greet.classList.add('reserve'); } // giữ sẵn chỗ: lời chào hiện lên không đẩy bố cục, nhân vật không phải xê dịch
     running = true; body.classList.add('veil-on'); phase('0'); if (skipBtn) skipBtn.hidden = false;
     instant(() => { place({ ...atFace(), zoom: 2.3 }); area.style.opacity = 0; });
     setEmo('tinh_tam');
@@ -85,6 +86,15 @@ export function createIntro({ veil, area, setEmo, poke, greeting, variant = '' }
     if (!running && !e.target.closest('#veil-actions, button, a, .snd')) { poke?.(e.clientX, e.clientY); sound.tap(); }
   });
   skipBtn?.addEventListener('click', skip);
-  addEventListener('resize', () => { if (finished && !veil.classList.contains('gone') && body.classList.contains('veil-on')) showStatic(); });
+  // Trình duyệt nhúng (Zalo, Facebook) bắn sự kiện resize liên tục khi cuộn vì thanh địa chỉ co giãn: chỉ đặt lại khi kích thước thật sự đổi và đã yên.
+  let lw = innerWidth, lh = innerHeight, rz = 0;
+  addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => {
+      if (Math.abs(innerWidth - lw) < 3 && Math.abs(innerHeight - lh) < 120) return;
+      lw = innerWidth; lh = innerHeight;
+      if (finished && !veil.classList.contains('gone') && body.classList.contains('veil-on')) showStatic();
+    }, 250);
+  });
   return { start, release, showStatic, get running() { return running; } };
 }
