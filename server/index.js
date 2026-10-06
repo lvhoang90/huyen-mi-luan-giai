@@ -115,7 +115,7 @@ async function handleChat(req, res) {
     record(true); send({ done: true }); return res.end();
   }
 
-  const system = buildSystemBlocks(phase, profile, chart, messages, { minute, lens: Object.hasOwn(LENSES, body.lens) ? body.lens : null, resumeGreet: typeof body.resumeGreet === 'string' ? body.resumeGreet : null, resumeLast: typeof body.resumeLast === 'string' ? body.resumeLast : null });
+  const system = buildSystemBlocks(phase, profile, chart, messages, { minute, lens: Object.hasOwn(LENSES, body.lens) ? body.lens : null, resumeGreet: typeof body.resumeGreet === 'string' ? body.resumeGreet : null, resumeLast: typeof body.resumeLast === 'string' ? body.resumeLast : null, tarot: Array.isArray(body.tarot) ? body.tarot.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 77).slice(0, 3) : null });
   const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 1000, thinking: { type: 'between_tools' }, system, messages });
   res.on('close', () => { try { stream.abort(); } catch {} });
   stream.on('text', (t) => { if (ttft == null) ttft = Date.now() - t0; reply += t; send({ t }); });
@@ -151,6 +151,8 @@ http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/') && await api.handle(req, res, pathname)) return;
   if (pathname === '/admin' || pathname === '/admin/') { req.url = '/admin.html'; pathname = '/admin.html'; }
   if (pathname === '/kham-pha' || pathname === '/kham-pha/') { req.url = '/kham-pha.html'; pathname = '/kham-pha.html'; }
+  if (pathname === '/tarot' || pathname === '/tarot/') { req.url = '/tarot.html'; pathname = '/tarot.html'; }
+  if (pathname === '/goc-cua-toi' || pathname === '/goc-cua-toi/') { req.url = '/goc-cua-toi.html'; pathname = '/goc-cua-toi.html'; }
   if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn, zalo: ZALO_URL, upgrade: upgradePrices() });
   if (pathname === '/api/unlock' && req.method === 'POST') return handleUnlock(req, res);
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });

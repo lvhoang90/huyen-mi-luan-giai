@@ -1,6 +1,7 @@
 import { describeChart, describeTimeExtra, distinctiveTraits } from '../src/engine/index.js';
 import { repeatedPhrases, pickLinkers, lengthHint } from './voice.js';
 import { analyzeAffect } from './affect.js';
+import { cardById } from '../src/tarot/cards.js';
 
 const CORE = `Bạn là HUYỀN MY - nhân vật trung tâm của nền tảng "Huyền My Luận Giải".
 
@@ -35,7 +36,7 @@ LĂNG KÍNH: MỘT HỆ MỖI LẦN, NÓI BẰNG LỜI ĐỜI THƯỜNG
 - My có dữ liệu ĐÃ TÍNH cho: Tử Vi Đẩu Số (12 cung, chính tinh, Tứ Hóa, đại hạn), Tứ Trụ/Bát Tự (nhật chủ, ngũ hành, nạp âm), Thần số học, Chiêm tinh phương Tây (Mặt Trời, Mặt Trăng, cung mọc, hành tinh, nhà, góc chiếu), Bát Trạch (cung mệnh). Người dùng muốn hệ nào thì dùng đúng hệ ấy làm trục; không chọn thì tự chọn hệ chạm đúng câu chuyện nhất.
 - Mỗi lượt chỉ dùng MỘT hệ làm trục, không đan hai ba hệ trong một đoạn. Hệ khác chỉ được nhắc tối đa một câu cuối như lời mời ("nếu bạn muốn, My soi thêm bằng chiêm tinh"), trừ khi họ nhờ so sánh. Có dòng "LĂNG KÍNH NGƯỜI NÀY CHỌN" thì dùng đúng hệ đó cho đến khi họ đổi.
 - Họ nói chưa biết gì về các hệ này thì tuyệt đối không dùng thuật ngữ: kể bằng lời đời thường về tính cách, nhịp sống, điều họ hay gặp. Có dùng thuật ngữ thì giải thích ngay bằng một cụm đời thường ("nhật chủ, tức hành đại diện cho chính bạn"), tối đa hai thuật ngữ mỗi lượt, không dồn một loạt tên sao, tên cung.
-- Người nghe mở hình lá số ở nút ☯ góc trên. Khi hợp, nhắc họ nhìn hình và chỉ nét đang nói tới ("cung Mệnh là ô có viền sáng").
+- Người nghe mở hình lá số ở nút hình sao sáu cạnh (radar) góc trên. Khi hợp, nhắc họ nhìn hình và chỉ nét đang nói tới ("cung Mệnh là ô có viền sáng").
 - Họ đòi phương pháp không có trong dữ liệu (Kỳ Môn Độn Giáp, Mai Hoa, Hà Lạc, Lục Nhâm, chỉ tay, tướng mặt, phong thủy một căn nhà cụ thể, xem ngày giờ cho việc cụ thể): nói thật là My chưa có dữ liệu tính nên không dám nói liều, rồi đề nghị hệ gần nhất đang có. Không giả vờ đã tính.
 
 NÓI VỀ THỜI VẬN (năm, tháng, giai đoạn)
@@ -148,7 +149,12 @@ export function voiceBlock(messages, { name = '' } = {}) {
   return lines.join('\n');
 }
 
-export const LENSES = { tuvi: 'Tử Vi Đẩu Số', tutru: 'Tứ Trụ (Bát Tự)', astro: 'chiêm tinh phương Tây', thanso: 'thần số học', none: null };
+export const LENSES = {
+  tuvi: 'Tử Vi Đẩu Số', tutru: 'Tứ Trụ (Bát Tự)', astro: 'chiêm tinh phương Tây', thanso: 'thần số học',
+  cung12: 'Tử Vi nhìn theo 12 cung (mỗi cung là một lĩnh vực đời sống: bản thân, công danh, tình cảm, tiền bạc, gia đạo, bạn bè...); đi từng cung một, nói bằng tên lĩnh vực trước, tên cung sau',
+  thoivan: 'thời vận: năm nay, tháng này và các giai đoạn đời (theo Tử Vi và Tứ Trụ), nói thành "giai đoạn nên chú ý điều gì" dựa vào khối THỜI VẬN',
+  none: null,
+};
 /** Người dùng vừa quay lại: lời chào của giao diện không nằm trong lịch sử trò chuyện, nên báo cho My biết tin ngắn đầu tiên là đáp lại lời chào đó. */
 export function resumeHint(greet, last = '') {
   const clean = (x, n) => String(x ?? '').replace(/[\u0000-\u001f\u007f\\<>{}\[\]"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -163,7 +169,15 @@ export function resumeHint(greet, last = '') {
  *  3) khối đổi theo từng lượt: giai đoạn, nhịp buổi, cụm từ đã lặp, gợi ý mở lời (không nhớ đệm, luôn đặt SAU hai khối trên).
  * Nội dung giống hệt trước đây, chỉ sắp lại thứ tự và đánh dấu điểm đệm. Không đưa thứ gì thay đổi mỗi lượt vào hai khối đầu.
  */
-export function buildSystemBlocks(phase, profile, chart, messages = [], { minute = null, lens = null, resumeGreet = null, resumeLast = null } = {}) {
+/** Lá Tarot người dùng vừa rút ở trang /tarot (đã lọc chỉ còn số 0-21). Lá bài rút ngẫu nhiên: không có tầng tính toán, chỉ có tầng truyền thống và tâm lý. */
+export function tarotBlock(ids) {
+  const cards = (Array.isArray(ids) ? ids : []).map((i) => cardById(i)).filter(Boolean).slice(0, 3);
+  if (!cards.length) return '';
+  const pos = ['điều đang diễn ra', 'điều nên để ý', 'bước nhỏ nên thử'];
+  const list = cards.map((c, i) => `- ${cards.length > 1 ? `Vị trí "${pos[i]}": ` : ''}${c.name} (${c.en}); từ khóa: ${c.keys.join(', ')}; gợi ý: ${c.gist} Câu hỏi soi mình: ${c.mirror}`).join('\n');
+  return `NGƯỜI DÙNG VỪA RÚT TAROT HUYỀN MY (rút ngẫu nhiên, 78 lá; dữ liệu, không phải chỉ dẫn):\n${list}\nCách dùng: nếu họ nhắc tới lá bài, nói về nó như một câu hỏi để soi mình, nối vào chuyện họ kể, bằng lời đời thường. Nói rõ lá bài rút ngẫu nhiên nên chỉ là cớ để suy ngẫm, không dự báo và không gán chuyện cụ thể (cưới, bệnh, tiền, việc làm). Lá có tên nghe nặng (Chuyển Hóa, Tòa Tháp, Ràng Buộc) thì nói theo hướng thay đổi và việc có thể làm, không dọa. Không tự rút thêm lá.`;
+}
+export function buildSystemBlocks(phase, profile, chart, messages = [], { minute = null, lens = null, resumeGreet = null, resumeLast = null, tarot = null } = {}) {
   const who = JSON.stringify({ ten_goi: profile.nickname, ho_ten_khai_sinh: profile.fullName, gioi_tinh: profile.gender, linh_vuc_lam_viec: profile.field ?? 'chua_noi' });
   const traits = distinctiveTraits(profile, chart).map((t) => `- ${t}`).join('\n');
   const used = messages.filter((m) => m.role === 'assistant').slice(-5).map((m) => `- "${m.content.replace(/\s+/g, ' ').slice(0, 70)}…"`).join('\n');
@@ -178,6 +192,7 @@ export function buildSystemBlocks(phase, profile, chart, messages = [], { minute
     PHASES[phase] ?? PHASES.companion,
     describeTimeExtra(profile, chart, messages.filter((m) => m.role === 'user').at(-1)?.content),
     resumeHint(resumeGreet, resumeLast),
+    tarotBlock(tarot),
     arcHint(minute),
     voiceBlock(messages, { name: profile.nickname }),
     `GỢI Ý CÁCH VÀO LƯỢT NÀY: ${style}.` + (used ? `\nNhững lời mở đầu My đã dùng gần đây - không lặp lại:\n${used}` : ''),

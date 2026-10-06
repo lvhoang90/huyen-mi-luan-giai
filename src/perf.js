@@ -7,11 +7,13 @@ const inApp = /Zalo|FBAN|FBAV|FB_IAB|Instagram|Line\//i.test(navigator.userAgent
 const weak = inApp || (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
 let saved = ''; try { saved = localStorage.getItem(KEY) || ''; } catch {}
 const subs = new Set();
+const mark = () => document.documentElement.classList.toggle('fx-low', perf.tier === 'low');
 export const perf = {
   tier: reduced || weak || saved === 'low' ? 'low' : 'high',
   get low() { return this.tier === 'low'; },
   reduced,
   /** Hạ xuống mức nhẹ (một chiều), thông báo cho các thành phần đang chạy. */
-  downgrade() { if (this.tier === 'low') return; this.tier = 'low'; try { localStorage.setItem(KEY, 'low'); } catch {} subs.forEach((f) => f()); },
+  downgrade() { if (this.tier === 'low') return; this.tier = 'low'; try { localStorage.setItem(KEY, 'low'); } catch {} mark(); subs.forEach((f) => f()); },
   onChange(f) { subs.add(f); },
 };
+mark(); // máy yếu hoặc đã từng bị giật: bỏ các hiệu ứng làm mờ tốn sức (xem .fx-low trong style.css)

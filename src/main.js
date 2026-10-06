@@ -3,7 +3,10 @@ import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
 import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
-import { shareCard } from './share.js';
+import { shareCard, shareChart } from './share.js';
+import { icon } from './icons.js';
+import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
+import { cardById } from './tarot/cards.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
@@ -20,7 +23,8 @@ createLanterns($('#lanterns'));
 mountLogo($('#veil-logo'), 'hero'); mountLogo($('#brand'), 'compact');
 const intro = createIntro({ veil: $('#veil'), area: $('#stage-area'), setEmo: (n) => character.setEmotion(n), poke: (x, y) => character.poke(x, y), variant: GV, greeting: () => { const nick = load()?.profile?.nickname; return nick ? `Chào mừng ${nick} trở lại` : GREETS[GV].veil(); } });
 const sndBtn = $('#snd'), sndTop = $('#btn-sound');
-const showSnd = () => { const t = sound.on ? 'Tắt nhạc nền' : 'Bật nhạc nền'; sndBtn.textContent = sound.on ? '♪ Nhạc nền: bật' : '♪ Nhạc nền: tắt'; sndTop.classList.toggle('on', sound.on); sndTop.title = t; sndTop.setAttribute('aria-label', t); for (const b of [sndBtn, sndTop]) b.setAttribute('aria-pressed', String(sound.on)); };
+for (const el of document.querySelectorAll('[data-ic]')) el.outerHTML = icon(el.dataset.ic); // biểu tượng của các nút tĩnh trong index.html
+const showSnd = () => { const t = sound.on ? 'Tắt nhạc nền' : 'Bật nhạc nền'; sndBtn.innerHTML = `${icon(sound.on ? 'soundOn' : 'soundOff')} <span class="snd-t">${sound.on ? 'Nhạc nền: bật' : 'Nhạc nền: tắt'}</span>`; sndTop.innerHTML = icon(sound.on ? 'soundOn' : 'soundOff'); sndTop.classList.toggle('on', sound.on); sndTop.title = t; sndTop.setAttribute('aria-label', t); for (const b of [sndBtn, sndTop]) b.setAttribute('aria-pressed', String(sound.on)); };
 const toggleSnd = () => { sound.set(!sound.on); showSnd(); track('sound_toggle', { on: sound.on }); };
 showSnd(); sndBtn.onclick = toggleSnd; sndTop.onclick = toggleSnd;
 window.__introStarted = true; requestAnimationFrame(() => intro.start());
@@ -36,7 +40,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---------------- trạng thái ----------------
 let S = { profile: null, messages: [], phase: 'intro' };
 let ACCOUNT = { accounts: false, user: null, refCode: '' }, syncTimer = 0;
-/** Tài khoản quản trị tự có nút ⚙ ở thanh trên để vào trang quản trị. */
+/** Tài khoản quản trị tự có nút cài đặt ở thanh trên để vào trang quản trị. */
 const showAdmin = () => { const a = document.getElementById('btn-admin'); if (a) a.hidden = ACCOUNT.user?.role !== 'admin'; };
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch {} scheduleSync(); };
 /** Người dùng đã đăng nhập và đồng ý lưu: đẩy trạng thái lên máy chủ (chỉ hồ sơ, tin nhắn và nhịp buổi), gom 8 giây một lần. */
@@ -68,7 +72,23 @@ let chart = null;
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const md = (t) => esc(t).split(/\n{2,}/).map((p) => `<p>${p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/\n/g, '<br>')}</p>`).join('');
 const log = $('#log');
-const scrollDown = () => { log.scrollTop = log.scrollHeight; };
+// Cuộn khi My đang nói: lời ngắn thì giữ ở cuối khung; lời dài hơn khung thì giữ ĐẦU lời đó ở trên cùng để người đọc đọc từ đầu
+// và tự cuộn xuống (không đẩy chữ lên liên tục). Người đọc vừa tự cuộn thì không kéo nữa. Nút "Còn nữa" báo còn chữ phía dưới.
+let hold = false;
+for (const ev of ['wheel', 'touchmove']) log.addEventListener(ev, () => { hold = true; }, { passive: true });
+const moreBtn = $('#more');
+const updateMore = () => { moreBtn.hidden = log.scrollHeight - log.scrollTop - log.clientHeight <= 56; };
+log.addEventListener('scroll', updateMore, { passive: true });
+try { new ResizeObserver(updateMore).observe(log); } catch {} // khung đổi cỡ (ô nhập hiện ra, xoay máy) mà không có sự kiện cuộn
+moreBtn.onclick = () => { hold = true; log.scrollBy({ top: Math.round(log.clientHeight * 0.8), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
+const scrollDown = () => { hold = false; log.scrollTop = log.scrollHeight; updateMore(); };
+function follow(el) {
+  if (!hold) {
+    if (el.offsetHeight <= log.clientHeight - 16) log.scrollTop = log.scrollHeight;
+    else log.scrollTop = el.getBoundingClientRect().top - log.getBoundingClientRect().top + log.scrollTop - 6;
+  }
+  updateMore();
+}
 
 // Huyền My chỉ trò chuyện bằng chữ: miệng mấp máy theo từng chữ hiện ra, không dùng giọng đọc.
 let typing = false;
@@ -79,7 +99,7 @@ let current = null; // bong bóng đang gõ dở: chạm vào để hiện hết
 class Bubble {
   constructor(instant = false) {
     this.el = document.createElement('div'); this.el.className = 'msg my' + (instant ? '' : ' typing');
-    log.append(this.el); this.raw = ''; this.shown = 0; this.fired = 0; this.ended = false; this.instant = instant; this.talking = false; this.rush = false; this.finished = false;
+    log.append(this.el); hold = false; this.raw = ''; this.shown = 0; this.fired = 0; this.ended = false; this.instant = instant; this.talking = false; this.rush = false; this.finished = false;
     this.done = new Promise((r) => (this.resolve = r));
     if (!instant) this.timer = setInterval(() => this.tick(), 38);
     if (!instant) current = this;
@@ -103,7 +123,7 @@ class Bubble {
   render(p = parseTagged(this.raw)) {
     let t = this.instant ? p.text : p.text.slice(0, this.shown);
     if (!this.instant && this.shown < p.text.length && (t.match(/\*/g) ?? []).length % 2) t += '*'; // đóng tạm dấu nghiêng khi đang gõ dở
-    this.el.innerHTML = md(t); scrollDown();
+    this.el.innerHTML = md(t); follow(this.el);
   }
   end() { this.ended = true; if (this.instant) { this.render(); this.resolve(); } return this.done; }
   finish(p) {
@@ -132,7 +152,7 @@ async function say(text, pause = 650, gate = false) {
 }
 log.addEventListener('click', () => current?.skip());
 const paceBtn = $('#btn-pace');
-const showPace = () => { paceBtn.textContent = pace === 'auto' ? '»' : '›'; paceBtn.title = pace === 'auto' ? 'Nhịp: tự động (bấm để chuyển sang chạm Tiếp)' : 'Nhịp: chạm Tiếp (bấm để chuyển sang tự động)'; paceBtn.setAttribute('aria-label', paceBtn.title); };
+const showPace = () => { paceBtn.innerHTML = icon(pace === 'auto' ? 'paceAuto' : 'paceTap'); paceBtn.title = pace === 'auto' ? 'Nhịp: tự động (bấm để chuyển sang chạm Tiếp)' : 'Nhịp: chạm Tiếp (bấm để chuyển sang tự động)'; paceBtn.setAttribute('aria-label', paceBtn.title); };
 showPace();
 paceBtn.onclick = () => { pace = pace === 'auto' ? 'tap' : 'auto'; try { localStorage.setItem(PACE_KEY, pace); } catch {} showPace(); track('pace_toggle', { mode: pace }); note(pace === 'auto' ? 'Nhịp tự động: My sẽ tự nói tiếp sau mỗi câu.' : 'Nhịp chạm: bạn bấm "Tiếp" khi đã đọc xong.'); };
 function showUser(text) { const d = document.createElement('div'); d.className = 'msg me'; d.textContent = text; log.append(d); scrollDown(); }
@@ -155,12 +175,15 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
   return new Promise((resolve) => {
     clearComposer();
     const done = (value, label) => { clearComposer(); showUser(label ?? String(value)); resolve(value); };
-    if (hint) composer.append(h('div', { className: 'hint', textContent: hint }));
+    const hintEl = h('div', { className: 'hint', textContent: hint }); if (hint) composer.append(hintEl);
     if (chips.length) composer.append(chipsRow(chips, (c) => done(c.value ?? c, c.label ?? c)));
     if (kind === 'choice') return;
     // Ngày và giờ nhập bằng ô số thường: hộp chọn ngày gốc của trình duyệt trong Zalo/Facebook có thể làm trang bị nạp lại giữa chừng.
     const num = (ph, len, label) => h('input', { className: 'field num', type: 'text', inputMode: 'numeric', pattern: '[0-9]*', placeholder: ph, maxLength: len, autocomplete: 'off', ariaLabel: label, size: len });
-    const fields = kind === 'date' ? [num('Ngày', 2, 'Ngày sinh'), num('Tháng', 2, 'Tháng sinh'), num('Năm', 4, 'Năm sinh')] : kind === 'time' ? [num('Giờ', 2, 'Giờ sinh (0-23)'), num('Phút', 2, 'Phút sinh')] : [];
+    const fields = kind === 'date' ? [num('Ngày', 2, 'Ngày sinh'), num('Tháng', 2, 'Tháng sinh'), num('Năm', 4, 'Năm sinh')] : kind === 'time' ? [num('Giờ', 2, 'Giờ sinh (0-23, hoặc 1-12 kèm buổi)'), num('Phút', 2, 'Phút sinh')] : [];
+    // Giờ sinh: hàng chọn buổi để người nhập "1 giờ 20" biết rõ là sáng, trưa, chiều hay tối (mặc định: giờ 24).
+    let period = 'h24'; const periodRow = kind === 'time' ? h('div', { className: 'periods', role: 'group', ariaLabel: 'Buổi trong ngày' }, ...PERIODS.map(([k, l]) => h('button', { type: 'button', className: 'chip' + (k === period ? ' on' : ''), textContent: l, ariaPressed: String(k === period), onclick: (e) => { period = k; for (const b of periodRow.children) { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-pressed', String(b === e.currentTarget)); } } }))) : null;
+    if (periodRow) composer.append(periodRow);
     const input = fields[0] ?? h('input', { className: 'field', type: 'text', placeholder, maxLength: 80, autocomplete: 'off' });
     const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
     const p2 = (v) => String(v).padStart(2, '0');
@@ -175,8 +198,9 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
       if (kind === 'time') {
         if (fields.every((f) => !f.value)) return;
         const [hh, mm] = fields.map((f) => +f.value || 0);
-        if (!(hh >= 0 && hh <= 23)) return bad(fields[0]); if (!(mm >= 0 && mm <= 59)) return bad(fields[1]);
-        return done(`${p2(hh)}:${p2(mm)}`, `${p2(hh)}:${p2(mm)}`);
+        if (!(mm >= 0 && mm <= 59)) return bad(fields[1]);
+        let h24; try { h24 = hourFrom(hh, period); } catch (e) { bad(fields[0]); hintEl.textContent = e.userMessage ?? 'Giờ chưa hợp lệ.'; return; }
+        return done(`${p2(h24)}:${p2(mm)}`, describeHour(h24, mm, period));
       }
       const v = input.value.trim(); if (!v) return;
       if (validate && !validate(v)) { input.style.borderColor = '#ff8a8a'; return; }
@@ -224,7 +248,7 @@ const lastAsk = (msgs) => {
 };
 let resumeGreet = null; // { at: số tin nhắn lúc chào, text }
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null }) });
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null, tarot: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? S.tarot : null }) });
   if (!res.ok) { const j = await res.json().catch(() => ({})); if (j.needAuth) throw Object.assign(new Error(j.error), { needAuth: true }); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {
@@ -346,7 +370,7 @@ function restScreen() {
   $('#veil').classList.remove('gone'); $('#dialog').hidden = true; intro.showStatic();
   const box = h('div');
   $('#veil-actions').replaceChildren(box, ...(S.teaser ? [h('p', { className: 'fine', innerHTML: md(`Lần sau My sẽ kể về **${S.teaser}**.`) })] : []));
-  const viewChart = h('button', { className: 'btn sm', textContent: '☯ Xem lại lá số của bạn (không cần đăng nhập)', onclick: () => { track('static_view', { via: 'rest' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; } });
+  const viewChart = h('button', { className: 'btn sm', textContent: 'Xem lại lá số của bạn (không cần đăng nhập)', onclick: () => { track('static_view', { via: 'rest' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; } });
   $('#veil-actions').append(h('div', { className: 'rest' }, viewChart));
   paintRestZalo();
   watchRest(box, () => enter(true));
@@ -411,20 +435,6 @@ function buildSignup(host, { title, done, canSkip = true }) {
   };
   ok.onclick = verify; code.onkeydown = (e) => { if (e.key === 'Enter') verify(); }; email.onkeydown = (e) => { if (e.key === 'Enter') go.click(); };
   step1();
-}
-/** Gắn email sớm, ngay sau điều thú vị đầu tiên: My đề nghị gửi chính điều vừa kể vào hộp thư và nhớ bạn. Không bắt buộc. */
-async function earlySignup(lines) {
-  if (!ACCOUNT.accounts || ACCOUNT.user) return;
-  await say('[[chia_se]]Điều vừa rồi mới là phần mở đầu thôi. Bạn để lại email, My gửi chính những điều vừa kể vào hộp thư và nhớ bạn cho lần gặp sau nhé? Không cần mật khẩu, và bạn bỏ qua cũng không sao.', 300);
-  track('signup_view', { why: 'hook' });
-  await new Promise((resolve) => {
-    clearComposer();
-    const host = h('div', { className: 'signup' }); composer.append(host);
-    buildSignup(host, {
-      title: 'Nhận điều thú vị này qua email',
-      done: async (created) => { clearComposer(); if (created) { apiJson('/api/account/hook', 'POST', { lines }).then((r) => note(r.ok ? 'My đã gửi vào email của bạn.' : 'My chưa gửi được email, bạn xem lại sau nhé.')); } resolve(created); },
-    });
-  });
 }
 /** Cổng đăng ký sau buổi đầu 30 phút, hoặc khi máy chủ yêu cầu. Trả về promise khi xong hoặc bỏ qua. */
 function signupGate(why) {
@@ -497,6 +507,7 @@ function openAccount() {
     card.append(h('p', { className: 'su-title', textContent: u.email }),
       h('p', { className: 'su-sub', textContent: u.consentMemory ? 'My đang lưu cuộc trò chuyện của bạn trên máy chủ để bạn tiếp tục ở mọi thiết bị.' : 'My chỉ nhớ bạn trên thiết bị này.' }),
       h('div', { className: 'su-actions' },
+        h('a', { className: 'btn primary', href: '/goc-cua-toi', textContent: 'Góc của tôi' }),
         ...(u.role === 'admin' ? [h('a', { className: 'btn primary', href: '/admin', textContent: 'Trang quản trị' })] : []),
         h('button', { className: 'btn', textContent: u.consentMemory ? 'Tắt lưu và xóa bản đã lưu' : 'Bật lưu cuộc trò chuyện', onclick: async () => { const want = !u.consentMemory; const r = await apiJson('/api/state', 'PUT', want ? { consentMemory: true, state: S } : { consentMemory: false }); if (r.ok || !want) { u.consentMemory = want; } render(); } }),
         h('button', { className: 'btn', textContent: u.remind ? 'Tắt email nhắc quay lại' : 'Bật email nhắc quay lại', onclick: async () => { const r = await apiJson('/api/account/remind', 'POST', { on: !u.remind }); if (r.ok) { u.remind = r.remind; render(); } } }),
@@ -507,6 +518,7 @@ function openAccount() {
   document.body.append(h('div', { className: 'modal', onclick: (e) => { if (e.target.classList.contains('modal')) close(); } }, card));
 }
 $('#btn-account').onclick = openAccount;
+if (/[?&]login=1/.test(location.search)) setTimeout(() => { if (!ACCOUNT.user) openAccount(); }, 900);
 $('#veil-login').onclick = () => { track('login_click', { where: 'landing' }); openAccount(); };
 
 // ---------------- hành trình ----------------
@@ -551,7 +563,7 @@ async function collect() {
     if (!D.ageOk) { if (!(await ageGate(y, m, d))) { delete D.date; save(); return; } keep('ageOk', true); }
     if (D.time === undefined) {
       await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
-      keep('time', await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] })); track('intake_step', { step: 'time' });
+      keep('time', await ask({ kind: 'time', hint: 'Bạn nhập giờ theo cách quen nói rồi chọn buổi: ví dụ 1 giờ 20, chọn Sáng (khuya) hay Trưa hay Chiều. Hoặc chọn "24 giờ" và nhập 13:20.', chips: [{ label: 'Không rõ giờ sinh', value: '' }, { label: 'Không chắc sáng hay tối', value: '' }] })); track('intake_step', { step: 'time' });
     }
     let hour = null, minute = null; if (D.time) [hour, minute] = D.time.split(':').map(Number);
     if (D.place === undefined) {
@@ -583,27 +595,22 @@ async function ritual() {
   stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false;
   dock();
   const y = chart.bazi.pillars.year;
-  await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút ☯ ở góc phải để xem My đã tính ra sao.`, 650, true);
+  await say(`[[hao_hung]]Xong rồi, ${p.nickname}. Bạn mang tuổi ${y.name}, nạp âm ${chart.bazi.napAmYear.name} (${chart.bazi.napAmYear.image}). Nhật chủ của bạn là hành ${chart.bazi.dayMaster.hanh}. Bạn có thể mở lá số bất cứ lúc nào bằng nút radar (hình sao sáu cạnh) ở góc phải để xem My đã tính ra sao.`, 650, true);
   // Điểm chung có thật để mở chuyện: cùng ngày sinh, cùng nghề, cùng năm sinh; chọn theo tuổi và lĩnh vực của người dùng.
   const { d, m, y: by } = p.birth;
   const pick = pickFamous(p);
   const one = (e) => `**${e.name}** (${e.gap ? `${e.d}/${e.m}/` : ''}${e.y}, ${e.desc})`;
   const same = pick.sameDay.map(one).join('; '), near = pick.nearDay.map(one).join('; ');
-  const plain = (t) => stripTags(t).replace(/\*/g, '');
-  const hookLines = [];
   if (same) await say(`[[hao_hung]]Ngày ${d}/${m} này có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''} Ngày sinh không làm nên ai cả, và My không dám nói bạn sẽ giống họ. Nhưng đó là điểm chung có thật để ta bắt đầu.`, 650, true);
   else if (near) await say(`[[hao_hung]]Trong sổ của My chưa có ai trùng đúng ngày ${d}/${m}, nhưng sát ngày bạn có: ${near}. Chỉ là điểm chung nhỏ thôi, không phải số phận.`, 650, true);
-  if (same) hookLines.push(plain(`Ngày ${d}/${m} có những người từng chào đời: ${same}.${near ? ` Sát ngày bạn còn có ${near}.` : ''}`)); else if (near) hookLines.push(plain(`Sát ngày ${d}/${m} có: ${near}.`));
   track('hook_shown', { same: pick.sameDay.length, near: pick.nearDay.length, field: !!pick.sameField, year: pick.sameYear.length > 0 });
   const extra = [];
   if (pick.sameField) extra.push(`Bạn làm ở lĩnh vực ${pick.fieldName.toLowerCase()}, và My thấy ${one(pick.sameField)} sinh chỉ cách ngày sinh của bạn ${pick.sameField.gap || 0} ngày. Chuyện trùng hợp ấy làm My tò mò, dù nó không chứng minh điều gì.`);
   if (pick.sameYear.length) extra.push(`Cùng năm ${by} với bạn còn có ${pick.sameYear.map((e) => `**${e.name}** (${e.desc})`).join(' và ')}.`);
-  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); hookLines.push(plain(extra.join(' '))); }
-  note('Hình lá số của bạn nằm ở nút ☯ góc trên bên phải. Bạn bấm xem bất cứ lúc nào để theo dõi cùng My.');
+  if (extra.length) { await say(`[[chia_se]]${extra.join(' ')}`, 650, true); }
+  note('Hình lá số của bạn nằm ở nút hình sao sáu cạnh (radar) ở góc trên bên phải. Bạn bấm xem bất cứ lúc nào để theo dõi cùng My.');
   hookTrait = distinctiveTraits(p, chart)[0] ?? null;
   if (hookTrait) await say(`[[chiem_nghiem]]Còn trong lá số của bạn, My để ý một nét khá hiếm: **${hookTrait}**. Nét ấy nói điều gì về cách bạn đi đường, My sẽ kể khi bạn muốn nghe.`, 650, true);
-  if (hookTrait) hookLines.push(`Nét hiếm trong lá số của bạn: ${hookTrait}.`);
-  await earlySignup(hookLines);
   const opener = `[[dong_cam]]Bạn muốn bắt đầu từ đâu, ${p.nickname}? Chạm một gợi ý bên dưới, hoặc cứ kể tự do. My ở đây, và My nghe.`;
   await say(opener, 200);
   S.messages = [{ role: 'assistant', content: stripTags(opener) }]; S.phase = 'listen'; save();
@@ -611,7 +618,9 @@ async function ritual() {
 }
 
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
+const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa rút Tarot ${t.length > 1 ? 'ba lá' : 'lá'} ${t.map((c) => c.name).join(', ')}. My nói giúp mình nhé.` }] : []; };
 const startChips = () => [
+  ...tarotChip(),
   ...(hookTrait ? [{ label: 'Nghe nét hiếm trong lá số của tôi', value: `Mình muốn nghe trước về nét này trong lá số của mình: ${hookTrait}.`, action: 'read' }] : []),
   { label: 'Chuyện sự nghiệp, tiền bạc', value: 'Mình đang băn khoăn về chuyện sự nghiệp và tiền bạc.' },
   { label: 'Chuyện tình cảm', value: 'Mình muốn nói về chuyện tình cảm của mình.' },
@@ -619,16 +628,28 @@ const startChips = () => [
 ];
 // Lăng kính để soi tiếp: chỉ hiện đúng một lần, ngay sau lần luận giải đầu, để người dùng biết còn lựa chọn khác.
 /** Trước khi luận giải, hỏi người dùng quen cách xem nào để My chỉ dùng đúng một hệ và nói đúng ngôn ngữ của họ. */
-async function askLens() {
-  if (S.lens) return;
-  await say('[[lang_nghe]]Trước khi My nói, một câu thôi nhé: bạn quen với cách xem nào nhất? My sẽ chỉ dùng đúng cách ấy cho dễ theo dõi, bạn muốn đổi lúc nào cũng được.', 300);
-  const v = await ask({ kind: 'choice', chips: [{ label: 'Tử Vi', value: 'tuvi' }, { label: 'Tứ Trụ (Bát Tự)', value: 'tutru' }, { label: 'Chiêm tinh', value: 'astro' }, { label: 'Thần số học', value: 'thanso' }, { label: 'Mình chưa biết gì, My nói đơn giản thôi', value: 'none' }] });
-  if (v) { S.lens = v; save(); track('lens_pick', { lens: v, via: 'ask' }); }
+async function askLens(early = false) {
+  if (S.lens || S.lensAsked) return;
+  S.lensAsked = true; save();
+  await say(early
+    ? '[[lang_nghe]]Trước khi mình trò chuyện, một câu thôi nhé: bạn quen xem lá số theo cách nào nhất? My sẽ nghiêng về đúng cách ấy và dùng đúng từ bạn đã quen. Muốn đổi lúc nào cũng được.'
+    : '[[lang_nghe]]Trước khi My nói, một câu thôi nhé: bạn quen với cách xem nào nhất? My sẽ chỉ dùng đúng cách ấy cho dễ theo dõi, bạn muốn đổi lúc nào cũng được.', 300);
+  const v = await ask({ kind: 'choice', chips: [
+    { label: 'Tử Vi', value: 'tuvi' }, { label: '12 cung', value: 'cung12' }, { label: 'Thời vận (năm, tháng)', value: 'thoivan' },
+    { label: 'Tứ Trụ (Bát Tự)', value: 'tutru' }, { label: 'Chiêm tinh', value: 'astro' }, { label: 'Thần số học', value: 'thanso' },
+    { label: 'Mình chưa biết gì, My nói đơn giản thôi', value: 'none' }, ...(early ? [{ label: 'Để My chọn giúp', value: '' }] : []),
+  ] });
+  if (v) { S.lens = v; save(); track('lens_pick', { lens: v, via: early ? 'early' : 'ask' }); }
 }
-const CHART_CHIP = { label: '☯ Xem hình lá số', value: '', action: 'chart' };
+// Cách xem người dùng chọn quyết định tab mở đầu của hình lá số, để hình và lời My nói cùng một ngôn ngữ.
+const LENS_TAB = { tuvi: 'tuvi', tutru: 'tutru', astro: 'astro', thanso: 'thanso', cung12: 'cung12', thoivan: 'thoivan' };
+const openTab = () => LENS_TAB[S.lens] ?? 'tomtat';
+const CHART_CHIP = { label: 'Xem hình lá số', value: '', action: 'chart' };
 const LENS_CHIPS = [
   CHART_CHIP,
   { lens: 'tuvi', label: 'Soi thêm theo Tử Vi', value: 'My soi giúp mình theo Tử Vi Đẩu Số nhé.' },
+  { lens: 'cung12', label: 'Soi thêm theo 12 cung', value: 'My soi giúp mình theo 12 cung, từng lĩnh vực một nhé.' },
+  { lens: 'thoivan', label: 'Soi thêm theo thời vận', value: 'My soi giúp mình theo thời vận, năm nay và những tháng tới nhé.' },
   { lens: 'tutru', label: 'Soi thêm theo Tứ Trụ', value: 'My soi giúp mình theo Tứ Trụ (Bát Tự) nhé.' },
   { lens: 'astro', label: 'Soi thêm theo Chiêm tinh', value: 'My soi giúp mình theo chiêm tinh phương Tây nhé.' },
   { lens: 'thanso', label: 'Soi thêm theo Thần số học', value: 'My soi giúp mình theo thần số học nhé.' },
@@ -645,12 +666,13 @@ async function converse() {
   if (!S.sessionStart) startClock(); // người mới: đồng hồ chỉ chạy từ lúc bắt đầu trò chuyện, không tính thời gian điền hồ sơ
   let justRead = false;
   let userTurns = S.messages.filter((m) => m.role === 'user').length;
+  if (S.phase === 'listen' && userTurns === 0) await askLens(true); // hỏi sớm, ngay sau bước điền hồ sơ, để mọi lời My nói sau đó theo đúng cách người dùng quen
   for (;;) {
     if (limitHit) return closeSession();
     stage.setMood('listen');
     const chips = contextChips(userTurns, justRead); justRead = false;
     const { text, chip } = await askChat(chips);
-    if (chip === 'chart') { track('chart_open', { via: 'chip' }); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; continue; } // chỉ mở hình lá số, không gửi tin nhắn
+    if (chip === 'chart') { track('chart_open', { via: 'chip' }); sheetTab = openTab(); renderSheet(); sheet.hidden = false; continue; } // chỉ mở hình lá số, không gửi tin nhắn
     const picked = LENS_CHIPS.find((c) => c.lens && c.value === text); if (picked) { S.lens = picked.lens; track('lens_pick', { lens: picked.lens, via: 'chip' }); }
     const sc = userTurns === 0 && S.phase === 'listen' ? startChips().find((c) => c.value === text) : null;
     if (userTurns === 0) track('first_message', { viaChip: !!sc });
@@ -678,12 +700,19 @@ function askFromSheet(text) {
   if (injectAsk) injectAsk(text);
   else { pendingAsk = text; note('My ghi nhớ câu hỏi của bạn, nói xong My trả lời ngay.'); }
 }
+async function chartShare(mode) {
+  const c = chart ?? (chart = buildChart(S.profile));
+  const url = ACCOUNT.refCode ? `${location.origin}/?ref=${ACCOUNT.refCode}` : location.origin; // liên kết giới thiệu: người mới vào qua đây được ghi nhận nguồn
+  const r = await shareChart({ nickname: S.profile.nickname, chart: c, url }, mode);
+  track('share_card', { action: r, via: 'chart', mode });
+}
 function renderSheet() {
   const p = S.profile, c = chart ?? (chart = buildChart(p));
   sheetState.tab = sheetTab;
   renderChart($('#sheet-body'), {
     profile: p, chart: c, state: sheetState, track,
     ask: canAsk() ? askFromSheet : null, cta: canAsk() ? '' : 'My đang nghỉ hoặc chưa sẵn sàng; khi My quay lại, bạn bấm hỏi tiếp nhé.',
+    onShare: chartShare,
     onRate: ({ year, value }) => track('resonance_time', { value, ago: new Date().getFullYear() - year }),
     onLeapRule: (rule) => { S.profile = { ...S.profile, leapRule: rule }; chart = buildChart(S.profile); save(); sheetTab = sheetState.tab; renderSheet(); }, // giữ nguyên tab đang xem
   });
@@ -732,7 +761,7 @@ async function offerUpgrade(where) {
 }
 const openZalo = (via) => { track('zalo_click', { via }); window.open(ZALO, '_blank', 'noopener'); };
 const sheet = $('#sheet');
-$('#btn-chart').onclick = () => { track('chart_open'); sheetTab = 'tomtat'; renderSheet(); sheet.hidden = false; };
+$('#btn-chart').onclick = () => { track('chart_open'); sheetTab = openTab(); renderSheet(); sheet.hidden = false; };
 $('#sheet-close').onclick = () => (sheet.hidden = true);
 sheet.onclick = (e) => { if (e.target === sheet) sheet.hidden = true; };
 addEventListener('keydown', (e) => e.key === 'Escape' && (sheet.hidden = true));
@@ -751,6 +780,8 @@ async function tryCode(code) {
 }
 // Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
 const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/[^\w-]/g, '').slice(0, 20);
+// Lá Tarot vừa rút ở trang /tarot (liên kết "Hỏi My về lá bài này"): My biết người dùng vừa rút lá nào để nói đúng chuyện đó.
+const urlTarot = (new URLSearchParams(location.search).get('tarot') ?? '').split(',').map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 77).slice(0, 3);
 track('landing_view', { ref: urlRef, gv: GV });
 try { const nav = performance.getEntriesByType('navigation')[0]; if (nav && nav.type !== 'navigate') track('page_reload', { type: nav.type, step: load()?.phase ?? 'new' }); } catch {}
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {
@@ -841,6 +872,8 @@ function offerResume() {
   if (S.restUntil && Date.now() < S.restUntil) restScreen();
 }
 const saved = load();
+// lá Tarot vừa rút ở trang /tarot được giữ vào trạng thái sau khi trạng thái đã lưu được nạp (nạp xong mới gán, tránh bị ghi đè)
+queueMicrotask(() => { if (urlTarot.length) { S.tarot = urlTarot; try { save(); } catch {} } });
 if (saved?.profile && saved.messages?.length && ['listen', 'companion'].includes(saved.phase)) {
   try { S = { ...saved, profile: normalizeProfile(saved.profile) }; offerResume(); } catch { $('#enter').onclick = () => enter(false); }
 } else $('#enter').onclick = () => enter(false);

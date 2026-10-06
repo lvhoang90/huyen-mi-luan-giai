@@ -25,6 +25,8 @@ Có hiệu lực từ 05/10/2026. Trang này giải thích Huyền My Luận Gi�
 
 **e3. Trang Khám phá.** Khi bạn xem lá số ở trang Khám phá, mọi phép tính chạy ngay trên trình duyệt; họ tên, ngày giờ sinh bạn nhập ở đó không được gửi lên máy chủ. Chỉ khi bạn bấm "Trò chuyện với My", thông tin ấy mới được ghi vào bộ nhớ cục bộ của trình duyệt để ứng dụng nối tiếp, và chỉ gửi tới máy chủ khi bạn bắt đầu trò chuyện. Trang này chỉ ghi nhận tên các bước (đã xem trang, đã chọn hồ sơ mẫu) như mục e.
 
+**e4. Trang Tarot.** Lá bài được rút ngẫu nhiên ngay trên trình duyệt của bạn. Chúng tôi lưu trên máy bạn một mã ngẫu nhiên và lá của ngày để hôm nay bạn xem lại vẫn là lá ấy; điều bạn nghĩ trong đầu khi rút bài không được nhập và không được gửi đi. Chỉ có tên sự kiện ẩn danh (đã rút, đã chia sẻ, đã bấm hỏi My) được ghi nhận. Khi bạn bấm "Hỏi My về lá bài này", số thứ tự của lá bài (từ 0 đến 21) đi kèm trong cuộc trò chuyện để My nói đúng lá bạn vừa rút.
+
 **f. Địa chỉ IP.** Ứng dụng chỉ dùng IP tạm thời trong bộ nhớ để chống lạm dụng (giới hạn tốc độ), không ghi vào cơ sở dữ liệu. Máy chủ web và nhà cung cấp hạ tầng có thể ghi nhật ký truy cập (IP, thời gian) theo cách của họ.
 
 ## 2. Cookie và lưu trữ trong trình duyệt

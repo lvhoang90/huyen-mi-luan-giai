@@ -9,6 +9,7 @@ import { deviceOf } from './device.js';
 import { listParticipants, participantDetail, computeJourney, exportTurns } from './people.js';
 import { assessTurn } from './quality.js';
 import { newToken } from './reminders.js';
+import { createRewards } from './rewards.js';
 
 const DAY = 86_400_000;
 export const ANON_LIMIT_MS = 32 * 60_000; // 30 phút + 2 phút châm chước
@@ -17,6 +18,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
   const accountsOn = (env.HUYENMY_ACCOUNTS ?? 'on') !== 'off';
   const adminEmails = String(env.ADMIN_EMAILS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const pepper = env.HUYENMY_PEPPER || crypto.randomBytes(16).toString('hex');
+  const rewards = createRewards({ db, env, now });
   const auth = createAuth({ db, pepper, adminEmails, mailer, now });
   const dataKey = env.HUYENMY_DATA_KEY ? crypto.createHash('sha256').update(env.HUYENMY_DATA_KEY).digest() : null;
   const dailyCap = +env.HUYENMY_DAILY_TURNS || 200;
@@ -65,6 +67,11 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       if (row?.first_chat && active > ANON_LIMIT_MS) { json(res, 401, { error: 'Buổi đầu của bạn đã trọn 30 phút. Tạo tài khoản bằng email để My nhớ bạn và hẹn lần sau nhé.', needAuth: true }); return null; }
       db.prepare('UPDATE anon SET first_chat = COALESCE(first_chat, ?), active_ms = ?, last_chat = ? WHERE id = ?').run(t, active, t, id.anon);
     }
+    if (id.user && accountsOn) {
+      const full = rewards.exhausted(id.user.id, id.user.role, t);
+      if (full) { json(res, 429, { error: `Hôm nay bạn đã trò chuyện với My đủ ${full.totalMin} phút rồi. Mời bạn bè dùng thử qua liên kết của bạn: mỗi người bạn đăng ký và trò chuyện trên ${full.qualifyMin} phút, bạn được thêm ${full.perMin} phút mỗi ngày. Xem ở "Góc của tôi" nhé.`, needMore: true }); return null; }
+      rewards.addActive(id.user.id, t);
+    }
     const today = db.prepare('SELECT COUNT(*) c FROM turns WHERE actor = ? AND ts >= ?').get(id.actor, t - DAY).c;
     if (today >= dailyCap) { json(res, 429, { error: 'Hôm nay My đã trò chuyện khá nhiều với bạn, hẹn bạn ngày mai nhé.' }); return null; }
     return id;
@@ -76,14 +83,32 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
     db.prepare('INSERT INTO turns(ts, actor, sid, phase, minute, ms, ttft, words, q, tags, rep, echo, score, flags, ok, u_val, u_aro, u_emo, u_disc, u_words, my_emo, ut) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(now(), actor, String(sid ?? '').slice(0, 24) || null, phase, Number.isFinite(minute) ? Math.round(minute) : null, ms ?? null, ttft ?? null, a.words, a.q, a.tags, a.rep, a.echo, a.score, a.flags.join(','), ok ? 1 : 0,
         af.val, af.aro, af.emo, af.disc, af.words, firstTag(reply), Number.isFinite(ut) ? ut : null);
+    if (actor.startsWith('u')) { try { rewards.settle(+actor.slice(1)); } catch (e) { console.error('[rewards]', e.message); } }
     return a;
+  }
+
+  /** Mã giới thiệu: người đã đăng nhập dùng mã gắn với tài khoản (đổi máy vẫn giữ), người chưa đăng nhập dùng mã của trình duyệt. */
+  function refCodeOf(id) {
+    if (id.user) { const a = db.prepare('SELECT anon_id FROM users WHERE id = ?').get(id.user.id)?.anon_id; if (a) return a.slice(0, 8); }
+    return id.anon.slice(0, 8);
   }
 
   async function handle(req, res, pathname) {
     const method = req.method;
     if (pathname === '/api/me' && method === 'GET') {
       const id = identify(req, res);
-      return json(res, 200, { accounts: accountsOn, user: id.user, refCode: id.anon.slice(0, 8) }), true;
+      return json(res, 200, { accounts: accountsOn, user: id.user, refCode: refCodeOf(id) }), true;
+    }
+    // Góc của tôi: thời gian trò chuyện trong ngày, lượt giới thiệu, lượt chia sẻ. Chỉ các con số, không có nội dung trò chuyện.
+    if (pathname === '/api/panel' && method === 'GET') {
+      const id = identify(req, res); if (!id.user) return json(res, 401, { error: 'Bạn đăng nhập để mở Góc của tôi nhé.' }), true;
+      rewards.settle(id.user.id);
+      const a = rewards.allowance(id.user.id, id.user.role);
+      const sh = (name) => db.prepare('SELECT COUNT(*) c FROM events WHERE actor = ? AND name = ?').get(id.actor, name).c;
+      const row = db.prepare('SELECT created_at FROM users WHERE id = ?').get(id.user.id);
+      return json(res, 200, { user: { email: id.user.email, since: row?.created_at ?? null }, refCode: refCodeOf(id), time: { unlimited: a.unlimited, baseMin: a.baseMin, bonusMin: a.bonusMin, totalMin: a.totalMin, usedMin: a.usedMin, leftMin: a.leftMin },
+        referral: { perMin: a.perMin, qualifyMin: a.qualifyMin, maxRefs: a.maxRefs, invited: a.invited, qualified: a.qualified, list: a.refs.map(({ n, at, qualified, chatMin }) => ({ n, at, qualified, chatMin })) },
+        shares: { tarot: sh('tarot_share'), chart: sh('share_card') } }), true;
     }
     if (pathname === '/api/auth/request' && method === 'POST') {
       if (!accountsOn) return json(res, 404, { error: 'Tính năng tài khoản đang tắt.' }), true;
@@ -102,6 +127,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
         const d = db.prepare('SELECT device, os, browser FROM anon WHERE id = ?').get(id.anon) ?? deviceOf(req.headers['user-agent']);
         db.prepare('UPDATE users SET anon_id = COALESCE(anon_id, ?), device = COALESCE(device, ?), os = COALESCE(os, ?), browser = COALESCE(browser, ?) WHERE id = ?').run(id.anon, d.device ?? null, d.os ?? null, d.browser ?? null, r.user.id);
         db.prepare('INSERT OR REPLACE INTO anon_links(anon_id, user_id, linked_at) VALUES (?,?,?)').run(id.anon, r.user.id, now());
+        if (r.isNew && anonRow?.ref) rewards.recordReferral(r.user.id, anonRow.ref, now());
       } catch (e) { console.error('[link]', e.message); }
       const prev = res.getHeader('Set-Cookie');
       res.setHeader('Set-Cookie', [...(Array.isArray(prev) ? prev : prev ? [prev] : []), cookie('hm_s', r.token, { maxAgeSec: r.maxAgeSec, secure: secure(req) })]);
@@ -188,6 +214,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
     if (pathname === '/api/account/delete' && method === 'POST') {
       const id = identify(req, res);
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      rewards.forget(id.user.id);
       auth.deleteAccount(id.user.id);
       return json(res, 200, { ok: true }, { 'Set-Cookie': cookie('hm_s', '', { maxAgeSec: 0, secure: secure(req) }) }), true;
     }
@@ -220,5 +247,5 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
     }
     return false;
   }
-  return { handle, chatGate, recordTurn, identify, auth, accountsOn, adminConfigured: adminEmails.length > 0 };
+  return { handle, chatGate, recordTurn, identify, auth, rewards, accountsOn, adminConfigured: adminEmails.length > 0 };
 }

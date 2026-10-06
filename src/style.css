@@ -391,3 +391,36 @@ a.veil-login { display: block; width: fit-content; margin: 8px auto 0; text-alig
 details.howto { margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; color: var(--dim); }
 details.howto > summary { cursor: pointer; padding: 6px 2px; color: #f3d58a; font-weight: 500; }
 details.howto ul { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 5px; } details.howto b { color: #f6e3a8; font-weight: 600; }
+
+/* nút báo còn chữ phía dưới khung chat */
+.more-wrap { position: relative; height: 0; z-index: 3; }
+.more { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line); background: rgba(24, 18, 64, .92); color: var(--gold); font: inherit; font-size: 13.5px; cursor: pointer; box-shadow: 0 6px 22px rgba(0, 0, 0, .4); backdrop-filter: blur(8px); }
+.more:hover { border-color: rgba(226, 194, 125, .6); } .more[hidden] { display: none; }
+
+/* hình lá số: hàng tab một dòng cuộn ngang, hành động chia sẻ, bốn điểm chính, khoảng cách rõ ràng giữa các khối */
+.cactions { display: flex; gap: 8px; margin: 14px 0 4px; } .cactions .btn { flex: 1 1 0; justify-content: center; padding: 9px 12px; }
+.ctabs { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; margin: 12px -6px 16px; padding: 9px 6px; position: sticky; top: -1px; z-index: 5; scrollbar-width: none; scroll-snap-type: x proximity;
+  background: linear-gradient(180deg, rgba(20, 16, 56, .98), rgba(20, 16, 56, .93)); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.ctabs::-webkit-scrollbar { display: none; }
+.ctabs button { flex: none; padding: 8px 15px; border-radius: 999px; border: 1px solid var(--line); background: transparent; font-size: 14px; white-space: nowrap; scroll-snap-align: center; }
+.ctabs button.on { background: rgba(226, 194, 125, .18); border-color: var(--gold); color: #fbeecb; }
+.sheet-card.flat .ctabs { position: static; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; border-bottom: 0; padding-left: 0; padding-right: 0; margin-left: 0; margin-right: 0; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 2px 0 12px; }
+.fact { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .04); }
+.fact span { display: block; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.fact b { font-variant-numeric: lining-nums; display: block; margin-top: 3px; font-family: var(--serif); font-size: 20px; font-weight: 600; line-height: 1.25; color: #fbeecb; overflow-wrap: anywhere; }
+.ovintro { margin: 4px 0 14px; line-height: 1.6; }
+@media (min-width: 720px) { .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .sheet-card h2 { font-size: 26px; padding-right: 44px; } .sheet-card .sub { line-height: 1.55; } }
+
+/* điện thoại và máy yếu: bỏ hiệu ứng làm mờ nền và bóng đổ trên hình động (rất tốn sức khi nền và nhân vật đang chuyển động) */
+@media (pointer: coarse) { .msg.my { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(22, 17, 62, .9); } #char svg { filter: none; } }
+.fx-low .msg.my { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(22, 17, 62, .9); } .fx-low #char svg { filter: none; }
+
+/* biểu tượng nét mảnh dùng chung (src/icons.js) */
+.ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; }
+.icon { display: inline-grid; place-items: center; padding: 0; font-size: 0; } .icon .ic { width: 19px; height: 19px; vertical-align: 0; }
+.btn .ic { margin-right: 4px; } .snd .ic { margin-right: 2px; }
+
+/* chọn buổi cho giờ sinh */
+.periods { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; } .periods .chip.on { background: rgba(226, 194, 125, .22); border-color: var(--gold); color: #fbeecb; }
