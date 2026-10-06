@@ -146,6 +146,7 @@ export function shareMessage(r) {
   if (r === 'shared') return copied ? 'Đã mở chia sẻ. Lời nhắn kèm liên kết cũng đã được sao chép sẵn, bạn dán vào nếu ứng dụng không tự điền.' : 'Đã mở chia sẻ.';
   if (r === 'saved' && mode === 'download') return 'Đã tải ảnh về máy bạn. Bạn mở thư viện ảnh hoặc mục Tải xuống để xem.';
   if (r === 'saved') return copied ? 'Máy này chưa mở được hộp thoại chia sẻ, nên mình đã tải ảnh về và sao chép sẵn lời nhắn kèm liên kết. Bạn dán vào khi đăng nhé.' : 'Máy này chưa mở được hộp thoại chia sẻ, nên mình đã tải ảnh về. Bạn đính kèm ảnh khi đăng nhé.';
+  if (r === 'pending') return 'Ảnh đang được chuẩn bị (máy hơi chậm). Bạn đợi một chút rồi bấm Chia sẻ lần nữa nhé, lần này sẽ mở ngay.';
   if (r === 'cancelled') return copied ? 'Bạn chưa gửi. Lời nhắn kèm liên kết vẫn được sao chép sẵn nếu bạn muốn dán.' : '';
   return '';
 }
@@ -154,11 +155,14 @@ export function shareMessage(r) {
  * makeBlob có thể là một Promise đã vẽ sẵn: hộp thoại chia sẻ phải được gọi sớm sau khi bấm nút, nếu để lâu trình duyệt từ chối.
  * Khi chia sẻ, lời nhắn ngắn kèm liên kết có mã giới thiệu được chép sẵn vào bộ nhớ tạm ngay lúc bấm.
  */
-async function deliver(makeBlob, name, { mode, url, text }) {
+async function deliver(makeBlob, name, { mode, url, text, maxWait = 0 }) {
   const full = `${text}\n${url}`;
   const copying = mode === 'share' ? copyText(full) : Promise.resolve(false); // bắt đầu ngay trong cử chỉ bấm, không chờ
   shareState.mode = mode; shareState.copied = false;
-  const blob = await (typeof makeBlob === 'function' ? makeBlob() : makeBlob);
+  const making = Promise.resolve(typeof makeBlob === 'function' ? makeBlob() : makeBlob);
+  // Hộp thoại chia sẻ chỉ mở được trong khoảng 5 giây sau khi bấm. Nếu ảnh chưa kịp xong (máy yếu), không chờ quá ngưỡng: báo người dùng bấm lại, lần sau ảnh đã có sẵn.
+  const blob = maxWait && mode === 'share' ? await Promise.race([making, new Promise((r) => setTimeout(() => r('pending'), maxWait))]) : await making;
+  if (blob === 'pending') { shareState.copied = await copying; making.catch(() => {}); return 'pending'; }
   let result = 'saved';
   if (mode === 'share') {
     try {
@@ -173,7 +177,10 @@ async function deliver(makeBlob, name, { mode, url, text }) {
 }
 const SHARE_TEXT = 'Mình vừa được Huyền My soi lá số, bạn thử xem sao:';
 export async function shareCard(info, mode = 'share') { return deliver(() => makeCard(info), 'huyen-my.png', { mode, url: info.url, text: SHARE_TEXT }); }
-export async function shareChart(info, mode = 'share') { return deliver(() => makeChartCard(info), 'la-so-huyen-my.png', { mode, url: info.url, text: 'Mình vừa xem lá số cùng Huyền My, bạn thử xem sao:' }); }
+// Ảnh lá số vẽ một lần cho mỗi lá số (theo đối tượng chart), lần bấm lại dùng luôn ảnh đã vẽ.
+const chartBlobs = new WeakMap();
+const chartBlob = (info) => { let p = chartBlobs.get(info.chart); if (!p) { p = makeChartCard(info); if (info.chart && typeof info.chart === 'object') { chartBlobs.set(info.chart, p); p.catch(() => chartBlobs.delete(info.chart)); } } return p; };
+export async function shareChart(info, mode = 'share') { return deliver(() => chartBlob(info), 'la-so-huyen-my.png', { mode, url: info.url, text: 'Mình vừa xem lá số cùng Huyền My, bạn thử xem sao:', maxWait: 3500 }); }
 
 // ---------- thẻ Tarot (một lá hoặc ba lá) ----------
 const svgImage = async (svg, w, h) => { const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace('<svg ', `<svg width="${w}" height="${h}" `)); await img.decode(); return img; };
@@ -220,4 +227,4 @@ export async function makeTarotCard({ cards, positions = null, url }) {
 export const prepareTarot = (info) => makeTarotCard(info);
 const tarotText = (cards) => (cards.length > 1 ? `Mình vừa trải ba lá Tarot cùng Huyền My (${cards.map((c) => c.name).join(', ')}). Bạn thử xem sao:` : `Mình vừa rút lá ${cards[0].name} cùng Huyền My. Bạn thử rút lá của mình nhé:`);
 /** info.blob: ảnh đã vẽ sẵn bằng prepareTarot (không bắt buộc). */
-export async function shareTarot(info, mode = 'share') { return deliver(async () => (await info.blob) ?? makeTarotCard(info), 'tarot-huyen-my.png', { mode, url: info.url, text: tarotText(info.cards) }); }
+export async function shareTarot(info, mode = 'share') { return deliver(async () => (await info.blob) ?? makeTarotCard(info), 'tarot-huyen-my.png', { mode, url: info.url, text: tarotText(info.cards), maxWait: 3500 }); }

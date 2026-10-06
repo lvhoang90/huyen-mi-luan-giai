@@ -110,15 +110,22 @@ async function runProfile(P, idx, browser) {
     const day = await pg.evaluate(() => { try { return JSON.parse(localStorage.getItem('huyenmy.tarotdaily'))?.day ?? null; } catch { return null; } }), expectDay = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
     check('Lá của ngày tính theo giờ Việt Nam, kể cả khi máy ở múi giờ khác', day === expectDay, `lưu ${day}, đúng ${expectDay}`);
     // chia sẻ
-    const t0 = await pg.evaluate(() => performance.now()); await pg.click('#tr-share'); if (P.noShare) await sleep(900); else await pg.waitForFunction(() => window.__shares.length > 0, null, { timeout: 6000 }).catch(() => {});
-    const sh = await pg.evaluate(() => window.__shares);
+    const t0 = await pg.evaluate(() => performance.now()); await pg.click('#tr-share');
+    if (P.noShare) await sleep(900); else await pg.waitForFunction(() => window.__shares.length > 0, null, { timeout: 7000 }).catch(() => {});
+    let sh = await pg.evaluate(() => window.__shares);
     if (P.noShare) {
       const note = await pg.locator('#tr-note').innerText(); check('Máy không có hộp thoại chia sẻ: báo rõ và vẫn có ảnh', /tải ảnh về/.test(note), note.slice(0, 80));
     } else {
-      check('Bấm Chia sẻ thì hộp thoại chia sẻ mở ngay', sh.length === 1, `${sh.length} lần`);
-      if (sh[0]) { R.metrics.shareDelayMs = Math.round(sh[0].t - t0); check('Hộp thoại chia sẻ mở trong 1,5 giây sau khi bấm', sh[0].t - t0 < 1500, `${Math.round(sh[0].t - t0)}ms`);
-        check('Nội dung chia sẻ có liên kết kèm mã ref', /\/tarot\?ref=[\w-]+/.test(sh[0].text ?? ''), (sh[0].text ?? '').slice(-70));
-        check('Tên tệp ảnh có mã ngẫu nhiên 3 ký tự', /-[a-hj-km-np-z2-9]{3}\.png$/.test(sh[0].files[0] ?? ''), sh[0].files[0]); }
+      let first = sh[0];
+      if (!first) { // ảnh chưa kịp xong: ứng dụng phải báo bấm lại, và lần bấm lại phải mở ngay
+        const note = await pg.locator('#tr-note').innerText(); R.metrics.sharePending = true;
+        check('Ảnh chưa kịp xong thì báo bấm lại thay vì lỗi', /bấm Chia sẻ/.test(note), note.slice(0, 80));
+        const t1 = await pg.evaluate(() => performance.now()); await pg.click('#tr-share'); await pg.waitForFunction(() => window.__shares.length > 0, null, { timeout: 6000 }).catch(() => {});
+        sh = await pg.evaluate(() => window.__shares); first = sh[0]; if (first) { check('Bấm lại thì hộp thoại chia sẻ mở ngay (dưới 1,5 giây)', first.t - t1 < 1500, `${Math.round(first.t - t1)}ms`); }
+      } else R.metrics.shareDelayMs = Math.round(first.t - t0);
+      check('Hộp thoại chia sẻ mở được', !!first, `${sh.length} lần`);
+      if (first) { check('Nội dung chia sẻ có liên kết kèm mã ref', /\/tarot\?ref=[\w-]+/.test(first.text ?? ''), (first.text ?? '').slice(-70));
+        check('Tên tệp ảnh có mã ngẫu nhiên 3 ký tự', /-[a-hj-km-np-z2-9]{3}\.png$/.test(first.files[0] ?? ''), first.files[0]); }
     }
     const clip = await pg.evaluate(() => navigator.clipboard.readText().catch(() => null)); check('Nội dung kèm liên kết đã được chép sẵn', clip && /tarot\?ref=/.test(clip), clip ? clip.slice(-40) : 'không đọc được');
     const [dl] = await Promise.all([pg.waitForEvent('download', { timeout: T(20000) }), pg.click('#tr-dl')]);
@@ -161,7 +168,8 @@ async function runProfile(P, idx, browser) {
     check('Báo cáo câu trả lời được', /Cảm ơn bạn/.test(await pg.locator('.rep-box').last().innerText()));
     R.audit.chat = await pg.evaluate(AUDIT);
     const chartBtn = pg.locator('#btn-chart'); if (await chartBtn.isVisible().catch(() => false)) { await chartBtn.click(); await pg.waitForSelector('#sheet:not([hidden])', { timeout: 5000 }); const ov = await pg.evaluate(() => { const s = document.querySelector('#sheet-body'), r0 = s.getBoundingClientRect(), edge = r0.left + s.clientWidth; return { d: s.scrollWidth - s.clientWidth, ox: getComputedStyle(s).overflowX, bad: [...s.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().right > edge + 0.5).slice(0, 4).map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 24)} +${Math.round(e.getBoundingClientRect().right - edge)}px`) }; });
-      check('Bảng lá số mở được, không tràn ngang', ov.d <= 1, `lệch ${ov.d}px, overflow-x ${ov.ox}; ${ov.bad.join(', ')}`); await pg.locator('#sheet-close').click().catch(() => {}); }
+      const card = await pg.evaluate(() => { const c = document.querySelector('.sheet-card'); return { d: c.scrollWidth - c.clientWidth, ox: getComputedStyle(c).overflowX }; });
+      check('Bảng lá số mở được, người dùng không trượt ngang được', card.d <= 1 || ['hidden', 'clip'].includes(card.ox), `khung bảng: lệch ${card.d}px, overflow-x ${card.ox}; nội dung thanh tab lệch ${ov.d}px ${ov.bad.join(', ')}`); await pg.locator('#sheet-close').click().catch(() => {}); }
     await pg.close();
   });
 

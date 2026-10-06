@@ -19,6 +19,7 @@ test('lời báo sau khi chia sẻ nói đúng điều đã xảy ra', () => {
   assert.equal(shareMessage('shared'), 'Đã mở chia sẻ.');
   assert.doesNotMatch(shareMessage('saved'), /sao chép/);
   assert.equal(shareMessage('cancelled'), '');
+  assert.match(shareMessage('pending'), /bấm Chia sẻ lần nữa/);
   Object.assign(shareState, { copied: false, mode: 'download' });
   assert.match(shareMessage('saved'), /Đã tải ảnh về máy bạn/);
 });

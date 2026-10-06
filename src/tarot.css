@@ -98,3 +98,4 @@
 .tr-feel .tf-thanks { color: #a79fc9; font-size: .88rem; }
 
 @media (max-width: 360px) { .ex-top { padding-left: 12px; padding-right: 12px; gap: 8px; } .tr-nav { gap: 6px; } .tr-nav .btn.sm { padding-left: 11px; padding-right: 11px; font-size: 13px; } }
+@media (max-width: 340px) { .ex-top { flex-wrap: wrap; } .tr-nav { flex-wrap: wrap; } }
