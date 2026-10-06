@@ -162,7 +162,7 @@ function minorScene(card) {
 /** Tệp rig của Huyền My, cắt sát khung hình toàn thân và gắn biểu cảm bằng thuộc tính (không cần mã chạy). */
 function rig(emoKey, { x, y, w, h, flip = false, look = {}, uid = 'x' }) {
   const e = EMOTIONS[emoKey] ?? EMOTIONS.binh_thuong;
-  const open = `<svg xmlns="http://www.w3.org/2000/svg" class="hm" viewBox="20 120 560 680" x="${x}" y="${y}" width="${w}" height="${h}" data-eyes="${e.eyes}" data-brows="${e.brows}" data-mouth="${e.mouth}" data-pose="${e.pose}" data-blush="${e.blush}" data-fx="${e.fx.join(' ')}">`;
+  const open = `<svg xmlns="http://www.w3.org/2000/svg" class="hm" viewBox="20 120 560 680" overflow="visible" x="${x}" y="${y}" width="${w}" height="${h}" data-eyes="${e.eyes}" data-brows="${e.brows}" data-mouth="${e.mouth}" data-pose="${e.pose}" data-blush="${e.blush}" data-fx="${e.fx.join(' ')}">`;
   const svg = dress(rigSvg, look, uid).replace(/<svg[^>]*>/, open);
   return flip ? `<g transform="rotate(180 ${x + w / 2} ${y + h / 2})">${svg}</g>` : svg;
 }
