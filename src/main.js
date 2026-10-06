@@ -1,3 +1,4 @@
+import './pwa.js';
 import './style.css';
 import { createCharacter } from './character.js';
 import { createBackdrop } from './backdrop.js';
@@ -268,6 +269,17 @@ async function aiTurn(phase) {
   busy = true;
   try { return await aiTurnInner(phase); } finally { busy = false; if (limitHit) closeSession(); }
 }
+
+// Báo cáo câu trả lời của My (Google Play yêu cầu ứng dụng dùng AI tạo lời phải có cách báo cáo ngay trong ứng dụng). Chỉ gửi lý do và giai đoạn, không gửi nội dung trò chuyện.
+const REPORT_REASONS = [['khong_phu_hop', 'Không phù hợp'], ['sai_su_that', 'Sai sự thật'], ['gay_lo_so', 'Làm mình lo sợ'], ['khac', 'Lý do khác']];
+function addReport(b) {
+  const box = h('div', { className: 'rep-box' }), btn = h('button', { className: 'rep', type: 'button', title: 'Báo cáo câu trả lời này', innerHTML: `${icon('flag')}<span>Báo cáo</span>` });
+  box.append(btn); b.el.append(box);
+  const done = () => box.replaceChildren(h('span', { className: 'rep-q', textContent: 'Cảm ơn bạn. My ghi nhận để cải thiện, và không gửi kèm nội dung cuộc trò chuyện.' }));
+  btn.onclick = () => box.replaceChildren(h('span', { className: 'rep-q', textContent: 'Câu trả lời này có vấn đề gì?' }),
+    ...REPORT_REASONS.map(([k, l]) => h('button', { className: 'chip sm', type: 'button', textContent: l, onclick: () => { track('ai_report', { reason: k, phase: S.phase ?? '' }); done(); } })),
+    h('button', { className: 'rep', type: 'button', textContent: 'Hủy', onclick: () => box.replaceChildren(btn) }));
+}
 let suggestions = []; // gợi ý trả lời do chính My đưa ra ở lượt vừa rồi (chỉ khi hợp ngữ cảnh)
 async function aiTurnInner(phase) {
   suggestions = [];
@@ -285,6 +297,7 @@ async function aiTurnInner(phase) {
     return false;
   }
   await b.end();
+  addReport(b);
   suggestions = extractSuggestions(raw);
   S.messages.push({ role: 'assistant', content: stripTags(raw) }); save();
   return true;

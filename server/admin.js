@@ -196,6 +196,8 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     meanWords: okTurns.length ? Math.round(mean(okTurns.map((t) => t.words))) : null,
     flags: Object.fromEntries(['qua_nhieu_cau_hoi', 'qua_dai', 'lap_lai', 'noi_chac_nich', 'doa_han_hoac_ban_cung', 'thieu_nhan_tang', 'thieu_canh_bao_gioi_han', 'khong_bam_loi_nguoi_dung', 'cum_sao_ron', 'lap_cum_tu', 'vien_dan_nhieu', 'qua_nhieu_he', 'tu_truu_tuong', 'ne_cau_hoi'].map((f) => [f, pct(flagCount(f), okTurns.length)])),
     crisis: { handled: cs, missed: cm, safety: cs + cm ? pct(cs, cs + cm) : null },
+    // báo cáo của người dùng về câu trả lời của My (chỉ lý do, không có nội dung); tỉ lệ tính trên số lượt trả lời trong kỳ
+    reports: (() => { const r = evs.filter((e) => e.name === 'ai_report'), by = new Map(); for (const e of r) by.set(String(e.p.reason ?? 'khac'), (by.get(String(e.p.reason ?? 'khac')) ?? 0) + 1); return { total: r.length, people: new Set(r.map((e) => e.actor)).size, rate: pct(r.length, okTurns.length), byReason: [...by].map(([reason, n]) => ({ reason, n })).sort((a, b) => b.n - a.n) }; })(),
   };
 
   // ---- chuỗi theo ngày, tăng trưởng, tài khoản ----

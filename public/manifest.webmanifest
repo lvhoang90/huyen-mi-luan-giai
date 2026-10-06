@@ -1,0 +1,25 @@
+{
+  "name": "Huyền My Luận Giải",
+  "short_name": "Huyền My",
+  "description": "Người bạn AI biết lắng nghe: Tử Vi, Tứ Trụ, chiêm tinh, thần số học và Tarot 78 lá. Soi mình, không phải tiên đoán.",
+  "lang": "vi",
+  "dir": "ltr",
+  "start_url": "/?from=app",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a24",
+  "theme_color": "#0a0a24",
+  "categories": ["lifestyle", "entertainment"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Rút bài Tarot hôm nay", "short_name": "Tarot", "url": "/tarot?from=app", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Xem lá số, không cần đăng nhập", "short_name": "Khám phá", "url": "/kham-pha?from=app", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Góc của tôi", "short_name": "Góc của tôi", "url": "/goc-cua-toi?from=app", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

@@ -152,7 +152,7 @@ function serveStatic(req, res) {
   if (!file.startsWith(dist)) { res.writeHead(403); return res.end(); }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(dist, 'index.html');
   const ext = path.extname(file);
-  const headers = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable' };
+  const headers = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' || /^\/(sw\.js|manifest\.webmanifest)$/.test(p) ? 'no-cache' : /^\/(icons|art)\//.test(p) ? 'public, max-age=86400' : 'public, max-age=31536000, immutable' };
   const z = compressed(file, ext, String(req.headers['accept-encoding'] ?? ''));
   if (z) { res.writeHead(200, { ...headers, 'Content-Encoding': z.enc, 'Content-Length': z.buf.length, Vary: 'Accept-Encoding' }); return res.end(req.method === 'HEAD' ? undefined : z.buf); }
   res.writeHead(200, headers);
@@ -166,6 +166,11 @@ http.createServer(async (req, res) => {
   if (pathname === '/kham-pha' || pathname === '/kham-pha/') { req.url = '/kham-pha.html'; pathname = '/kham-pha.html'; }
   if (pathname === '/tarot' || pathname === '/tarot/') { req.url = '/tarot.html'; pathname = '/tarot.html'; }
   if (pathname === '/goc-cua-toi' || pathname === '/goc-cua-toi/') { req.url = '/goc-cua-toi.html'; pathname = '/goc-cua-toi.html'; }
+  if (pathname === '/.well-known/assetlinks.json') { // liên kết tài sản số để ứng dụng Android (TWA) mở trang này toàn màn hình, không thanh địa chỉ
+    const pkg = (process.env.ANDROID_PACKAGE ?? '').trim(), fps = (process.env.ANDROID_SHA256 ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    const body = pkg && fps.length ? [{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: pkg, sha256_cert_fingerprints: fps } }] : [];
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300' }); return res.end(JSON.stringify(body));
+  }
   if (pathname === '/api/status' && req.method === 'GET') return json(res, 200, { ai: hasKey, model: hasKey ? MODEL : null, locked: !!ACCESS_CODE, accounts: api.accountsOn, zalo: ZALO_URL, upgrade: upgradePrices() });
   if (pathname === '/api/unlock' && req.method === 'POST') return handleUnlock(req, res);
   if (pathname === '/api/chat' && req.method === 'POST') return handleChat(req, res).catch((e) => { console.error(e); if (!res.headersSent) json(res, 500, { error: 'Lỗi máy chủ' }); else res.end(); });

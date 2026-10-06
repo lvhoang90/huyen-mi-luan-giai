@@ -1,5 +1,6 @@
 // Trang Tarot Huyền My: rút một lá mỗi ngày hoặc trải ba lá, đọc theo hướng soi mình, tải ảnh hoặc chia sẻ kèm liên kết giới thiệu.
 // Không gửi lên máy chủ điều bạn nghĩ hay lá bạn rút; chỉ ghi nhận tên sự kiện ẩn danh (rút lá, chia sẻ).
+import './pwa.js';
 import './style.css';
 import './explore.css';
 import './tarot.css';

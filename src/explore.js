@@ -1,4 +1,5 @@
 // Trang Khám phá: xem lá số tĩnh không cần đăng nhập, không gọi máy chủ, không gửi gì đi. Chỉ ghi nhận tên bước (không nội dung) qua track().
+import './pwa.js';
 import './style.css';
 import './explore.css';
 import { mountLogo } from './logo.js';

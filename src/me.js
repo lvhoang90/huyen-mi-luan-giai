@@ -1,5 +1,6 @@
 // Góc của tôi: thời gian trò chuyện hôm nay, lượt giới thiệu bạn bè, bộ sưu tập Tarot và lá số của riêng bạn.
 // Bài đã rút và lá số chỉ nằm trên máy này (localStorage), không gửi lên máy chủ. Máy chủ chỉ trả các con số về thời gian và lượt giới thiệu.
+import './pwa.js';
 import './style.css';
 import './explore.css';
 import './tarot.css';
