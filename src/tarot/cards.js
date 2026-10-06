@@ -1,8 +1,9 @@
-// Bộ Tarot Huyền My: 22 lá Ẩn Chính. Tranh vẽ riêng (src/tarot/art.js), lời viết riêng, không sao chép từ bộ bài hay sách nào.
+// Bộ Tarot Huyền My: 78 lá (22 Ẩn Chính và 56 Ẩn Phụ). Tranh vẽ riêng (src/tarot/art.js), lời viết riêng, không sao chép từ bộ bài hay sách nào.
 // Cách đọc: lá bài là một câu hỏi để soi mình, rút ngẫu nhiên, không phải phép tính và không dự báo sự kiện.
 // Các lá thường bị gọi là "xấu" (Chuyển Hóa, Tòa Tháp, Ràng Buộc) được đọc theo hướng thay đổi, bài học và việc có thể làm.
 // Lời trong tệp này nên được người chơi Tarot lâu năm đọc lại.
-export const CARDS = [
+import { MINOR } from './minor.js';
+const MAJOR = [
   { id: 0, roman: '0', name: 'Kẻ Khờ', en: 'The Fool', keys: ['khởi đầu', 'liều một chút', 'tin vào bước đi'],
     gist: 'Một chặng mới đang mở ra, chưa có bản đồ đầy đủ. Lá bài nói về lòng can đảm của người dám bước đi khi chưa chắc mọi thứ.',
     mirror: 'Có việc nào bạn đã chuẩn bị đủ rồi mà vẫn đứng ở mép vực, chỉ vì sợ chưa hoàn hảo?',
@@ -92,6 +93,7 @@ export const CARDS = [
     mirror: 'Điều gì bạn đã hoàn thành mà chưa tự công nhận?',
     step: 'Liệt kê ba điều bạn đã làm được trong năm nay và tự khen mình một câu.', emo: 'vui' },
 ];
+export const CARDS = [...MAJOR, ...MINOR];
 export const cardById = (id) => CARDS.find((c) => c.id === +id) ?? null;
 
 /** Rút ngẫu nhiên n lá khác nhau bằng bộ sinh số ngẫu nhiên của trình duyệt (hoặc của máy chủ), không thiên vị. */

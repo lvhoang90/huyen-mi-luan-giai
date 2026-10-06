@@ -779,7 +779,7 @@ async function tryCode(code) {
 // Máy chủ bật mã truy cập: ô nhập hiện ngay trong màn chào, chỉ vào được sau khi mã đúng (mã đúng được nhớ trên thiết bị).
 const urlRef = (new URLSearchParams(location.search).get('ref') ?? '').replace(/[^\w-]/g, '').slice(0, 20);
 // Lá Tarot vừa rút ở trang /tarot (liên kết "Hỏi My về lá bài này"): My biết người dùng vừa rút lá nào để nói đúng chuyện đó.
-const urlTarot = (new URLSearchParams(location.search).get('tarot') ?? '').split(',').map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 21).slice(0, 3);
+const urlTarot = (new URLSearchParams(location.search).get('tarot') ?? '').split(',').map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 77).slice(0, 3);
 track('landing_view', { ref: urlRef, gv: GV });
 try { const nav = performance.getEntriesByType('navigation')[0]; if (nav && nav.type !== 'navigate') track('page_reload', { type: nav.type, step: load()?.phase ?? 'new' }); } catch {}
 const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => r.json()).then(async (me) => {

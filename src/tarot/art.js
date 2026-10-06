@@ -2,6 +2,7 @@
 // Hệ toạ độ cảnh: 260 x 364 (cửa sổ tranh). Nhân vật dùng lại bộ khung của Huyền My, không có hoạt ảnh. Không dùng hình từ bộ bài nào khác.
 import rigSvg from '../assets/huyenmy-rig.svg?raw';
 import { EMOTIONS } from '../character.js';
+import { SUITS } from './minor.js';
 
 export const ART_W = 260, ART_H = 364;
 const GOLD = '#e2c27d', CREAM = '#fbeecb', INK = '#141428';
@@ -97,6 +98,66 @@ const SCENES = {
     front: `${[[24, 26], [236, 26], [24, 338], [236, 338]].map(([x, y], i) => `${circle(x, y, 20, '#ffffff22', `stroke="${GOLD}" stroke-width="1.6"`)}<path d="${['M24 14 L36 36 H12Z', 'M236 38 L248 16 H224Z', 'M24 326 L36 348 H12Z M16 340 H32', 'M236 350 L248 328 H224Z M228 340 H244'][i].replace(/^M(\d+) (\d+)/, (m) => m)}" fill="none" stroke="${GOLD}" stroke-width="2"/>`).join('')}${spark(40, 190, 6, '#fff')}${spark(222, 232, 6, '#fff')}` }),
 };
 
+
+// ---------- 56 cảnh Ẩn Phụ: sinh theo bộ, số và không khí ----------
+const MOOD_BG = { dawn: ['#ffb38a', '#ffeccb'], dusk: ['#5b3d8f', '#f0a98a'], day: ['#79bcff', '#ffeec9'], night: ['#0c142e', '#394a86'], flower: ['#8fd6a0', '#ffe9b0'], flame: ['#7a1b2b', '#f4a65c'], rain: ['#3b4a6b', '#9db0cf'], gold: ['#c9892a', '#ffe9a8'], calm: ['#7fc4d9', '#e8f5f0'], storm: ['#2a2f4a', '#7a86b8'], snow: ['#9cb4cf', '#eef4fa'] };
+const SUIT_INK = { gay: '#ff9b54', coc: '#4fb6c9', kiem: '#c9d4f2', tien: '#e2b24a' };
+// biểu tượng bốn bộ, vẽ quanh gốc (0,0), cao khoảng 40
+const sym = (suit, x, y, s = 1, rot = 0) => {
+  const c = SUIT_INK[suit];
+  const body = {
+    gay: `<path d="M0 22 V-14" stroke="#7a4a2c" stroke-width="4" stroke-linecap="round"/><path d="M0 -10 q-9 -4 -12 -12 M0 2 q9 -4 12 -12" fill="none" stroke="#7fd08a" stroke-width="3" stroke-linecap="round"/><path d="M0 -14 C-9 -22 -3 -30 0 -38 C3 -30 9 -22 0 -14Z" fill="${c}"/><path d="M0 -17 C-4 -22 -1 -26 0 -30 C1 -26 4 -22 0 -17Z" fill="#fff3b0"/>`,
+    coc: `<path d="M-14 -14 H14 Q14 8 0 12 Q-14 8 -14 -14Z" fill="${c}"/><path d="M-14 -14 H14" stroke="#fff" stroke-width="2.5" opacity=".7"/><path d="M0 12 V22 M-9 22 H9" stroke="${c}" stroke-width="3.5" stroke-linecap="round"/><path d="M-8 -6 Q0 2 8 -6" fill="none" stroke="#fff" stroke-width="1.6" opacity=".6"/>`,
+    kiem: `<path d="M0 -36 L5 -10 V8 H-5 V-10Z" fill="${c}" stroke="#fff" stroke-width="1.2"/><path d="M0 -34 V6" stroke="#fff" stroke-width="1.2" opacity=".6"/><rect x="-14" y="8" width="28" height="5" rx="2.5" fill="${GOLD}"/><rect x="-2.5" y="13" width="5" height="12" rx="2" fill="#7a4a2c"/>${circle(0, 28, 3.2, GOLD)}`,
+    tien: `${circle(0, 0, 21, c)}${circle(0, 0, 21, 'none', 'stroke="#fff3c9" stroke-width="2"')}${circle(0, 0, 16, 'none', 'stroke="#8a5a14" stroke-width="1.2" opacity=".7"')}${star(0, 1, 13, 5.2, 5, '#8a5a14')}`,
+  }[suit];
+  return `<g transform="translate(${f(x)} ${f(y)}) rotate(${rot}) scale(${s})">${body}</g>`;
+};
+// vị trí các biểu tượng theo số (khoảng tranh phía trên và hai bên Huyền My): [x, y] trong hệ 260 x 364
+const PIPS = {
+  2: [[84, 62], [176, 62]],
+  3: [[56, 78], [130, 44], [204, 78]],
+  4: [[64, 44], [196, 44], [64, 104], [196, 104]],
+  5: [[44, 54], [216, 54], [130, 38], [78, 104], [182, 104]],
+  6: [[46, 40], [130, 28], [214, 40], [46, 100], [130, 90], [214, 100]],
+  7: [[40, 36], [100, 28], [160, 28], [220, 36], [56, 96], [130, 88], [204, 96]],
+  8: [[36, 34], [92, 26], [168, 26], [224, 34], [36, 94], [92, 86], [168, 86], [224, 94]],
+  9: [[34, 30], [90, 24], [130, 60], [170, 24], [226, 30], [34, 92], [90, 86], [170, 86], [226, 92]],
+  10: [[34, 28], [82, 22], [130, 18], [178, 22], [226, 28], [34, 90], [82, 84], [130, 80], [178, 84], [226, 90]],
+};
+const moodFx = (mood, suit) => ({
+  dawn: `${circle(130, 110, 46, '#fff6c6', 'opacity=".5"')}${rays(130, 110, 50, 78, 14, '#fff6c6', 2)}`,
+  dusk: `${circle(222, 116, 20, '#ffd9a0', 'opacity=".35"')}${cloud(48, 70, 0.9, '#ffd9c8', 0.6)}`,
+  day: `${circle(214, 44, 20, '#fff6c6')}${rays(214, 44, 25, 34, 12, '#fff6c6', 2)}${cloud(40, 130, 0.8, '#fff', 0.6)}`,
+  night: `${dots(STARS)}${crescent(222, 54, 16, '#e8ecff')}`,
+  flower: `${[[30, 330], [64, 346], [200, 340], [232, 328]].map(([x, y], i) => flower(x, y, 9, i % 2 ? '#fff' : '#ff9fb9', '#ffd54a')).join('')}`,
+  flame: `${[[20, 330], [48, 340], [212, 338], [240, 326]].map(([x, y]) => `<path d="M${x} ${y} C${x - 11} ${y - 14} ${x - 4} ${y - 24} ${x} ${y - 36} C${x + 4} ${y - 24} ${x + 11} ${y - 14} ${x} ${y}Z" fill="#ff8a3a" opacity=".9"/>`).join('')}`,
+  rain: `${cloud(60, 40, 1.3, '#cfd8ea', 0.95)}${cloud(190, 34, 1.4, '#cfd8ea', 0.95)}${Array.from({ length: 16 }, (_, i) => `<line x1="${20 + i * 15}" y1="${70 + (i % 3) * 14}" x2="${14 + i * 15}" y2="${88 + (i % 3) * 14}" stroke="#bcd0ee" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>`).join('')}`,
+  gold: `${circle(130, 120, 90, '#fff3c9', 'opacity=".25"')}${rays(130, 120, 60, 100, 18, '#fff3c9', 2, 5)}`,
+  calm: `<path d="M0 316 Q65 304 130 316 T260 316 V364 H0Z" fill="#fff" opacity=".35"/>${cloud(60, 50, 0.9)}${cloud(206, 80, 0.7)}`,
+  storm: `<path d="M120 0 L100 56 H126 L108 108" fill="none" stroke="#fff3b0" stroke-width="3" stroke-linejoin="round" opacity=".9"/>${cloud(40, 36, 1.4, '#566087', 0.95)}${cloud(220, 30, 1.5, '#566087', 0.95)}`,
+  snow: `${Array.from({ length: 18 }, (_, i) => circle((i * 47) % 250 + 6, (i * 61) % 340 + 8, 1.8 + (i % 3) * 0.6, '#fff', 'opacity=".9"')).join('')}`,
+}[mood] ?? '');
+
+function minorScene(card) {
+  const { suit, rank, mood } = card, ink = SUIT_INK[suit];
+  let back = moodFx(mood, suit), front = '';
+  if (rank === 1) {
+    back += `${circle(130, 66, 40, '#fff', 'opacity=".25"')}${rays(130, 66, 46, 62, 16, ink, 2.4)}${sym(suit, 130, 66, 1.7)}`;
+  } else if (rank <= 10) {
+    back += (PIPS[rank] ?? []).map(([x, y], i) => sym(suit, x, y, rank > 7 ? 0.8 : rank > 4 ? 0.95 : 1.15, suit === 'gay' ? (i % 2 ? 14 : -14) : suit === 'kiem' && rank === 10 ? (i % 2 ? 24 : -24) : 0)).join('');
+  } else {
+    // lá cung đình: biểu tượng lớn ở trước Huyền My, kèm dấu hiệu vai vế
+    const side = rank === 12 ? 30 : 36;
+    front += sym(suit, side, 296, 2.1, suit === 'gay' ? -8 : 0);
+    if (rank === 11) back += `${spark(130, 56, 12, ink)}${spark(78, 86, 6, '#fff')}${spark(184, 80, 6, '#fff')}`;
+    if (rank === 12) back += `${[0, 1, 2, 3, 4].map((i) => `<line x1="${210 + i * 5}" y1="${150 + i * 26}" x2="${250 + i * 5}" y2="${150 + i * 26}" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".5"/>`).join('')}${spark(130, 56, 10, ink)}`;
+    if (rank === 13) back += `${crescent(130, 54, 20, ink)}${[[70, 74], [190, 74]].map(([x, y]) => flower(x, y, 9, '#fff', ink)).join('')}${circle(130, 120, 78, 'none', 'stroke="#fff" stroke-width="1.4" stroke-dasharray="2 6" opacity=".6"')}`;
+    if (rank === 14) back += `${pillar(8, 24, 24, '#2a1a50', '#7a5ac0')}${pillar(228, 24, 24, '#2a1a50', '#7a5ac0')}<path d="M104 62 L116 38 L130 56 L144 38 L156 62Z" fill="${GOLD}"/>${circle(130, 36, 4, ink)}${rays(130, 52, 24, 40, 12, GOLD, 1.8)}`;
+  }
+  return { bg: MOOD_BG[mood] ?? MOOD_BG.day, back, front };
+}
+
 /** Tệp rig của Huyền My, cắt sát khung hình toàn thân và gắn biểu cảm bằng thuộc tính (không cần mã chạy). */
 function rig(emoKey, { x, y, w, h, flip = false }) {
   const e = EMOTIONS[emoKey] ?? EMOTIONS.binh_thuong;
@@ -107,7 +168,7 @@ function rig(emoKey, { x, y, w, h, flip = false }) {
 
 /** SVG của phần tranh (260 x 364) cho lá có số thứ tự id. `uid` để tên gradient không trùng khi nhiều lá cùng một trang. */
 export function cardArtSvg(card, uid = 'a') {
-  const s = SCENES[card.id](), W = 210, H = 255;
+  const s = card.minor ? minorScene(card) : SCENES[card.id](), W = 210, H = 255;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ART_W} ${ART_H}" role="img" aria-label="Tranh lá ${card.name}" preserveAspectRatio="xMidYMid slice">
 <defs><linearGradient id="bg-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.bg[0]}"/><stop offset="1" stop-color="${s.bg[1]}"/></linearGradient></defs>
 <rect width="${ART_W}" height="${ART_H}" fill="url(#bg-${uid})"/>${s.back}${rig(card.emo, { x: (ART_W - W) / 2, y: ART_H - H + 10, w: W, h: H, flip: !!s.flip })}${s.front}</svg>`;
@@ -120,4 +181,4 @@ export function cardBackSvg() {
 <rect width="${ART_W}" height="${ART_H}" fill="url(#bk)"/>${dots(STARS.concat([[90, 300, 1.4], [170, 330, 1.2], [30, 250, 1.3], [230, 270, 1.3]]), '#e8e0ff')}
 <g fill="none" stroke="${GOLD}" stroke-width="1.6" opacity=".9"><circle cx="130" cy="182" r="62"/><circle cx="130" cy="182" r="48" stroke-dasharray="2 5"/></g>${rays(130, 182, 66, 84, 16, GOLD, 1.6)}${star(130, 182, 34, 12, 8, GOLD)}${star(130, 182, 18, 7, 8, '#fff3c9')}${crescent(130, 46, 16, GOLD)}${crescent(130, 318, 16, GOLD).replace(`M130 ${318 - 16}`, `M130 ${318 - 16}`)}</svg>`;
 }
-export const sceneIds = () => Object.keys(SCENES).map(Number);
+export const sceneIds = () => Object.keys(SCENES).map(Number).concat(Array.from({ length: 56 }, (_, i) => 22 + i));

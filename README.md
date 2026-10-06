@@ -107,4 +107,4 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 Hướng dẫn đưa lên web: [docs/TRIEN-KHAI.md](docs/TRIEN-KHAI.md).
 
 Trang pháp lý (Điều khoản, Quyền riêng tư, Bản quyền) soạn ở `docs/legal/*.md` và `LICENSE`, dựng thành `public/*.html` bằng `node tools/build-legal.mjs`.
-- **Tarot Huyền My** (`/tarot`, `src/tarot/`): bộ 22 lá Ẩn Chính vẽ riêng bằng SVG với nhân vật Huyền My, rút lá của ngày hoặc trải ba lá, tải ảnh và chia sẻ kèm `?ref=`, nút "Hỏi My về lá bài này" gửi lá vừa rút vào cuộc trò chuyện. Lá bài rút ngẫu nhiên (không phải phép tính), lời đọc theo hướng soi mình; nên nhờ người chơi Tarot lâu năm đọc lại `src/tarot/cards.js`. Số liệu ở tab Tăng trưởng của `/admin`.
+- **Tarot Huyền My** (`/tarot`, `src/tarot/`): bộ 78 lá (22 Ẩn Chính, 56 Ẩn Phụ) vẽ riêng bằng SVG với nhân vật Huyền My, rút lá của ngày hoặc trải ba lá, tải ảnh và chia sẻ kèm `?ref=`, nút "Hỏi My về lá bài này" gửi lá vừa rút vào cuộc trò chuyện. Lá bài rút ngẫu nhiên (không phải phép tính), lời đọc theo hướng soi mình; nên nhờ người chơi Tarot lâu năm đọc lại `src/tarot/cards.js`. Số liệu ở tab Tăng trưởng của `/admin`.

@@ -6,6 +6,7 @@ import './tarot.css';
 import { mountLogo } from './logo.js';
 import { track } from './track.js';
 import { CARDS, cardById, drawCards, dailyCard, vnDay } from './tarot/cards.js';
+import { SUITS } from './tarot/minor.js';
 import { cardArtSvg, cardBackSvg } from './tarot/art.js';
 import { shareTarot } from './share.js';
 
@@ -83,9 +84,11 @@ $('#tr-hint').textContent = HINT.daily; if (getDaily() != null) $('#tr-go').text
 
 // cả bộ: tranh chỉ được vẽ khi lá cuộn tới gần màn hình (mỗi lá có nhân vật nên khá nặng)
 const grid = $('#tr-grid');
-grid.innerHTML = CARDS.map((c) => `<figure class="tcard" data-id="${c.id}" tabindex="0" role="button" aria-label="Đọc lá ${esc(c.name)}"><div class="tc-inner"><div class="tc-face"><div class="tc-top">${c.roman}</div><div class="tc-art"></div><div class="tc-name"><b>${esc(c.name)}</b><i>${esc(c.en)}</i></div></div><div class="tc-back"></div></div></figure>`).join('');
+const SECTIONS = [['Ẩn Chính', 'hành trình lớn của đời người', (c) => !c.minor], ...Object.entries(SUITS).map(([k, s]) => [`Bộ ${s.vi}`, `${s.element}: ${s.theme}`, (c) => c.suit === k])];
+const tile = (c) => `<figure class="tcard" data-id="${c.id}" tabindex="0" role="button" aria-label="Đọc lá ${esc(c.name)}"><div class="tc-inner"><div class="tc-face"><div class="tc-top">${c.roman}</div><div class="tc-art"></div><div class="tc-name"><b>${esc(c.name)}</b><i>${esc(c.en)}</i></div></div><div class="tc-back"></div></div></figure>`;
+grid.innerHTML = SECTIONS.map(([h, sub, pick]) => `<h3 class="tr-sec">${esc(h)} <small>${esc(sub)}</small></h3><div class="tr-sgrid">${CARDS.filter(pick).map(tile).join('')}</div>`).join('');
 const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { const el = e.target, c = cardById(el.dataset.id); el.querySelector('.tc-art').innerHTML = cardArtSvg(c, `g${c.id}`); io.unobserve(el); } }, { rootMargin: '300px' });
-for (const el of grid.children) {
+for (const el of grid.querySelectorAll('.tcard')) {
   io.observe(el);
   const open = () => { track('tarot_browse', { id: +el.dataset.id }); show([+el.dataset.id], { flipDelay: 150, via: 'browse' }); };
   el.onclick = open; el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
