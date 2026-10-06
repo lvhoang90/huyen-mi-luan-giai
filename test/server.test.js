@@ -369,3 +369,19 @@ test('số liệu quản trị có độ đúng thời vận và phễu Khám ph
   assert.deepEqual(m.satisfaction.timeFit.dist, [1, 0, 1]); assert.equal(m.satisfaction.timeFit.n, 2);
   assert.equal(m.thoivan.openedTab, 1); assert.equal(m.thoivan.asked, 1); assert.equal(m.thoivan.rated, 2);
 });
+
+test('số liệu quản trị có tab Đối chiếu: người không trùng, kết quả, lý do, và nhắc khi nhiều ca không giải thích được', () => {
+  const db = openDb(':memory:'), T0 = 1_800_000_000_000;
+  const add = (actor, name, props) => ingest(db, { actor, userId: null, sid: 's' + actor, events: [{ name, props, t: T0 }] }, T0);
+  add('a', 'chart_tab', { tab: 'doichieu' }); add('b', 'chart_tab', { tab: 'doichieu' }); add('c', 'chart_tab', { tab: 'doichieu' });
+  add('a', 'compare_run', { result: 'khop', reason: '' }); add('a', 'compare_run', { result: 'lech_giai_thich_duoc', reason: 'cn' });
+  add('b', 'compare_run', { result: 'lech_giai_thich_duoc', reason: 'leap+cn' }); add('b', 'compare_run', { result: 'lech_khong_ro', reason: '' }); add('b', 'compare_run', { result: 'thieu_du_lieu' });
+  const c = computeMetrics(db, { days: 7, now: T0 + 1000 }).compare;
+  assert.equal(c.opened, 3); assert.equal(c.people, 2); assert.equal(c.runs, 5);
+  assert.deepEqual([c.khop, c.giaiThich, c.khongRo, c.thieuDuLieu], [1, 2, 1, 1]);
+  assert.deepEqual(c.reasons, { cn: 2, leap: 1, ty: 0 }); assert.equal(c.explainedOfDiff.p, 2 / 3); assert.equal(c.runRate.p, 2 / 3);
+  // nhiều ca lệch không giải thích được thì có lời nhắc
+  for (let i = 0; i < 22; i++) add('u' + i, 'compare_run', { result: 'lech_khong_ro' });
+  const m = computeMetrics(db, { days: 7, now: T0 + 1000 });
+  assert.ok(insights(m).some((x) => x.id === 'doi-chieu-khong-ro'));
+});

@@ -274,7 +274,7 @@ export function renderChart(host, { profile, chart, state, ask = null, cta = '',
     const f = (st.cmp ??= { stars: [] });
     if (f.cuc === '' || f.cuc == null || f.menh === '' || f.menh == null) { f.result = { verdict: 'thieu_nhap', diffs: [], explain: [], tips: ['Bạn chọn giúp My cả Cục và cung Mệnh của lá số kia nhé.'] }; return again(); }
     f.result = compareTuVi(profile, chart, { cucSo: +f.cuc, menhPos: +f.menh, stars: f.stars ?? [] });
-    track('compare_run', { result: f.result.verdict }); again();
+    track('compare_run', { result: f.result.verdict, reason: (f.result.explain ?? []).map((e) => e.key).join('+') }); again();
   };
   if (sp) sp.scrollTop = top; else globalThis.scrollTo?.(0, top);
 }
