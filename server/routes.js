@@ -106,7 +106,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       const a = rewards.allowance(id.user.id, id.user.role);
       const sh = (name) => db.prepare('SELECT COUNT(*) c FROM events WHERE actor = ? AND name = ?').get(id.actor, name).c;
       const row = db.prepare('SELECT created_at FROM users WHERE id = ?').get(id.user.id);
-      return json(res, 200, { user: { email: id.user.email, since: row?.created_at ?? null }, refCode: refCodeOf(id), time: { unlimited: a.unlimited, baseMin: a.baseMin, bonusMin: a.bonusMin, totalMin: a.totalMin, usedMin: a.usedMin, leftMin: a.leftMin },
+      return json(res, 200, { user: { email: id.user.email, since: row?.created_at ?? null, role: id.user.role, consentMemory: id.user.consentMemory, remind: id.user.remind }, refCode: refCodeOf(id), time: { unlimited: a.unlimited, baseMin: a.baseMin, bonusMin: a.bonusMin, totalMin: a.totalMin, usedMin: a.usedMin, leftMin: a.leftMin },
         referral: { perMin: a.perMin, qualifyMin: a.qualifyMin, maxRefs: a.maxRefs, invited: a.invited, qualified: a.qualified, list: a.refs.map(({ n, at, qualified, chatMin }) => ({ n, at, qualified, chatMin })) },
         shares: { tarot: sh('tarot_share'), chart: sh('share_card') } }), true;
     }

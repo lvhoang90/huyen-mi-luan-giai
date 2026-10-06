@@ -1,6 +1,7 @@
 import { CUNG_TEN } from './engine/tuvi.js';
 import { natalAttention } from './engine/thoivan.js';
 import { HANH } from './engine/bazi.js';
+import { drawQr } from './qr.js';
 
 // Thẻ chia sẻ: vẽ bằng canvas, không chứa ngày sinh hay họ tên đầy đủ, chỉ tên gọi và vài điểm chung.
 function wrap(ctx, text, x, y, maxW, lineH, maxLines = 4) {
@@ -37,6 +38,26 @@ export async function makeCard({ nickname, element, trait, famous, url }) {
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
 
+
+const avatarImg = () => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = '/art/huyenmy-avatar.svg'; });
+/** Dấu hiệu thương hiệu: ảnh Huyền My và tên ứng dụng, đặt giữa theo chiều ngang tại độ cao cy. */
+async function drawBrand(g, W, cy, name = 'Huyền My Luận Giải') {
+  const img = await avatarImg(), R = 40; g.font = '600 54px "Cormorant Garamond", Georgia, serif';
+  const tw = g.measureText(name).width, total = (img ? R * 2 + 20 : 0) + tw; let x = (W - total) / 2;
+  if (img) { g.save(); g.beginPath(); g.arc(x + R, cy, R, 0, 6.283); g.clip(); g.drawImage(img, x, cy - R, R * 2, R * 2); g.restore(); g.strokeStyle = '#e2c27d'; g.lineWidth = 3; g.beginPath(); g.arc(x + R, cy, R, 0, 6.283); g.stroke(); x += R * 2 + 20; }
+  g.textAlign = 'left'; g.fillStyle = '#e2c27d'; g.fillText(name, x, cy + 18); g.textAlign = 'center';
+}
+/** Chân thẻ: mã QR dẫn tới liên kết giới thiệu, dòng chữ liên kết tự thu nhỏ cho vừa khung (không tràn ra ngoài viền). */
+function drawFooter(g, W, H, url, label) {
+  const y0 = H - 265, show = url.replace(/^https?:\/\//, '');
+  drawQr(g, url, 80, y0, 200);
+  const x = 312, maxW = W - 80 - x; g.textAlign = 'left';
+  const fit = (text, weight, px, min, family = '"Be Vietnam Pro", system-ui, sans-serif') => { let f = px; do { g.font = `${weight} ${f}px ${family}`; f--; } while (g.measureText(text).width > maxW && f >= min); };
+  g.fillStyle = '#e2c27d'; fit(label, 500, 34, 22); g.fillText(label, x, y0 + 58);
+  g.fillStyle = '#fbeecb'; fit(show, 400, 32, 18); g.fillText(show, x, y0 + 112);
+  g.fillStyle = 'rgba(236,231,251,.72)'; fit('Soi mình, không phải lời tiên đoán', 300, 26, 18); g.fillText('Soi mình, không phải lời tiên đoán', x, y0 + 162);
+  g.textAlign = 'center';
+}
 const ELC = { Kim: '#f1ead2', Mộc: '#7fe3a0', Thủy: '#6fb7ff', Hỏa: '#ff8a5c', Thổ: '#e0b86a' };
 const fonts = async () => { try { await Promise.all(['600 40px "Cormorant Garamond"', '400 30px "Be Vietnam Pro"', '300 30px "Be Vietnam Pro"', 'italic 500 30px "Cormorant Garamond"'].map((f) => document.fonts.load(f, 'ÀỀỆ'))); await document.fonts.ready; } catch {} };
 
@@ -46,7 +67,7 @@ const fonts = async () => { try { await Promise.all(['600 40px "Cormorant Garamo
  */
 export async function makeChartCard({ nickname, chart, url }) {
   await fonts();
-  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const W = 1080, H = 1480, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   const bg = g.createRadialGradient(W / 2, H * 0.32, 80, W / 2, H * 0.42, H);
   bg.addColorStop(0, '#3a2490'); bg.addColorStop(0.6, '#130c3a'); bg.addColorStop(1, '#070716');
@@ -55,7 +76,7 @@ export async function makeChartCard({ nickname, chart, url }) {
   for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(235,232,255,${0.15 + rnd() * 0.6})`; g.beginPath(); g.arc(rnd() * W, rnd() * H, rnd() * 2.2 + 0.4, 0, 6.283); g.fill(); }
   g.strokeStyle = 'rgba(226,194,125,.5)'; g.lineWidth = 2; g.strokeRect(40, 40, W - 80, H - 80);
   g.textAlign = 'center'; g.fillStyle = '#e2c27d';
-  g.font = '600 56px "Cormorant Garamond", Georgia, serif'; g.fillText('Huyền My Luận Giải', W / 2, 128);
+  await drawBrand(g, W, 118);
   g.fillStyle = '#d9cdf7'; g.font = '300 32px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('Lá số biểu tượng của', W / 2, 200);
   g.fillStyle = '#fbeecb'; g.font = '600 104px "Cormorant Garamond", Georgia, serif'; g.fillText(nickname, W / 2, 304);
 
@@ -98,9 +119,7 @@ export async function makeChartCard({ nickname, chart, url }) {
     g.textAlign = 'left'; g.fillStyle = '#d9cdf7'; g.font = '300 22px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(k, x + 22, y + 28);
     g.fillStyle = '#fbeecb'; g.font = '500 30px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(v.length > 24 ? v.slice(0, 23) + '…' : v, x + 22, y + 60);
   });
-  g.textAlign = 'center'; g.fillStyle = 'rgba(236,231,251,.75)'; g.font = '300 27px "Be Vietnam Pro", system-ui, sans-serif';
-  g.fillText('Lăng kính biểu tượng để soi mình, không phải lời tiên đoán', W / 2, H - 118);
-  g.fillStyle = '#e2c27d'; g.font = '500 36px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('Xem lá số của bạn: ' + url.replace(/^https?:\/\//, ''), W / 2, H - 68);
+  drawFooter(g, W, H, url, 'Quét mã để xem lá số của bạn');
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
 
@@ -144,7 +163,7 @@ function drawTarotCard(g, card, art, x, y, w) {
 export async function makeTarotCard({ cards, positions = null, url }) {
   await fonts();
   const { cardArtSvg } = await import('./tarot/art.js');
-  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const W = 1080, H = 1480, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   const bg = g.createRadialGradient(W / 2, H * 0.32, 80, W / 2, H * 0.42, H);
   bg.addColorStop(0, '#3a2490'); bg.addColorStop(0.6, '#130c3a'); bg.addColorStop(1, '#070716');
@@ -152,8 +171,8 @@ export async function makeTarotCard({ cards, positions = null, url }) {
   let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(235,232,255,${0.15 + rnd() * 0.6})`; g.beginPath(); g.arc(rnd() * W, rnd() * H, rnd() * 2.2 + 0.4, 0, 6.283); g.fill(); }
   g.strokeStyle = 'rgba(226,194,125,.5)'; g.lineWidth = 2; g.strokeRect(40, 40, W - 80, H - 80);
-  g.textAlign = 'center'; g.fillStyle = '#e2c27d'; g.font = '600 52px "Cormorant Garamond", Georgia, serif'; g.fillText('Tarot Huyền My', W / 2, 120);
-  g.fillStyle = '#d9cdf7'; g.font = '300 28px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(cards.length > 1 ? 'Ba lá của mình' : 'Lá bài hôm nay của mình', W / 2, 168);
+  await drawBrand(g, W, 100);
+  g.fillStyle = '#d9cdf7'; g.font = '300 28px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(cards.length > 1 ? 'Tarot · Ba lá của mình' : 'Tarot · Lá bài hôm nay của mình', W / 2, 168);
   const arts = await Promise.all(cards.map((card, i) => svgImage(cardArtSvg(card, `s${i}`), 520, 728)));
   if (cards.length === 1) drawTarotCard(g, cards[0], arts[0], 260, 205, 560);
   else cards.forEach((card, i) => {
@@ -161,8 +180,7 @@ export async function makeTarotCard({ cards, positions = null, url }) {
     g.textAlign = 'center'; g.fillStyle = '#e2c27d'; g.font = '400 24px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText((positions?.[i] ?? '').toUpperCase(), x + 150, 345);
     g.fillStyle = '#ece7fb'; g.font = '300 25px "Be Vietnam Pro", system-ui, sans-serif'; card.keys.forEach((k, j) => g.fillText(k, x + 150, 937 + j * 40));
   });
-  g.fillStyle = 'rgba(236,231,251,.75)'; g.font = '300 27px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('Để suy ngẫm, không phải lời tiên đoán', W / 2, H - 118);
-  g.fillStyle = '#e2c27d'; g.font = '500 36px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText('Rút bài cùng My: ' + url.replace(/^https?:\/\//, ''), W / 2, H - 68);
+  drawFooter(g, W, H, url, 'Quét mã để rút bài cùng My');
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
 export async function shareTarot(info, mode = 'share') { return deliver(await makeTarotCard(info), 'tarot-huyen-my.png', { mode, url: info.url, text: 'Mình vừa rút một lá Tarot cùng Huyền My, bạn thử xem sao' }); }
