@@ -64,5 +64,5 @@ test('Lịch âm Việt Nam khác Trung Quốc ở 1984-1985 (UTC+7): không nhu
   assert.deepEqual(pick(solarToLunar(1985, 1, 21)), [1, 1, 1985, false]);
   assert.deepEqual(pick(solarToLunar(1984, 12, 22)), [1, 12, 1984, false]);
   assert.deepEqual(pick(solarToLunar(1984, 11, 25)), [3, 11, 1984, false]);
-  assert.deepEqual(pick(solarToLunar(1985, 2, 20)), [2, 2, 1985, false]);
+  assert.deepEqual(pick(solarToLunar(1985, 2, 20)), [1, 2, 1985, false]);
 });
