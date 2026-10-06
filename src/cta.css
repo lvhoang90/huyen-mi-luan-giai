@@ -1,0 +1,11 @@
+.cta-box { display: flex; gap: 14px; align-items: flex-start; margin: 22px auto 0; max-width: 560px; padding: 16px 18px; border-radius: 20px; text-align: left;
+  background: linear-gradient(135deg, rgba(138, 107, 255, .2), rgba(226, 194, 125, .12)); border: 1px solid rgba(226, 194, 125, .45); box-shadow: 0 10px 40px rgba(20, 10, 70, .45); }
+.cta-av { flex: none; width: 52px; height: 52px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(226, 194, 125, .6); }
+.cta-tx { min-width: 0; }
+.cta-tx b { display: block; font-size: 1.05rem; color: #fbeecb; font-weight: 500; }
+.cta-tx p { margin: 6px 0 0; font-size: .92rem; line-height: 1.55; color: #d9d2f2; }
+.cta-tx .cta-quote { font-family: "Cormorant Garamond", serif; font-size: 1.25rem; line-height: 1.4; color: #fbeecb; }
+.cta-tx small { color: #a79fc9; }
+.cta-acts { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.cta-later { background: none; border: 0; padding: 6px 4px; font: inherit; font-size: .85rem; color: #8f87b8; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+@media (max-width: 420px) { .cta-box { padding: 14px; gap: 10px; } .cta-av { width: 42px; height: 42px; } }

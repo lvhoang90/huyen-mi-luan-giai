@@ -15,7 +15,12 @@ function flush(useBeacon = false) {
     else fetch('/api/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
   } catch {}
 }
+// Nguồn lời mời đăng ký (biến thể A/B) mà người này đã thấy: gắn vào vài bước quan trọng để đo biến thể nào dẫn tới đăng ký
+const ATTR_KEY = 'huyenmy.cta', ATTR_EVENTS = new Set(['enter_click', 'intake_done', 'first_message', 'signup_submit', 'signup_verified']);
+export function setAttr(v, src) { try { localStorage.setItem(ATTR_KEY, JSON.stringify({ v, src, t: Date.now() })); } catch {} }
+function attr() { try { const a = JSON.parse(localStorage.getItem(ATTR_KEY)); if (a && typeof a.v === 'string' && Date.now() - a.t < 14 * 86_400_000) return a; } catch {} return null; }
 export function track(name, props = {}) {
+  if (ATTR_EVENTS.has(name)) { const a = attr(); if (a) props = { ...props, cta: a.v, csrc: a.src }; }
   queue.push({ name, props, t: Date.now() });
   if (queue.length >= 20) flush(); else if (!timer) timer = setTimeout(flush, 4000);
 }

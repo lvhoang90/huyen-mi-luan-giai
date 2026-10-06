@@ -2,6 +2,7 @@
 import './style.css';
 import './explore.css';
 import { mountLogo } from './logo.js';
+import { mountCta } from './cta.js';
 import { track } from './track.js';
 import { renderChart, esc } from './chart-view.js';
 import { shareChart } from './share.js';
@@ -12,6 +13,7 @@ import { computeBazi } from './engine/bazi.js';
 import { natalAstro } from './engine/astro.js';
 import { reduce, NUMBER_KEYWORDS } from './engine/numerology.js';
 
+const meOnce = fetch('/api/me').then((r) => r.json()).catch(() => null);
 const $ = (s) => document.querySelector(s);
 mountLogo($('#brand'), 'compact');
 track('sample_view');
@@ -44,6 +46,8 @@ function show(profile, { sample = false, key = null, keep = false } = {}) {
     fam.innerHTML = list.length ? `<h2>Cùng ngày sinh với ${esc(profile.nickname)}</h2><ul class="ex-list">${list.map((e) => `<li><b>${esc(e.name)}</b> <span>(${e.d}/${e.m}/${e.y}) ${esc(e.desc)}</span></li>`).join('')}</ul><p class="sub">Chỉ là điểm chung về ngày sinh, không phải số phận.</p>` : '';
   } else fam.hidden = true;
   $('#ex-result').hidden = false; $('#ex-cta').hidden = false;
+  const sg = $('#ex-signup');
+  if (sg) { if (sample) sg.hidden = true; else if (!keep) meOnce.then((me) => { if (me && !me.user && me.accounts !== false) mountCta(sg, { src: 'chart', onChat: () => startChat(), onLogin: () => startChat('/?login=1') }); }); }
   $('#ex-cta-t').textContent = sample ? 'Đây là hồ sơ mẫu. Muốn xem lá số của bạn?' : 'Muốn nói chuyện với My về lá số này?';
   $('#ex-cta-b').textContent = sample ? 'Điền ngày sinh của bạn' : 'Trò chuyện với My';
   if (!keep) track('static_view', { via: sample ? 'sample' : 'form', hasTime: profile.birth.hour != null });
@@ -51,15 +55,15 @@ function show(profile, { sample = false, key = null, keep = false } = {}) {
 }
 
 // ---- chuyển sang ứng dụng: ghi hồ sơ nháp, ứng dụng nối tiếp từ đó (vẫn hỏi tuổi và lĩnh vực) ----
-function startChat() {
+function startChat(to = '/') {
   if (!current || current.sample) { $('#ex-form-card').scrollIntoView({ behavior: 'smooth' }); $('#ex-form [name=name]').focus({ preventScroll: true }); track('sample_cta', { via: 'form' }); return; }
   const { profile } = current, b = profile.birth, p2 = (n) => String(n).padStart(2, '0');
   const draft = { fullName: profile.fullName, gender: profile.gender, date: `${b.y}-${p2(b.m)}-${p2(b.d)}`, time: b.hour == null ? '' : `${p2(b.hour)}:${p2(b.minute ?? 0)}`, place: profile.place ?? null, fromExplore: true };
   try { localStorage.setItem('huyenmy.v1', JSON.stringify({ profile: null, messages: [], phase: 'collect', draft })); } catch {}
   track('sample_cta', { via: 'chat' });
-  location.href = '/';
+  location.href = to;
 }
-$('#ex-cta-b').onclick = startChat;
+$('#ex-cta-b').onclick = () => startChat();
 document.addEventListener('click', (e) => {
   const chat = e.target.closest?.('[data-chat]'); if (chat) { e.preventDefault(); startChat(); return; }
   const form = e.target.closest?.('[data-form]'); if (form) { e.preventDefault(); startChat(); }

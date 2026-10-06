@@ -52,6 +52,74 @@ function upgradeRows(evs) {
   return [...by.values()].sort((a, b) => a.v - b.v).map((r) => ({ price: r.v * 1000, views: r.view.size, opens: r.open.size, clicks: r.click.size, openRate: pct(r.open.size, r.view.size), clickRate: pct(r.click.size, r.open.size), feel: r.feel }));
 }
 
+
+const CTA_VARIANTS = ['none', 'gift', 'corner', 'voice', 'remind'];
+/**
+ * Hành trình Tarot và hiệu quả: phễu từ vào trang tới đăng ký, so các kiểu lời mời đăng ký (có nhóm đối chứng không hiện gì),
+ * cảm xúc sau khi xem lá theo nhịp bốc, và tỉ lệ quay lại D1/D3/D7 tính từ ngày đầu tiên chạm vào Tarot.
+ * Mọi con số đếm theo người (actor), không trùng. Đăng ký được tính cho kiểu lời mời đã gán cho người đó (cả khi họ không bấm).
+ */
+export function tarotStats(evs, actorsBy, { today, actorDays, from }) {
+  const setOf = (f) => new Set(evs.filter(f).map((e) => e.actor));
+  const named = (name, where = () => true) => setOf((e) => e.name === name && where(e.p));
+  const tarotNames = ['tarot_view', 'tarot_start', 'tarot_topic', 'tarot_draw', 'tarot_feel', 'tarot_ask', 'tarot_share', 'tarot_browse'];
+  const shownT = named('cta_shown', (p) => p.src === 'tarot' && p.v !== 'none'), clickT = named('cta_click', (p) => p.src === 'tarot');
+  const subT = named('signup_submit', (p) => p.csrc === 'tarot'), verT = named('signup_verified', (p) => p.csrc === 'tarot');
+  const steps = [
+    ['Vào trang Tarot', actorsBy(['tarot_view'])], ['Chọn chủ đề hoặc bắt đầu nghi thức', actorsBy(['tarot_start', 'tarot_topic'])], ['Rút bài', actorsBy(['tarot_draw'])],
+    ['Cho biết cảm xúc sau lá bài', actorsBy(['tarot_feel'])], ['Hỏi My, tải ảnh hoặc chia sẻ', actorsBy(['tarot_ask', 'tarot_share'])],
+    ['Thấy lời mời đăng ký', shownT], ['Bấm vào lời mời', clickT], ['Nhập email đăng ký (người đã thấy lời mời Tarot)', subT], ['Xác thực xong', verT],
+  ];
+  const journey = steps.map(([label, set], i) => ({ label, count: set.size, fromPrev: i ? wilson(Math.min(set.size, steps[i - 1][1].size), steps[i - 1][1].size) : null }));
+
+  // ---- các kiểu lời mời đăng ký ----
+  const ctaFor = (src) => {
+    const rows = CTA_VARIANTS.map((v) => {
+      const shown = named('cta_shown', (p) => p.src === src && p.v === v), click = named('cta_click', (p) => p.src === src && p.v === v), dismiss = named('cta_dismiss', (p) => p.src === src && p.v === v);
+      const sub = named('signup_submit', (p) => p.csrc === src && p.cta === v), ver = named('signup_verified', (p) => p.csrc === src && p.cta === v), fm = named('first_message', (p) => p.csrc === src && p.cta === v);
+      return { v, shown: shown.size, click: click.size, dismiss: dismiss.size, submit: sub.size, verified: ver.size, chat: fm.size,
+        clickRate: wilson(click.size, shown.size), submitRate: wilson(sub.size, shown.size), verifiedRate: wilson(ver.size, shown.size), chatRate: wilson(fm.size, shown.size) };
+    });
+    const ctl = rows.find((r) => r.v === 'none');
+    for (const r of rows) r.liftVerified = r.v !== 'none' && ctl?.shown && r.shown ? (r.verifiedRate.p ?? 0) - (ctl.verifiedRate.p ?? 0) : null;
+    return rows;
+  };
+  const cta = { tarot: ctaFor('tarot'), chart: ctaFor('chart') };
+
+  // ---- cảm xúc sau khi xem lá ----
+  const feels = evs.filter((e) => e.name === 'tarot_feel' && +e.p.value >= 1 && +e.p.value <= 4).map((e) => ({ v: +e.p.value, mode: e.p.mode, streak: +e.p.streak || 0, actor: e.actor, ts: e.ts }));
+  const fsum = (arr) => ({ n: arr.length, dist: [1, 2, 3, 4].map((v) => arr.filter((x) => x.v === v).length), positive: wilson(arr.filter((x) => x.v >= 3).length, arr.length), mean: arr.length ? Math.round((arr.reduce((a, x) => a + x.v, 0) / arr.length) * 100) / 100 : null });
+  const feel = {
+    all: fsum(feels), daily: fsum(feels.filter((x) => x.mode === 'daily')), three: fsum(feels.filter((x) => x.mode === 'three')),
+    byStreak: [['Ngày đầu tiên', (x) => x.streak <= 1], ['Chuỗi 2 đến 3 ngày', (x) => x.streak >= 2 && x.streak <= 3], ['Chuỗi từ 4 ngày', (x) => x.streak >= 4]].map(([label, f]) => ({ label, ...fsum(feels.filter((x) => f(x))) })),
+  };
+
+  // ---- nhịp bốc và quay lại ----
+  const drawDays = new Map(), firstDay = new Map(), d0Draw = new Set(), d0Feel = new Map();
+  for (const e of evs) {
+    if (!tarotNames.includes(e.name)) continue;
+    const d = dayOf(e.ts); if (!firstDay.has(e.actor) || d < firstDay.get(e.actor)) firstDay.set(e.actor, d);
+  }
+  for (const e of evs) {
+    const f = firstDay.get(e.actor); if (f == null) continue;
+    if (e.name === 'tarot_draw') { const set = drawDays.get(e.actor) ?? new Set(); set.add(dayOf(e.ts)); drawDays.set(e.actor, set); if (dayOf(e.ts) === f) d0Draw.add(e.actor); }
+    if (e.name === 'tarot_feel' && dayOf(e.ts) === f && +e.p.value >= 1 && +e.p.value <= 4) d0Feel.set(e.actor, +e.p.value);
+  }
+  const retRate = (actors, k) => { let n = 0, a = 0; for (const x of actors) { const d0 = firstDay.get(x); if (today - d0 < k) continue; n++; if (actorDays.get(x)?.has(d0 + k)) a++; } return wilson(a, n); };
+  const groupsRet = [
+    ['Chỉ xem, chưa rút bài', [...firstDay.keys()].filter((a) => !d0Draw.has(a))], ['Rút bài ngay ngày đầu', [...d0Draw]],
+    ['Rút bài và thấy nhẹ nhõm hoặc tò mò', [...d0Feel].filter(([, v]) => v >= 3).map(([a]) => a)], ['Rút bài và thấy bình thường hoặc băn khoăn', [...d0Feel].filter(([, v]) => v <= 2).map(([a]) => a)],
+  ];
+  const returnBy = groupsRet.map(([label, actors]) => ({ label, n: actors.length, d1: retRate(actors, 1), d3: retRate(actors, 3), d7: retRate(actors, 7) }));
+  const feelByActor = new Map(); for (const f of feels) { const a = feelByActor.get(f.actor) ?? []; a.push(f.v); feelByActor.set(f.actor, a); }
+  const habitGroups = [['Rút một ngày', (n) => n === 1], ['Rút 2 đến 3 ngày', (n) => n >= 2 && n <= 3], ['Rút từ 4 ngày', (n) => n >= 4]];
+  const habit = habitGroups.map(([label, f]) => {
+    const actors = [...drawDays].filter(([, d]) => f(d.size)).map(([a]) => a), vals = actors.flatMap((a) => feelByActor.get(a) ?? []);
+    return { label, n: actors.length, feelN: vals.length, positive: wilson(vals.filter((v) => v >= 3).length, vals.length), mean: vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100 : null };
+  });
+  return { journey, cta, feel, returnBy, habit };
+}
+
 export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
   const from = now - days * DAY;
   const evs = db.prepare('SELECT ts, actor, sid, name, props FROM events WHERE ts >= ? ORDER BY ts').all(from).map((e) => ({ ...e, p: parse(e.props) }));
@@ -156,6 +224,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
       started: actorsBy(['tarot_start']).size, topics: (() => { const m = new Map(); for (const e of evs) if (e.name === 'tarot_topic' && typeof e.p.topic === 'string') { if (!m.has(e.p.topic)) m.set(e.p.topic, new Set()); m.get(e.p.topic).add(e.actor); } return [...m].map(([topic, s]) => ({ topic, n: s.size })).sort((a, b) => b.n - a.n); })(),
       nudged: actorsBy(['tarot_nudge']).size, nudgeAccepted: new Set(evs.filter((e) => e.name === 'tarot_nudge' && e.p.action === 'accept').map((e) => e.actor)).size, ctaVeil: new Set(evs.filter((e) => e.name === 'tarot_cta' && e.p.where === 'veil').map((e) => e.actor)).size, ctaTop: new Set(evs.filter((e) => e.name === 'tarot_cta' && e.p.where === 'topbar').map((e) => e.actor)).size,
       shared: actorsBy(['tarot_share']).size, asked: actorsBy(['tarot_ask']).size, browsed: actorsBy(['tarot_browse']).size,
+      ...tarotStats(evs, actorsBy, { today, actorDays, from }),
     },
     referral: (() => { // chỉ số lượng, không có email hay danh tính
       try {

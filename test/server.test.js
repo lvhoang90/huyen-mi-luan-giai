@@ -477,7 +477,38 @@ test('số liệu Tarot: rút, chia sẻ, hỏi My và quay lại xem lá hôm n
   ing('a4', [{ name: 'tarot_view' }, { name: 'tarot_cta', props: { where: 'veil' } }, { name: 'tarot_nudge', props: { action: 'shown' } }, { name: 'tarot_start', props: { mode: 'daily' } }, { name: 'tarot_topic', props: { topic: 'cong-viec' } }]);
   ing('a5', [{ name: 'tarot_cta', props: { where: 'topbar' } }, { name: 'tarot_nudge', props: { action: 'shown' } }, { name: 'tarot_nudge', props: { action: 'accept' } }, { name: 'tarot_topic', props: { topic: 'cong-viec' } }, { name: 'tarot_topic', props: { topic: 'tinh-cam' } }]);
   const t = computeMetrics(db, { days: 7, now }).tarot;
-  assert.deepEqual(t, { visitors: 4, drew: 3, daily: 2, three: 1, returned: 1, shared: 1, asked: 1, browsed: 1, nudged: 2, nudgeAccepted: 1, ctaVeil: 1, ctaTop: 1, started: 1, topics: [{ topic: 'cong-viec', n: 2 }, { topic: 'tinh-cam', n: 1 }] });
+  const { journey, cta, feel, returnBy, habit, ...flat } = t;
+  assert.ok(journey && cta && feel && returnBy && habit, 'có các khối hành trình, kiểu lời mời, cảm xúc, quay lại, nhịp bốc');
+  assert.deepEqual(flat, { visitors: 4, drew: 3, daily: 2, three: 1, returned: 1, shared: 1, asked: 1, browsed: 1, nudged: 2, nudgeAccepted: 1, ctaVeil: 1, ctaTop: 1, started: 1, topics: [{ topic: 'cong-viec', n: 2 }, { topic: 'tinh-cam', n: 1 }] });
+});
+
+test('hành trình Tarot: so các kiểu lời mời đăng ký, cảm xúc và tỉ lệ quay lại', () => {
+  const db = openDb(':memory:'), D = 86_400_000, day0 = Date.UTC(2026, 9, 1, 5), today = day0 + 7 * D;
+  const at = (actor, t, events) => ingest(db, { actor, userId: null, sid: 's' + actor, events }, t);
+  // a1: rút bài, thấy nhẹ nhõm, được mời kiểu "gift", đăng ký xong, quay lại hôm sau và rút thêm ngày thứ hai
+  at('a1', day0, [{ name: 'tarot_view' }, { name: 'tarot_start', props: { mode: 'daily' } }, { name: 'tarot_draw', props: { mode: 'daily', id: 3 } }, { name: 'tarot_feel', props: { value: 4, mode: 'daily', streak: 1 } }, { name: 'cta_shown', props: { v: 'gift', src: 'tarot' } }, { name: 'cta_click', props: { v: 'gift', src: 'tarot' } }, { name: 'signup_submit', props: { cta: 'gift', csrc: 'tarot' } }]);
+  at('u1', day0, [{ name: 'signup_verified', props: { cta: 'gift', csrc: 'tarot' } }]);
+  at('a1', day0 + D, [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'daily', id: 4 } }, { name: 'tarot_feel', props: { value: 3, mode: 'daily', streak: 2 } }]);
+  // a2: rút bài, băn khoăn, thuộc nhóm đối chứng, không quay lại
+  at('a2', day0, [{ name: 'tarot_view' }, { name: 'tarot_draw', props: { mode: 'three', id: 5 } }, { name: 'tarot_feel', props: { value: 1, mode: 'three', streak: 1 } }, { name: 'cta_shown', props: { v: 'none', src: 'tarot' } }]);
+  // a3: chỉ xem, được mời kiểu "voice" nhưng không bấm
+  at('a3', day0, [{ name: 'tarot_view' }, { name: 'cta_shown', props: { v: 'voice', src: 'tarot' } }]);
+  const t = computeMetrics(db, { days: 14, now: today }).tarot;
+  assert.deepEqual(t.journey.map((j) => j.count), [3, 1, 2, 2, 0, 2, 1, 1, 1], 'phễu: vào trang, chọn/bắt đầu, rút, cảm xúc, hỏi/chia sẻ, thấy lời mời, bấm, nhập email, xác thực');
+  const row = (v) => t.cta.tarot.find((r) => r.v === v);
+  assert.equal(row('gift').shown, 1); assert.equal(row('gift').click, 1); assert.equal(row('gift').verified, 1);
+  assert.equal(row('none').shown, 1); assert.equal(row('none').verified, 0);
+  assert.ok(Math.abs(row('gift').liftVerified - 1) < 1e-9, 'kiểu gift hơn đối chứng 100 điểm phần trăm trong mẫu này');
+  assert.equal(row('voice').shown, 1); assert.equal(row('voice').click, 0); assert.equal(row('voice').liftVerified, 0);
+  assert.equal(t.feel.all.n, 3); assert.equal(t.feel.daily.n, 2); assert.equal(t.feel.three.n, 1);
+  assert.deepEqual(t.feel.all.dist, [1, 0, 1, 1]);
+  assert.equal(t.feel.byStreak[0].n, 2); assert.equal(t.feel.byStreak[1].n, 1);
+  const rb = (label) => t.returnBy.find((r) => r.label.startsWith(label));
+  assert.equal(rb('Chỉ xem').n, 1); assert.equal(rb('Chỉ xem').d1.p, 0);
+  assert.equal(rb('Rút bài ngay').n, 2); assert.equal(rb('Rút bài ngay').d1.p, 0.5, 'một trong hai người quay lại hôm sau');
+  assert.equal(rb('Rút bài và thấy nhẹ nhõm').n, 1); assert.equal(rb('Rút bài và thấy nhẹ nhõm').d1.p, 1);
+  assert.equal(rb('Rút bài và thấy bình thường').n, 1); assert.equal(rb('Rút bài và thấy bình thường').d1.p, 0);
+  assert.equal(t.habit[0].n, 1); assert.equal(t.habit[1].n, 1); assert.equal(t.habit[2].n, 0);
 });
 
 test('thưởng giới thiệu: đủ 10 phút và đã đăng ký thì người giới thiệu được thêm 30 phút mỗi ngày, cộng dồn, có trần', async () => {
