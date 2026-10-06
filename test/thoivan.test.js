@@ -151,8 +151,8 @@ test('Thử giá: số liệu theo từng mức giá, đếm người không tr�
   assert.equal(rows[1].opens, 0);
 });
 
-test('Đối chiếu iztro (cố định): lưu nguyệt Đẩu Quân của 22/7/1992 giờ Mão nam, năm 2026', () => {
-  // Giá trị lấy từ thư viện iztro 2.x (astro.bySolar + horoscope) cho 12 tháng âm 2026; nhánh 0 = Tý. Chạy lại bằng tools/compare-iztro.mjs.
+test('Đối chiếu thư viện khác (cố định): lưu nguyệt Đẩu Quân của 22/7/1992 giờ Mão nam, năm 2026', () => {
+  // Giá trị lấy từ một thư viện Tử Vi độc lập khác cho 12 tháng âm 2026; nhánh 0 = Tý. Chạy lại bằng tools/compare-external.mjs.
   const { profile, chart } = mk();
   const t = timeCycle(profile, chart, 2026);
   assert.deepEqual(t.months.map((m) => m.cung.pos), [4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3]);

@@ -18,7 +18,7 @@ test('Âm lịch: tháng nhuận (đối chiếu lịch thực)', () => {
 });
 const pick = (l) => [l.day, l.month, l.year, l.leap];
 
-test('Tử Vi: lá số 22/7 Nhâm Thân, giờ Mão, nữ (đối chiếu độc lập 4.000 lá số với tuvi-neo)', () => {
+test('Tử Vi: lá số 22/7 Nhâm Thân, giờ Mão, nữ (đối chiếu độc lập 4.000 lá số với một thư viện Tử Vi độc lập khác)', () => {
   const t = computeTuViLunar({ day: 22, month: 7, year: 1992 }, 6, 'nu');
   assert.equal(t.cuc.ten, 'Hỏa lục cục');
   assert.equal(t.palaces[t.menh].chi, 'Tỵ');

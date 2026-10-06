@@ -33,12 +33,12 @@ test('Đối chiếu: khớp, và lệch không giải thích được khi nhậ
   assert.ok(stars.diffs.some((d) => d.field === 'Chính tinh ở Mệnh'));
 });
 
-test('Đối chiếu: giải thích bằng quy ước đúng (giá trị lấy từ thư viện iztro, lịch Trung Quốc)', () => {
-  // 27/12/1984 10h nam: iztro ra Thổ ngũ cục, Mệnh ở Mùi (nhánh 7); lá số Việt Nam ra Kim tứ cục, Mệnh ở Thân (nhánh 8).
+test('Đối chiếu: giải thích bằng quy ước đúng (giá trị lấy từ một thư viện độc lập khác, lịch Trung Quốc)', () => {
+  // 27/12/1984 10h nam: thư viện khác ra Thổ ngũ cục, Mệnh ở Mùi (nhánh 7); lá số Việt Nam ra Kim tứ cục, Mệnh ở Thân (nhánh 8).
   let { profile, chart } = mk({ y: 1984, m: 12, d: 27, hour: 10, minute: 0 });
   let r = compareTuVi(profile, chart, { cucSo: 5, menhPos: 7 });
   assert.equal(r.verdict, 'lech_giai_thich_duoc'); assert.deepEqual(r.explain.map((e) => e.key), ['cn']);
-  // 8/8/1960 5h nam, sinh ngày 16 tháng 6 nhuận: iztro (nửa sau tháng nhuận sang tháng kế) ra Kim tứ cục, Mệnh ở Tỵ (nhánh 5).
+  // 8/8/1960 5h nam, sinh ngày 16 tháng 6 nhuận: thư viện khác (nửa sau tháng nhuận sang tháng kế) ra Kim tứ cục, Mệnh ở Tỵ (nhánh 5).
   ({ profile, chart } = mk({ y: 1960, m: 8, d: 8, hour: 5, minute: 0 }));
   r = compareTuVi(profile, chart, { cucSo: 4, menhPos: 5 });
   assert.equal(r.verdict, 'lech_giai_thich_duoc'); assert.deepEqual(r.explain.map((e) => e.key), ['leap']);

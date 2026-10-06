@@ -6,7 +6,7 @@ Tài liệu nội bộ cho tác giả. Đây **không phải tư vấn pháp lý
 
 | # | Việc | Ai làm | Ghi chú |
 |---|---|---|---|
-| 1 | Chọn chủ thể thu tiền: hộ kinh doanh hay công ty (và ngành nghề đăng ký phù hợp với dịch vụ nội dung số, tư vấn giải trí) | Tác giả + kế toán | Hiện chủ thể là cá nhân (xem `docs/legal/dieu-khoan.md`). Tên chủ thể phải xuất hiện đúng trên điều khoản, hóa đơn và trang thanh toán. HumanView ghi rõ công ty chủ quản; đây là điểm tạo niềm tin nên làm tương tự. |
+| 1 | Chọn chủ thể thu tiền: hộ kinh doanh hay công ty (và ngành nghề đăng ký phù hợp với dịch vụ nội dung số, tư vấn giải trí) | Tác giả + kế toán | Hiện chủ thể là cá nhân (xem `docs/legal/dieu-khoan.md`). Tên chủ thể phải xuất hiện đúng trên điều khoản, hóa đơn và trang thanh toán. Một ứng dụng khác cùng lĩnh vực ghi rõ công ty chủ quản; đây là điểm tạo niềm tin nên làm tương tự. |
 | 2 | Mở tài khoản ngân hàng đứng tên chủ thể và chọn cổng thanh toán (VietQR, payOS, MoMo, ZaloPay, VNPay hoặc tương đương) | Tác giả | Ưu tiên cổng có hóa đơn đối soát rõ và hoàn tiền được. |
 | 3 | Hóa đơn điện tử, kê khai và nộp thuế theo loại hình đã chọn | Kế toán | Hỏi rõ mức doanh thu bắt buộc dùng hóa đơn điện tử và cách tính thuế cho hộ kinh doanh hiện hành. |
 | 4 | Website bán hàng: kiểm tra có phải thông báo hoặc đăng ký website thương mại điện tử với cơ quan quản lý hay không | Luật sư | Nội dung thông báo thường gồm thông tin chủ thể, giá, điều kiện giao dịch, chính sách đổi trả và bảo mật. |
@@ -19,7 +19,7 @@ Tài liệu nội bộ cho tác giả. Đây **không phải tư vấn pháp lý
 
 Bản nháp ở `docs/legal/nhap-thu-phi.md`. Cố tình để ngoài thư mục xây trang tĩnh, nên **chưa xuất hiện trên web**. Khi luật sư duyệt xong, gộp vào `dieu-khoan.md` và dựng lại.
 
-Ba điều HumanView chưa nói rõ (không có chính sách hoàn tiền, không nêu thời hạn truy cập hai gói đầu, không có đánh giá) là chỗ Huyền My nên nói rõ ngay từ đầu.
+Ba điều một ứng dụng khác cùng lĩnh vực chưa nói rõ (không có chính sách hoàn tiền, không nêu thời hạn truy cập hai gói đầu, không có đánh giá) là chỗ Huyền My nên nói rõ ngay từ đầu.
 
 ## 3. Giá tri ân cho người thử demo
 
@@ -42,5 +42,5 @@ Lưu ý: độ đúng do người dùng tự nhận chịu hiệu ứng Barnum (
 
 ## 5. Những điều chưa được kiểm chứng
 
-- Phần thời vận (lưu niên, lưu nguyệt) đã đối chiếu với thư viện iztro: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và cung lưu nguyệt Đẩu Quân khớp 100% trên 379 lá số có gốc trùng (xem `tools/compare-iztro.mjs`). iztro cùng trường phái Trung Hoa phổ biến, nên đây là bằng chứng nhất quán, **chưa phải thẩm định của người xem Tử Vi**; vẫn nên nhờ một người có kinh nghiệm duyệt quy tắc ở đầu `src/engine/thoivan.js` trước khi thu phí.
+- Phần thời vận (lưu niên, lưu nguyệt) đã đối chiếu với một thư viện Tử Vi độc lập khác: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và cung lưu nguyệt Đẩu Quân khớp 100% trên 379 lá số có gốc trùng (xem `tools/compare-external.mjs`). thư viện đó cùng trường phái Trung Hoa phổ biến, nên đây là bằng chứng nhất quán, **chưa phải thẩm định của người xem Tử Vi**; vẫn nên nhờ một người có kinh nghiệm duyệt quy tắc ở đầu `src/engine/thoivan.js` trước khi thu phí.
 - "Mức chú ý" là cách đếm yếu tố kích hoạt, không phải mô hình dự báo, và không có bằng chứng khoa học rằng nó dự báo được sự kiện. Mọi nơi hiển thị đều đã ghi rõ điều đó; giữ nguyên khi làm trang bán hàng.

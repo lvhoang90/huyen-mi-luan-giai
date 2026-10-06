@@ -8,8 +8,8 @@
 // - Tứ Trụ: hành của can năm/tháng so với Nhật chủ (sinh, khắc, đồng), lục xung / lục hợp / tam hợp của chi với chi ngày và chi năm sinh.
 // - Thần số học: năm cá nhân và tháng cá nhân.
 // Chưa có: tiểu hạn, sao lưu (Lưu Lộc Tồn, Lưu Kình Đà...), Tuần/Triệt.
-// Đối chiếu: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và cung lưu nguyệt Đẩu Quân khớp 100% với thư viện iztro (MIT) trên hàng trăm lá số;
-// xem tools/compare-iztro.mjs. iztro theo trường phái Trung Hoa phổ biến, nên đây là bằng chứng nhất quán, chưa phải thẩm định của người xem Tử Vi.
+// Đối chiếu: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và cung lưu nguyệt Đẩu Quân khớp 100% với một thư viện Tử Vi độc lập khác (mã nguồn mở) trên hàng trăm lá số;
+// xem tools/compare-external.mjs. Thư viện đó theo trường phái Trung Hoa phổ biến, nên đây là bằng chứng nhất quán, chưa phải thẩm định của người xem Tử Vi.
 import { CAN, CHI, CAN_HANH, CHI_HANH, SINH, KHAC, computeBazi, yearPillarOfYear } from './bazi.js';
 import { CUNG_TEN, TU_HOA, HOUR_BRANCH } from './tuvi.js';
 import { lunarMonthsOfYear } from './lunar.js';

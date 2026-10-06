@@ -32,7 +32,7 @@ Nền tảng luận giải huyền học Đông-Tây với nhân vật 2D **Huy�
 
 ## 12 cung, thời vận và trang Khám phá
 
-- **Thời vận** (`src/engine/thoivan.js`): lưu niên theo Lưu Thái Tuế và Lưu Tứ Hóa, lưu nguyệt theo cách Đẩu Quân, Tứ Trụ (hành và địa chi của năm, tháng so với Nhật chủ), năm và tháng cá nhân của thần số học, các giai đoạn đời theo đại hạn. Kết quả là **"mức chú ý" nhẹ, vừa, nhiều**: chỉ đếm số yếu tố đang kích hoạt một lĩnh vực, không phải điểm tốt xấu và không dự báo sự kiện. My nhận khối này làm dữ kiện và chỉ nói theo kiểu "giai đoạn nên chú ý điều gì". Chưa có tiểu hạn và sao lưu khác; đã đối chiếu với thư viện iztro: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và lưu nguyệt Đẩu Quân khớp 100% trên 379 lá số có gốc trùng (1.137 lượt năm, 13.644 lượt tháng) bằng `tools/compare-iztro.mjs`. iztro cùng trường phái Trung Hoa phổ biến, nên vẫn nên có một người xem Tử Vi duyệt quy tắc trước khi thu phí.
+- **Thời vận** (`src/engine/thoivan.js`): lưu niên theo Lưu Thái Tuế và Lưu Tứ Hóa, lưu nguyệt theo cách Đẩu Quân, Tứ Trụ (hành và địa chi của năm, tháng so với Nhật chủ), năm và tháng cá nhân của thần số học, các giai đoạn đời theo đại hạn. Kết quả là **"mức chú ý" nhẹ, vừa, nhiều**: chỉ đếm số yếu tố đang kích hoạt một lĩnh vực, không phải điểm tốt xấu và không dự báo sự kiện. My nhận khối này làm dữ kiện và chỉ nói theo kiểu "giai đoạn nên chú ý điều gì". Chưa có tiểu hạn và sao lưu khác; đã đối chiếu với một thư viện Tử Vi độc lập khác: Lưu Thái Tuế, tên cung lưu niên, Lưu Tứ Hóa và lưu nguyệt Đẩu Quân khớp 100% trên 379 lá số có gốc trùng (1.137 lượt năm, 13.644 lượt tháng) bằng `tools/compare-external.mjs`. Thư viện đó cùng trường phái Trung Hoa phổ biến, nên vẫn nên có một người xem Tử Vi duyệt quy tắc trước khi thu phí.
 - **Radar 12 cung và tab Thời vận** trong bảng lá số ☯ (`src/chart-view.js`, dùng chung với trang Khám phá). Bấm một cung hoặc một tháng rồi "Hỏi My" thì câu hỏi đi thẳng vào cuộc trò chuyện. Với năm đã qua, người dùng được hỏi lá số có khớp không; số liệu này hiện ở trang quản trị.
 - **Trang `/kham-pha`**: xem lá số, 12 cung, thời vận không cần đăng nhập, mọi phép tính chạy trên trình duyệt. Có ba hồ sơ mẫu hư cấu và phép tính từ ngày sinh công khai của người nổi tiếng (chỉ từ năm 1800, không diễn giải). Nút "Trò chuyện với My" chuyển hồ sơ sang ứng dụng.
 - **Quy ước đang dùng và đối chiếu lá số** (`src/engine/doichieu.js`): mỗi bảng lá số có khung nêu ba quy ước (lịch âm UTC+7, tháng nhuận theo số tháng gốc, giờ Tý muộn) và đánh dấu điều nào chạm vào ngày sinh của người xem. Tab "Đối chiếu" cho người dùng nhập Cục và cung Mệnh của lá số từ ứng dụng khác; My báo khớp hay lệch và thử các tổ hợp quy ước để giải thích chỗ lệch (đã kiểm với các ca thật của lịch Trung Quốc và tháng nhuận). Không bên nào bị coi là sai.
@@ -80,15 +80,15 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 
 ## Mức độ kiểm chứng (nói rõ cái gì đã kiểm, cái gì chưa)
 
-- **Lịch âm**: đối chiếu 6.660 ngày (1930-2040) với `lunar-javascript`. **Trước 1968: 0 sai lệch.** Từ 1968 có lệch đúng 1 ngày ở khoảng 4% số tháng, đúng như dự kiến vì lịch âm Việt Nam dùng UTC+7 còn lịch Trung Hoa dùng UTC+8. Các mốc Tết, tháng nhuận 2020/2023/2025 khớp lịch thực.
-- **Tử Vi**: đối chiếu 4.000 lá số ngẫu nhiên với thư viện độc lập `tuvi-neo`: **0 sai lệch** về Cục, tên 12 cung, vị trí cả 14 chính tinh, 16 phụ/sát tinh, Trường Sinh. Lưu ý: cả hai theo trường phái phổ biến ở Việt Nam; thư viện đối chứng tự ghi là phần lớn do AI sinh, nên đây là bằng chứng nhất quán chứ chưa phải thẩm định của thầy Tử Vi.
+- **Lịch âm**: đối chiếu 6.660 ngày (1930-2040) với một thư viện lịch âm độc lập khác. **Trước 1968: 0 sai lệch.** Từ 1968 có lệch đúng 1 ngày ở khoảng 4% số tháng, đúng như dự kiến vì lịch âm Việt Nam dùng UTC+7 còn lịch Trung Hoa dùng UTC+8. Các mốc Tết, tháng nhuận 2020/2023/2025 khớp lịch thực.
+- **Tử Vi**: đối chiếu 4.000 lá số ngẫu nhiên với một thư viện Tử Vi độc lập khác: **0 sai lệch** về Cục, tên 12 cung, vị trí cả 14 chính tinh, 16 phụ/sát tinh, Trường Sinh. Lưu ý: cả hai theo trường phái phổ biến ở Việt Nam; thư viện đối chứng tự ghi là phần lớn do AI sinh, nên đây là bằng chứng nhất quán chứ chưa phải thẩm định của thầy Tử Vi.
 - **Tứ Trụ, thần số, cung hoàng đạo**: có test theo các mốc đã biết (`npm test`, 14 test).
 - **Giao diện**: đã chạy trọn hành trình trên trình duyệt headless (desktop và điện thoại) ở chế độ demo, không lỗi console.
 - **Chưa kiểm**: phần trả lời bằng AI thật (môi trường dựng không có khóa API), chất lượng cá nhân hóa của prompt qua nhiều hội thoại thật, và hiệu năng trên GPU thật.
 
 ## Giới hạn hiện tại
 
-- Tử Vi chưa có độ sáng của sao (miếu/hãm), Tuần/Triệt, tiểu hạn và các sao lưu (đã có Lưu Thái Tuế, Lưu Tứ Hóa và lưu nguyệt Đẩu Quân, xem `src/engine/thoivan.js`; phần này đã đối chiếu với iztro, xem mục thời vận bên dưới); các phái khác nhau (ví dụ Tứ Hóa năm Canh) có thể cho kết quả khác.
+- Tử Vi chưa có độ sáng của sao (miếu/hãm), Tuần/Triệt, tiểu hạn và các sao lưu (đã có Lưu Thái Tuế, Lưu Tứ Hóa và lưu nguyệt Đẩu Quân, xem `src/engine/thoivan.js`; phần này đã đối chiếu với một thư viện khác, xem mục thời vận bên dưới); các phái khác nhau (ví dụ Tứ Hóa năm Canh) có thể cho kết quả khác.
 - Tứ Trụ chỉ xét can chi chính khí, chưa xét tàng can, hợp xung, đại vận. "Thân vượng/nhược" chỉ tham khảo.
 - **Nhân vật 2D** vẽ bằng mã nên nét gọn, kiểu sticker, chưa có độ tinh xảo của tranh họa sĩ vẽ tay. Quay đầu chỉ mô phỏng bằng cách dịch chuyển nét mặt so với tóc và da, không phải góc nhìn 3/4 thật. Muốn nhân vật đẹp hơn, nên nhờ họa sĩ vẽ lại theo cùng cấu trúc bộ phận (xem `tools/rig.py`).
 - Không dùng giọng nói: My chỉ trò chuyện bằng chữ. Không còn thư viện 3D nên ứng dụng gọn nhẹ.
@@ -101,7 +101,7 @@ Máy chủ **tự tính lại lá số** từ hồ sơ (không tin dữ liệu l
 
 - `astronomy-engine` (MIT), `@anthropic-ai/sdk` (MIT).
 - Nhân vật 2D do dự án tự vẽ bằng mã (`tools/chibi.py`, `tools/rig.py`); không dùng mô hình hay hình ảnh của bên thứ ba.
-- `tuvi-neo`, `lunar-javascript` và `iztro` (MIT) chỉ dùng để đối chiếu khi kiểm thử, không nằm trong sản phẩm.
+- Các thư viện độc lập khác chỉ dùng để đối chiếu khi kiểm thử, không nằm trong sản phẩm (xem `NOTICE`).
 
 Hướng dẫn đưa lên web: [docs/TRIEN-KHAI.md](docs/TRIEN-KHAI.md).
 
