@@ -421,3 +421,6 @@ details.howto ul { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 5px;
 .ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; }
 .icon { display: inline-grid; place-items: center; padding: 0; font-size: 0; } .icon .ic { width: 19px; height: 19px; vertical-align: 0; }
 .btn .ic { margin-right: 4px; } .snd .ic { margin-right: 2px; }
+
+/* chọn buổi cho giờ sinh */
+.periods { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; } .periods .chip.on { background: rgba(226, 194, 125, .22); border-color: var(--gold); color: #fbeecb; }

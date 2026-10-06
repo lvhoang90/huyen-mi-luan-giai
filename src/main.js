@@ -5,6 +5,7 @@ import { createLanterns } from './lanterns.js';
 import { track, sessionId, ageBand } from './track.js';
 import { shareCard, shareChart } from './share.js';
 import { icon } from './icons.js';
+import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { GREETS, GV } from './greetings.js';
@@ -173,12 +174,15 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
   return new Promise((resolve) => {
     clearComposer();
     const done = (value, label) => { clearComposer(); showUser(label ?? String(value)); resolve(value); };
-    if (hint) composer.append(h('div', { className: 'hint', textContent: hint }));
+    const hintEl = h('div', { className: 'hint', textContent: hint }); if (hint) composer.append(hintEl);
     if (chips.length) composer.append(chipsRow(chips, (c) => done(c.value ?? c, c.label ?? c)));
     if (kind === 'choice') return;
     // Ngày và giờ nhập bằng ô số thường: hộp chọn ngày gốc của trình duyệt trong Zalo/Facebook có thể làm trang bị nạp lại giữa chừng.
     const num = (ph, len, label) => h('input', { className: 'field num', type: 'text', inputMode: 'numeric', pattern: '[0-9]*', placeholder: ph, maxLength: len, autocomplete: 'off', ariaLabel: label, size: len });
-    const fields = kind === 'date' ? [num('Ngày', 2, 'Ngày sinh'), num('Tháng', 2, 'Tháng sinh'), num('Năm', 4, 'Năm sinh')] : kind === 'time' ? [num('Giờ', 2, 'Giờ sinh (0-23)'), num('Phút', 2, 'Phút sinh')] : [];
+    const fields = kind === 'date' ? [num('Ngày', 2, 'Ngày sinh'), num('Tháng', 2, 'Tháng sinh'), num('Năm', 4, 'Năm sinh')] : kind === 'time' ? [num('Giờ', 2, 'Giờ sinh (0-23, hoặc 1-12 kèm buổi)'), num('Phút', 2, 'Phút sinh')] : [];
+    // Giờ sinh: hàng chọn buổi để người nhập "1 giờ 20" biết rõ là sáng, trưa, chiều hay tối (mặc định: giờ 24).
+    let period = 'h24'; const periodRow = kind === 'time' ? h('div', { className: 'periods', role: 'group', ariaLabel: 'Buổi trong ngày' }, ...PERIODS.map(([k, l]) => h('button', { type: 'button', className: 'chip' + (k === period ? ' on' : ''), textContent: l, ariaPressed: String(k === period), onclick: (e) => { period = k; for (const b of periodRow.children) { b.classList.toggle('on', b === e.currentTarget); b.setAttribute('aria-pressed', String(b === e.currentTarget)); } } }))) : null;
+    if (periodRow) composer.append(periodRow);
     const input = fields[0] ?? h('input', { className: 'field', type: 'text', placeholder, maxLength: 80, autocomplete: 'off' });
     const go = h('button', { className: 'send', textContent: '➤', ariaLabel: 'Gửi' });
     const p2 = (v) => String(v).padStart(2, '0');
@@ -193,8 +197,9 @@ function ask({ kind = 'text', placeholder = '', chips = [], hint = '', validate 
       if (kind === 'time') {
         if (fields.every((f) => !f.value)) return;
         const [hh, mm] = fields.map((f) => +f.value || 0);
-        if (!(hh >= 0 && hh <= 23)) return bad(fields[0]); if (!(mm >= 0 && mm <= 59)) return bad(fields[1]);
-        return done(`${p2(hh)}:${p2(mm)}`, `${p2(hh)}:${p2(mm)}`);
+        if (!(mm >= 0 && mm <= 59)) return bad(fields[1]);
+        let h24; try { h24 = hourFrom(hh, period); } catch (e) { bad(fields[0]); hintEl.textContent = e.userMessage ?? 'Giờ chưa hợp lệ.'; return; }
+        return done(`${p2(h24)}:${p2(mm)}`, describeHour(h24, mm, period));
       }
       const v = input.value.trim(); if (!v) return;
       if (validate && !validate(v)) { input.style.borderColor = '#ff8a8a'; return; }
@@ -555,7 +560,7 @@ async function collect() {
     if (!D.ageOk) { if (!(await ageGate(y, m, d))) { delete D.date; save(); return; } keep('ageOk', true); }
     if (D.time === undefined) {
       await say('[[suy_nghi]]Bạn chào đời lúc mấy giờ? Nếu không nhớ cũng không sao - My sẽ nói rõ phần nào vì thế mà kém chắc chắn, chứ không nói liều.');
-      keep('time', await ask({ kind: 'time', chips: [{ label: 'Không rõ giờ sinh', value: '' }] })); track('intake_step', { step: 'time' });
+      keep('time', await ask({ kind: 'time', hint: 'Bạn nhập giờ theo cách quen nói rồi chọn buổi: ví dụ 1 giờ 20, chọn Sáng (khuya) hay Trưa hay Chiều. Hoặc chọn "24 giờ" và nhập 13:20.', chips: [{ label: 'Không rõ giờ sinh', value: '' }, { label: 'Không chắc sáng hay tối', value: '' }] })); track('intake_step', { step: 'time' });
     }
     let hour = null, minute = null; if (D.time) [hour, minute] = D.time.split(':').map(Number);
     if (D.place === undefined) {

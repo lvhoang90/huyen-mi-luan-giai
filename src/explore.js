@@ -5,6 +5,7 @@ import { mountLogo } from './logo.js';
 import { track } from './track.js';
 import { renderChart, esc } from './chart-view.js';
 import { shareChart } from './share.js';
+import { hourFrom } from './engine/birthtime.js';
 import { normalizeProfile, buildChart, PLACES, findPlaces, pickFamous } from './engine/index.js';
 import { allEntries } from './engine/famous.js';
 import { computeBazi } from './engine/bazi.js';
@@ -66,7 +67,7 @@ document.addEventListener('click', (e) => {
 
 // ---- biểu mẫu ----
 $('#ex-form').addEventListener('input', (e) => { if (e.target.classList?.contains('num')) e.target.value = e.target.value.replace(/\D/g, ''); });
-$('#ex-form [name=nohour]').addEventListener('change', (e) => { for (const n of ['hh', 'mm']) { const f = $(`#ex-form [name=${n}]`); f.disabled = e.target.checked; if (e.target.checked) f.value = ''; } });
+$('#ex-form [name=nohour]').addEventListener('change', (e) => { for (const n of ['hh', 'mm', 'period']) { const f = $(`#ex-form [name=${n}]`); f.disabled = e.target.checked; if (e.target.checked) f.value = ''; } });
 $('#ex-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const f = new FormData(e.currentTarget), err = $('#ex-err'), fail = (m) => { err.textContent = m; err.hidden = false; };
@@ -75,9 +76,9 @@ $('#ex-form').addEventListener('submit', (e) => {
   let place = null; const q = String(f.get('place') ?? '').trim();
   if (q && !noHour) { place = findPlaces(q, 1)[0] ?? null; if (!place) return fail('My chưa có nơi này trong dữ liệu. Bạn thử gõ tên tỉnh hoặc thành phố gần nơi sinh nhất, hoặc để trống.'); }
   try {
-    const profile = normalizeProfile({ fullName: f.get('name'), gender: f.get('gender'), birth: { y: f.get('y'), m: f.get('m'), d: f.get('d'), hour: noHour ? null : f.get('hh'), minute: noHour ? null : (f.get('mm') || 0) }, place });
+    const profile = normalizeProfile({ fullName: f.get('name'), gender: f.get('gender'), birth: { y: f.get('y'), m: f.get('m'), d: f.get('d'), hour: noHour ? null : hourFrom(f.get('hh') || 0, f.get('period')), minute: noHour ? null : (f.get('mm') || 0) }, place });
     show(profile);
-  } catch (x) { fail(x.message === 'Thiếu họ tên' ? 'Bạn nhập giúp My họ và tên nhé.' : `${x.message}. Bạn kiểm tra lại giúp My nhé.`); }
+  } catch (x) { fail(x.userMessage ?? (x.message === 'Thiếu họ tên' ? 'Bạn nhập giúp My họ và tên nhé.' : `${x.message}. Bạn kiểm tra lại giúp My nhé.`)); }
 });
 
 // ---- ba hồ sơ mẫu hư cấu ----
