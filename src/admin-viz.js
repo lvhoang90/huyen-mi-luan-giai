@@ -134,3 +134,21 @@ export function feelBar(feel) {
   const names = ['Rẻ', 'Hợp lý', 'Hơi đắt', 'Quá đắt'], cols = ['var(--s1)', 'var(--seq2)', 'var(--axis)', 'var(--s8)'];
   return `<div class="stack mini" role="img" aria-label="Cảm nhận giá">${feel.map((v, i) => `<span style="flex:${Math.max(v, 0.0001)};background:${cols[i]}" ${tip(names[i], `${v} người`)}></span>`).join('')}</div><div class="stackkey tiny">${feel.map((v, i) => `<span><i style="background:${cols[i]}"></i>${names[i]} ${v}</span>`).join('')}</div>`;
 }
+
+// ---------- biểu đồ tròn rỗng giữa (donut): chỉ để xem phần chia của một tổng, tối đa 6 mảng, phần còn lại gộp vào "Khác" ----------
+// Luôn có chú giải kèm số và %; rê hoặc chạm vào mảng cũng hiện số. Không dùng để so sánh các giá trị sát nhau (dùng thanh).
+export function donut(items, { unit = 'người', max = 6, empty = 'Chưa có dữ liệu.' } = {}) {
+  const clean = items.map((i) => ({ ...i, value: finite(i.value) })).filter((i) => i.value > 0).sort((a, b) => b.value - a.value);
+  const total = clean.reduce((s, i) => s + i.value, 0);
+  if (!total) return `<p class="muted">${esc(empty)}</p>`;
+  const segs = clean.length > max ? [...clean.slice(0, max - 1), { label: 'Khác', value: clean.slice(max - 1).reduce((s, i) => s + i.value, 0), rest: true }] : clean;
+  const r = 44, C = 2 * Math.PI * r, gap = segs.length > 1 ? 2.5 : 0; let acc = 0;
+  const colorOf = (i, seg) => (seg.rest ? 'var(--muted)' : SERIES[i]);
+  const arcs = segs.map((g, i) => {
+    const len = (g.value / total) * C, dash = Math.max(0.6, len - gap), p = Math.round((g.value / total) * 100);
+    const el = `<circle class="dn-s" cx="60" cy="60" r="${r}" fill="none" stroke="${colorOf(i, g)}" stroke-width="18" stroke-dasharray="${dash.toFixed(2)} ${(C - dash).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 60 60)" ${tip(g.label, `${nf.format(g.value)} ${unit} (${p}%)`)}/>`;
+    acc += len; return el;
+  }).join('');
+  const legend = segs.map((g, i) => `<li ${tip(g.label, `${nf.format(g.value)} ${unit} (${Math.round((g.value / total) * 100)}%)`)}><i class="dn-sw" style="background:${colorOf(i, g)}"></i><span class="dn-n">${esc(g.label)}</span><b>${esc(nf.format(g.value))}</b><small>${Math.round((g.value / total) * 100)}%</small></li>`).join('');
+  return `<figure class="dn"><svg viewBox="0 0 120 120" role="img" aria-label="Biểu đồ tròn, tổng ${nf.format(total)} ${esc(unit)}">${arcs}<text x="60" y="58" text-anchor="middle" class="dn-t">${esc(nf.format(total))}</text><text x="60" y="73" text-anchor="middle" class="dn-u">${esc(unit)}</text></svg><ul class="dn-l">${legend}</ul></figure>`;
+}

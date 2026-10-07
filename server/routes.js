@@ -251,7 +251,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
       if (id.user.role !== 'admin') return json(res, 403, { error: 'Chỉ dành cho quản trị viên.' }), true;
       const days = Math.min(90, Math.max(1, +new URL(req.url, 'http://x').searchParams.get('days') || 14));
-      return json(res, 200, computeMetrics(db, { days, now: now() })), true;
+      return json(res, 200, computeMetrics(db, { days, now: now(), refCfg: rewards.cfg })), true;
     }
     return false;
   }

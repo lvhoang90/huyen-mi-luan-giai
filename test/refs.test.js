@@ -38,3 +38,21 @@ test('Mã kênh được chuẩn hóa an toàn cho ?ref=', () => {
   assert.equal(channelCode('x'.repeat(50)).length, 20);
   assert.equal(channelCode('<script>'), 'script');
 });
+
+import { rewardStats } from '../server/refs.js';
+test('Thưởng phút: mỗi bạn đạt cộng perMin phút mỗi ngày, tối đa maxRefs, không lộ email', () => {
+  const db = mk(), T = 1_000_000, cfg = { perMin: 30, maxRefs: 3, qualifyMin: 10 };
+  db.prepare("INSERT INTO users(id, email, created_at, role, anon_id) VALUES (1, 'a@x', ?, 'user', 'abcd1234zzzz'), (2, 'b@x', ?, 'user', 'wxyz5678zzzz')").run(T, T);
+  const rf = db.prepare('INSERT INTO referrals(referee_id, code, referrer_id, created_at, qualified_at) VALUES (?,?,?,?,?)');
+  for (let i = 0; i < 5; i++) rf.run(10 + i, 'abcd1234', 1, T, T + 1);   // người 1 mời 5, đạt 5 → chạm trần 3
+  rf.run(20, 'wxyz5678', null, T, T + 1); rf.run(21, 'wxyz5678', null, T, null); // chưa xác định người giới thiệu, suy ra từ mã
+  rf.run(30, 'khongco99', null, T, T + 1); // mã không thuộc thành viên nào: không tính
+  const r = rewardStats(db, cfg, new Map([['abcd1234', 1], ['wxyz5678', 2]]));
+  const u1 = r.top.find((x) => x.id === 1), u2 = r.top.find((x) => x.id === 2);
+  assert.deepEqual([u1.invited, u1.qualified, u1.minPerDay, u1.capped], [5, 5, 90, true]);
+  assert.deepEqual([u2.invited, u2.qualified, u2.minPerDay, u2.capped], [2, 1, 30, false]);
+  assert.deepEqual([r.referrers, r.rewarded, r.capped, r.minPerDay], [2, 2, 1, 120]);
+  assert.ok(!JSON.stringify(r).includes('@x'));
+  assert.equal(refStats(db, { from: 0, cfg }).rewards.minPerDay, 120, 'refStats tự suy ra người giới thiệu từ bảng tài khoản');
+  assert.equal(refStats(db, { from: 0 }).rewards, null, 'không có cấu hình thưởng thì không tính');
+});
