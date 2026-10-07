@@ -614,3 +614,17 @@ test('token đốt theo thành viên: lưu từng lượt, tổng hợp theo ng�
   assert.equal(evaluate({ activeMin: 10, userTurns: 8, nps: 3 }).attention, true);
   h.close();
 });
+
+test('Hỏi ít: bực vì bị hỏi thì ngừng hẳn; hai lượt liền kết bằng câu hỏi thì lượt này không hỏi', async () => {
+  const { voiceBlock, buildSystemPrompt } = await import('../server/persona.js');
+  const u = (content) => ({ role: 'user', content }), a = (content) => ({ role: 'assistant', content });
+  const annoyed = voiceBlock([u('mình đi xe máy 25 phút'), a('Bạn ra khỏi nhà lúc 3 giờ 20 hay 3 giờ 30?'), u('3h30, My hỏi gì dữ zậy')]);
+  assert.match(annoyed, /BỰC VÌ BỊ HỎI/); assert.match(annoyed, /KHÔNG đặt câu hỏi/);
+  const two = voiceBlock([u('chào'), a('Bạn thấy sao?'), u('ổn'), a('Vậy bạn dự định gì tiếp? 🙂'), u('chưa biết')]);
+  assert.match(two, /HAI lượt liền bằng câu hỏi/); assert.doesNotMatch(two, /BỰC VÌ/);
+  const one = voiceBlock([u('chào'), a('Bạn thấy sao?'), u('ổn'), a('Vậy nhé, nghỉ đi.'), u('ok')]);
+  assert.doesNotMatch(one, /HAI lượt liền|BỰC VÌ/);
+  const { normalizeProfile, buildChart } = await import('../src/engine/index.js');
+  const profile = normalizeProfile({ fullName: 'Lương Việt Hoàng', nickname: 'Hoàng', gender: 'nam', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } });
+  assert.match(buildSystemPrompt('companion', profile, buildChart(profile), [u('xin chào')]), /HỎI ÍT, NHỚ NHIỀU/);
+});

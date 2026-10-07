@@ -97,7 +97,7 @@ export function describeNhipExtra(profile, userTexts, now = new Date()) {
       L.push(`  Thân nhiệt lõi thấp nhất (CBTmin) khoảng ${fmtHour(c.cbt)}, tức ${Math.abs(c.wakeAfterCbt).toFixed(1)} giờ ${c.wakeAfterCbt >= 0 ? 'trước' : 'sau'} giờ dậy; melatonin bắt đầu tăng (DLMO) khoảng ${fmtHour(c.dlmo)}.`);
       L.push('  Ý dùng được: ánh sáng ngoài trời buổi sáng sau khi dậy giúp nhịp đều; giảm ánh sáng mạnh và màn hình sáng khoảng 1-2 giờ trước giờ ngủ; quanh CBTmin là lúc cơ thể "trũng" nhất nên tránh việc cần tỉnh táo cao.');
     }
-  } else L.push('- Chưa biết giờ thức dậy và giờ đi ngủ thường ngày của người dùng. Nếu câu chuyện đang về giấc ngủ hay năng lượng, hỏi một câu nhẹ để họ cho biết hai giờ này; chưa nói mốc giờ cụ thể.');
+  } else L.push('- Chưa biết giờ thức dậy và giờ đi ngủ thường ngày của người dùng. Nếu câu chuyện đang về giấc ngủ hay năng lượng, có thể hỏi MỘT câu nhẹ để họ cho biết hai giờ này, nhưng nếu lượt trước My đã hỏi thì thôi, nói gợi ý chung về nhịp ngủ-thức và ánh sáng mà không cần hỏi; chưa nói mốc giờ cụ thể.');
   L.push(`- ${bioLine(profile.birth, vnToday(now))}.`);
   L.push(`- Giới hạn: ${BIO_NOTE} Nhịp thức-ngủ chỉ là ước tính chung, người đi ca, bay xuyên múi giờ hoặc ngủ thất thường sẽ lệch nhiều. Không chẩn đoán; mất ngủ kéo dài hay mệt mỏi bất thường thì nên gặp nhân viên y tế. Nói như gợi ý nhẹ nhàng, không hù dọa.`);
   return L.join('\n');
