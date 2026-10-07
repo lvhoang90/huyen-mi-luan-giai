@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CARDS, cardById, drawCards, dailyCard, vnDay, parseCardIds } from '../src/tarot/cards.js';
 import { tarotBlock, buildSystemPrompt } from '../server/persona.js';
+import { SPREADS, spreadOfCount, spreadText } from '../src/tarot/spreads.js';
 import { normalizeProfile, buildChart, famousStory, famousTies } from '../src/engine/index.js';
 
 test('bộ bài có đủ 78 lá, mỗi lá đủ trường và không trùng', () => {
@@ -35,8 +36,8 @@ test('rút bài: ba lá khác nhau, nằm trong bộ; lá của ngày cố đị
 
 test('lời nhắc cho My: có lá bài vừa rút, đã lọc và chỉ khi có', () => {
   assert.equal(tarotBlock(null), ''); assert.equal(tarotBlock([]), ''); assert.equal(tarotBlock([99, -1, 'x']), '');
-  const t = tarotBlock([16, '0', 7, 3, 1]);
-  assert.match(t, /Tòa Tháp/); assert.match(t, /Kẻ Khờ/); assert.match(t, /Cỗ Xe/); assert.doesNotMatch(t, /Hoàng Hậu/, 'tối đa ba lá');
+  const t = tarotBlock([16, '0', 7, 3]);
+  assert.match(t, /Tòa Tháp/); assert.match(t, /Kẻ Khờ/); assert.match(t, /Cỗ Xe/); assert.doesNotMatch(t, /Hoàng Hậu/, 'bốn lá không phải kiểu trải nào: cắt về ba lá');
   assert.match(t, /rút ngẫu nhiên/); assert.match(t, /không dự báo/);
   const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } }), chart = buildChart(profile);
   const withT = buildSystemPrompt('companion', profile, chart, [{ role: 'user', content: 'chào' }], { tarot: [13] });
@@ -75,4 +76,24 @@ test('người nổi tiếng: một câu chuyện ngắn có điểm chung trong
   const blk = buildSystemPrompt('companion', profile, chart, [{ role: 'user', content: 'chào' }], {});
   assert.match(blk, /NGƯỜI NỔI TIẾNG CÙNG HOẶC SÁT NGÀY SINH/);
   assert.ok(famousTies(chart, { y: 1990, m: 5, d: 5 }).some((t) => t.k === 'nhat-chu'), 'cùng ngày sinh thì cùng nhật chủ');
+});
+
+test('kiểu trải năm và bảy lá: đủ vị trí, lời dặn không chọn thay và không đoán tâm ý', () => {
+  for (const [k, sp] of Object.entries(SPREADS)) {
+    assert.equal(sp.pos.length, sp.n, `${k}: số vị trí khớp số lá`); assert.equal(spreadOfCount(sp.n), k);
+    for (const p of sp.pos) { assert.ok(['gist', 'mirror', 'step'].includes(p.field)); assert.ok(p.label && p.short && p.ai); }
+    for (const c of CARDS) for (const f of ['gist', 'mirror', 'step']) assert.ok(String(c[f] ?? '').length > 5, `lá ${c.id} thiếu ${f}`);
+  }
+  assert.equal(spreadOfCount(4), null); assert.equal(spreadText(5), 'năm lá về một lựa chọn'); assert.equal(spreadText(2), '2 lá');
+  const five = tarotBlock([16, 0, 7, 3, 1]);
+  assert.match(five, /Vị trí "lối thứ nhất mở ra điều gì"/); assert.match(five, /Vị trí "một bước nhỏ để thử"/); assert.match(five, /KHÔNG chọn thay họ/);
+  const seven = tarotBlock([16, 0, 7, 3, 1, 2, 4]);
+  assert.match(seven, /Vị trí "điều bạn cần chăm sóc ở chính mình"/); assert.match(seven, /KHÔNG đoán tâm ý/); assert.match(seven, /không nói họ có quay lại/);
+  assert.doesNotMatch(tarotBlock([16, 0, 7, 3, 1, 2]), /Vị trí "điều nên nói ra/, 'sáu lá cắt về năm lá');
+  assert.match(tarotBlock([16, 0, 7, 3, 1, 2, 4, 5, 6]), /điều nên nói ra hoặc lắng nghe/, 'quá bảy lá thì cắt về bảy');
+});
+
+test('?tarot= nhận một đến ba, năm hoặc bảy lá không trùng', () => {
+  assert.equal(parseCardIds('1,2,3,4,5').length, 5); assert.equal(parseCardIds('1,2,3,4,5,6').length, 5); assert.equal(parseCardIds('1,2,3,4,5,6,7,8').length, 7);
+  assert.equal(parseCardIds('1,2,3,4').length, 3); assert.deepEqual(parseCardIds('5,5,5'), [5]); assert.deepEqual(parseCardIds('9,77'), [9, 77]);
 });

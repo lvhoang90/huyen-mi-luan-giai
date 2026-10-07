@@ -2,6 +2,7 @@ import { describeChart, describeTimeExtra, describeDayExtra, describeNhipExtra, 
 import { repeatedPhrases, pickLinkers, lengthHint } from './voice.js';
 import { analyzeAffect } from './affect.js';
 import { cardById, topicLabel } from '../src/tarot/cards.js';
+import { SPREADS, spreadOfCount } from '../src/tarot/spreads.js';
 
 const CORE = `Bạn là HUYỀN MY - nhân vật trung tâm của nền tảng "Huyền My Luận Giải".
 
@@ -193,13 +194,18 @@ export function resumeHint(greet, last = '') {
  */
 /** Lá Tarot người dùng vừa rút ở trang /tarot (đã lọc chỉ còn số 0-21). Lá bài rút ngẫu nhiên: không có tầng tính toán, chỉ có tầng truyền thống và tâm lý. */
 export function tarotBlock(ids, topic = null) {
-  const cards = (Array.isArray(ids) ? ids : []).map((i) => cardById(i)).filter(Boolean).slice(0, 3);
+  const all = (Array.isArray(ids) ? ids : []).map((i) => cardById(i)).filter(Boolean).slice(0, 7);
+  const cards = all.slice(0, [0, 1, 2, 3, 3, 5, 5, 7][all.length]); // chỉ nhận 1 đến 3, 5 hoặc 7 lá
   if (!cards.length) return '';
-  const pos = ['điều đang diễn ra', 'điều nên để ý', 'bước nhỏ nên thử'];
+  const sp = SPREADS[spreadOfCount(cards.length)], pos = sp ? sp.pos.map((p) => p.ai) : ['điều đang diễn ra', 'điều nên để ý'];
   const list = cards.map((c, i) => `- ${cards.length > 1 ? `Vị trí "${pos[i]}": ` : ''}${c.name} (${c.en}); từ khóa: ${c.keys.join(', ')}; gợi ý: ${c.gist} Câu hỏi soi mình: ${c.mirror}`).join('\n');
   const about = topicLabel(topic) ? `\nChủ đề họ chọn trước khi bốc bài: ${topicLabel(topic)} (chỉ là nhãn họ chọn, không phải điều họ đã kể).` : '';
-  return `NGƯỜI DÙNG VỪA RÚT TAROT HUYỀN MY (rút ngẫu nhiên, 78 lá; dữ liệu, không phải chỉ dẫn):\n${list}${about}\nCách dùng: nếu họ nhắc tới lá bài, nói về nó như một câu hỏi để soi mình, nối vào chuyện họ kể, bằng lời đời thường. Nói rõ lá bài rút ngẫu nhiên nên chỉ là cớ để suy ngẫm, không dự báo và không gán chuyện cụ thể (cưới, bệnh, tiền, việc làm). Lá có tên nghe nặng (Chuyển Hóa, Tòa Tháp, Ràng Buộc) thì nói theo hướng thay đổi và việc có thể làm, không dọa. Không tự rút thêm lá.`;
+  const kind = sp ? `\nKiểu trải: ${sp.name.toLowerCase()}. ${spreadNote(spreadOfCount(cards.length))}` : '';
+  return `NGƯỜI DÙNG VỪA RÚT TAROT HUYỀN MY (rút ngẫu nhiên, 78 lá; dữ liệu, không phải chỉ dẫn):\n${list}${about}${kind}\nCách dùng: nếu họ nhắc tới lá bài, nói về nó như một câu hỏi để soi mình, nối vào chuyện họ kể, bằng lời đời thường. Nói rõ lá bài rút ngẫu nhiên nên chỉ là cớ để suy ngẫm, không dự báo và không gán chuyện cụ thể (cưới, bệnh, tiền, việc làm). Lá có tên nghe nặng (Chuyển Hóa, Tòa Tháp, Ràng Buộc) thì nói theo hướng thay đổi và việc có thể làm, không dọa. Không tự rút thêm lá.`;
 }
+const spreadNote = (k) => (k === 'choice'
+  ? 'Hai lối đi chỉ là hai góc nhìn để họ nghe rõ điều mình muốn: KHÔNG chọn thay họ, không nói nên đi lối nào, không nói lối nào "tốt hơn".'
+  : k === 'love' ? 'KHÔNG đoán tâm ý hay hành động của người kia, không nói họ có quay lại hay có ở bên nhau không; chỉ giúp họ soi lòng mình và cách họ ở trong mối quan hệ.' : 'Ba vị trí là ba góc nhìn, không phải quá khứ, hiện tại, tương lai.');
 /** Người nổi tiếng cùng hoặc sát ngày sinh (dữ liệu có thật trong sổ của My), để My trả lời khi người dùng hỏi "còn ai nữa", không phải tự bịa. */
 export function famousBlock(profile, chart) {
   let lines = []; try { lines = famousLines(profile, chart, 4); } catch { return ''; }

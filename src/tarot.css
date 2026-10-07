@@ -99,3 +99,18 @@
 
 @media (max-width: 360px) { .ex-top { padding-left: 12px; padding-right: 12px; gap: 8px; } .tr-nav { gap: 6px; } .tr-nav .btn.sm { padding-left: 11px; padding-right: 11px; font-size: 13px; } }
 @media (max-width: 340px) { .ex-top { flex-wrap: wrap; } .tr-nav { flex-wrap: wrap; } }
+/* lời nhắc trước khi bốc, ghi chú sau khi xem, các kiểu trải nhiều lá */
+.rit-calm { margin: 10px 0 0; max-width: 520px; line-height: 1.65; font-size: 14px; color: #bfb6e0; font-style: italic; }
+.tr-intro { margin: 0 0 12px; color: #d9d2f2; line-height: 1.65; font-size: .95rem; }
+.tr-journal { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .03); }
+.tr-journal label { display: block; margin-bottom: 8px; color: #e9e3ff; font-size: .95rem; } .tr-journal small { color: var(--dim); font-weight: 300; }
+.tj-row { display: flex; gap: 8px; align-items: flex-end; } .tj-row textarea { flex: 1; min-width: 0; resize: vertical; font: inherit; font-size: .95rem; color: #fff; background: rgba(8, 6, 30, .6); border: 1px solid rgba(190, 170, 255, .35); border-radius: 12px; padding: 9px 12px; }
+.tj-row textarea:focus-visible { outline: 2px solid #e9cf88; outline-offset: 1px; } .tj-ok { margin: 8px 0 0; }
+.tr-modes { flex-wrap: wrap; justify-content: center; max-width: 100%; }
+@media (max-width: 640px) { .tr-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; max-width: 420px; border-radius: 22px; } .tr-modes button { padding: 9px 8px; font-size: 14px; white-space: nowrap; } }
+.tr-stage.many { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; justify-items: center; }
+.tr-stage.many.n7 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tr-stage.many .tcard { --w: min(calc((100vw - 52px) / 3), 170px); } .tr-stage.many.n7 .tcard { --w: min(calc((100vw - 56px) / 4), 150px); }
+.tr-stage.many .tr-slot { min-width: 0; width: 100%; } .tr-stage.many .pos { font-size: 10.5px; letter-spacing: .03em; max-width: 100%; }
+.tr-stage.many .tc-name b { font-size: 10.5px; } .tr-stage.many .tc-name i { display: none; } .tr-stage.many .tc-top { font-size: 8px; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 92%; margin-inline: auto; }
+@media (min-width: 700px) { .tr-row3.n5, .tr-row3.n7 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

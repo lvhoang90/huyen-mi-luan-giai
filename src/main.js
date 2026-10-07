@@ -10,6 +10,7 @@ import { shouldNudge, nudgeShown, nudgeSkipped, nudgeAccepted, NUDGE_KEY } from 
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { endedWithFarewell, clarifyResume } from './resume.js';
+import { spreadText } from './tarot/spreads.js';
 import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
@@ -624,7 +625,7 @@ async function ritual() {
 const READ_CHIP = { label: 'Mời My luận giải', value: 'Mình đã kể xong rồi. Mời My luận giải giúp mình.', action: 'read' };
 let cardById = () => null; // dữ liệu 78 lá chỉ nạp khi người dùng đến từ trang Tarot
 const wantCards = () => import('./tarot/cards.js').then((m) => { cardById = m.cardById; });
-const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa rút Tarot ${t.length > 1 ? 'ba lá' : 'lá'} ${t.map((c) => c.name).join(', ')}${topicLabel(S.tarotTopic) ? `, mình đang nghĩ về chuyện ${topicLabel(S.tarotTopic).toLowerCase()}` : ''}. My nói giúp mình nhé.` }] : []; };
+const tarotChip = () => { const t = (S.tarot ?? []).map(cardById).filter(Boolean); return t.length ? [{ label: `Nói về lá ${t.map((c) => c.name).join(', ')}`, value: `Mình vừa ${t.length > 1 ? `trải Tarot ${spreadText(t.length)}` : 'rút Tarot lá'} ${t.map((c) => c.name).join(', ')}${topicLabel(S.tarotTopic) ? `, mình đang nghĩ về chuyện ${topicLabel(S.tarotTopic).toLowerCase()}` : ''}. My nói giúp mình nhé.` }] : []; };
 const startChips = () => [
   ...tarotChip(),
   ...(S.famousShown ? [{ label: 'Còn ai nổi tiếng cùng ngày sinh nữa?', value: 'Còn ai nổi tiếng sinh cùng ngày hoặc sát ngày sinh với mình nữa không, My kể thử xem?' }] : []),

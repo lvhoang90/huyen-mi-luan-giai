@@ -9,6 +9,7 @@ import { mountLogo } from './logo.js';
 import { track } from './track.js';
 import { icon } from './icons.js';
 import { CARDS, cardById } from './tarot/cards.js';
+import { SPREADS } from './tarot/spreads.js';
 import { cardArtSvg } from './tarot/art.js';
 import { buildChart } from './engine/index.js';
 import { CHINH_TINH } from './chart-explain.js';
@@ -79,7 +80,7 @@ function inviteCard(d) {
 
 function cardsCard() {
   const hist = read('huyenmy.tarothist') ?? [], seen = new Set(hist.flatMap((h) => h.ids)), total = CARDS.length;
-  const recent = hist.slice(0, 6).map((h) => `<li><b>${fmtDay(h.d + 'T12:00:00')}</b> <span>${h.m === 'three' ? 'Ba lá' : 'Lá của ngày'}</span><div>${h.ids.map((id) => cardById(id)?.name).filter(Boolean).map(esc).join(', ')}</div></li>`).join('');
+  const recent = hist.slice(0, 6).map((h) => `<li><b>${fmtDay(h.d + 'T12:00:00')}</b> <span>${SPREADS[h.m]?.tag ?? 'Lá của ngày'}</span><div>${h.ids.map((id) => cardById(id)?.name).filter(Boolean).map(esc).join(', ')}</div>${h.n ? `<p class="hn">“${esc(h.n)}”</p>` : ''}</li>`).join('');
   const grid = CARDS.map((c) => seen.has(c.id) ? `<a class="mc on" href="/tarot?c=${c.id}" data-id="${c.id}" title="${esc(c.name)}"><span class="art"></span></a>` : `<span class="mc" title="Chưa gặp"><i>?</i></span>`).join('');
   return `<section class="me-card"><h2>Bộ bài của tôi</h2>
     <p>Bạn đã gặp <b>${seen.size}/${total}</b> lá. <i class="bar wide"><u style="width:${Math.round((seen.size / total) * 100)}%"></u></i></p>
