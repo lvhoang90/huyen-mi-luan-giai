@@ -11,7 +11,6 @@ import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
 import { endedWithFarewell, clarifyResume } from './resume.js';
 import { spreadText } from './tarot/spreads.js';
-import { voiceSupported, attachVoice } from './voice.js';
 import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
@@ -234,13 +233,13 @@ function askChat(chips = []) {
     const submit = () => { const v = ta.value.trim(); if (v) send(v); };
     ta.oninput = grow; go.onclick = submit;
     ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); } };
-    // nút micro: chỉ hiện khi trình duyệt có nhận dạng giọng nói; nói xong chữ nằm trong ô để đọc lại rồi mới Gửi
-    const mic = voiceSupported() ? h('button', { className: 'send mic', type: 'button', innerHTML: icon('mic'), ariaLabel: 'Nói với My', ariaPressed: 'false' }) : null;
-    const vstatus = h('p', { className: 'voice-status', role: 'status', ariaLive: 'polite', hidden: true });
-    const voice = mic ? attachVoice(ta, mic, { status: vstatus, onChange: grow, onEvent: (n, p) => track(n, p) }) : null;
-    ta.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); voice?.stop(); submit(); } };
-    go.onclick = () => { voice?.stop(); submit(); };
-    composer.append(h('div', { className: 'row' }, ...(mic ? [mic] : []), ta, go), vstatus);
+    // Trên điện thoại, bàn phím đã có micro để nói thành chữ; chỉ nhắc nhẹ vài lần đầu để người dùng biết
+    let hint = null;
+    if (matchMedia('(pointer:coarse)').matches) {
+      let n = 0; try { n = +localStorage.getItem('huyenmy.kbmic') || 0; if (n < 3) localStorage.setItem('huyenmy.kbmic', String(n + 1)); } catch {}
+      if (n < 3) hint = h('p', { className: 'kb-hint' }, 'Mẹo: bấm biểu tượng micro trên bàn phím để nói, chữ sẽ hiện trong ô để bạn đọc lại rồi gửi.');
+    }
+    composer.append(h('div', { className: 'row' }, ta, go), ...(hint ? [hint] : []));
     if (matchMedia('(pointer:fine)').matches) ta.focus();
   });
 }

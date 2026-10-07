@@ -463,9 +463,6 @@ a.veil-login { text-wrap: balance; line-height: 1.5; }
 
 /* Màn rất hẹp (cỡ hiển thị lớn nhất, khoảng 288px): hàng nút ở thanh trên xuống dòng thay vì tràn ra ngoài khung */
 @media (max-width: 340px) { .topbar { flex-wrap: wrap; row-gap: 4px; } .tools { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; } .icon { width: 32px; height: 32px; } }
-/* nút micro trong ô trò chuyện */
-.send.mic { background: rgba(255, 255, 255, .06); border-color: rgba(190, 170, 255, .45); }
-.send.mic.on { background: rgba(255, 120, 140, .25); border-color: rgba(255, 150, 165, .85); animation: mic-pulse 1.3s ease-in-out infinite; }
-.voice-status { margin: 8px 4px 0; font-size: 13px; line-height: 1.5; color: #cfc6ee; }
-@keyframes mic-pulse { 50% { box-shadow: 0 0 0 7px rgba(255, 130, 150, .18); } }
-@media (prefers-reduced-motion: reduce) { .send.mic.on { animation: none; } }
+/* nhắc dùng micro bàn phím */
+
+.kb-hint { margin: 8px 4px 0; font-size: 13px; line-height: 1.5; color: #cfc6ee; }
