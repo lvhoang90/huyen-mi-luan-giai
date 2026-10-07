@@ -119,7 +119,7 @@ function growthTab(m) {
   return nav + secs[gSec]();
 }
 function wireGrowth(host) {
-  host.querySelectorAll('[data-gsec]').forEach((b) => (b.onclick = () => { gSec = b.dataset.gsec; try { sessionStorage.setItem('hm_gsec', gSec); } catch {} host.innerHTML = growthTab(data); wireGrowth(host); wireRef(host); host.scrollIntoView?.({ block: 'start' }); }));
+  host.querySelectorAll('[data-gsec]').forEach((b) => (b.onclick = () => { gSec = b.dataset.gsec; try { sessionStorage.setItem('hm_gsec', gSec); } catch {} host.innerHTML = growthTab(data); wireGrowth(host); wireRef(host); const nav = host.querySelector('.subnav'); if (nav) { const top = nav.getBoundingClientRect().top; if (top < 64) scrollBy({ top: top - 64 }); } })); // chỉ cuộn khi thanh chọn mục bị cuộn khuất dưới thanh tab dính
 }
 
 /** Nhóm người dùng theo tuổi, lĩnh vực: phần chia của một tổng nên dùng biểu đồ tròn; chi tiết từng nhóm nằm trong mục mở rộng. */

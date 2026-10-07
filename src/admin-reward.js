@@ -64,34 +64,42 @@ function wire(host, r) {
   host.querySelectorAll('[data-revoke]').forEach((b) => (b.onclick = async () => { if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Chắc chưa?'; return; } await post('/api/admin/grants/revoke', { id: +b.dataset.revoke }); loadRewards(host); }));
 }
 
+
+// Trang quản trị không nạp phông của ứng dụng, mà phông dự phòng của máy (ví dụ Georgia trên Windows) thiếu chữ Việt có dấu nên dấu bị rời ra.
+// Nạp đúng phông có đủ bộ ký tự tiếng Việt trước khi vẽ ảnh, kể cả chữ có dấu chồng.
+async function loadPosterFonts() {
+  if (!document.getElementById('hm-fonts')) { const l = Object.assign(document.createElement('link'), { id: 'hm-fonts', rel: 'stylesheet', href: '/fonts/fonts.css' }); document.head.append(l); await new Promise((r) => { l.onload = l.onerror = r; setTimeout(r, 3000); }); }
+  const sample = 'Tester xuất sắc nhất ẤẮỒỜỮ ấắồờữ';
+  try { await Promise.all(['600 60px "Cormorant Garamond"', 'italic 500 60px "Cormorant Garamond"', '400 30px "Be Vietnam Pro"', '500 30px "Be Vietnam Pro"'].map((f) => document.fonts.load(f, sample))); } catch {}
+}
 // ---------- ảnh vinh danh 1080 x 1350 ----------
 const MEDAL = ['#f2c94c', '#cfd3da', '#d99a5b'];
 function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 function fit(ctx, text, max) { let t = String(text); while (ctx.measureText(t).width > max && t.length > 1) t = t.slice(0, -1); return t === String(text) ? t : t + '…'; }
 export async function poster(winners, { minutes, days }) {
-  try { await Promise.all([document.fonts.load('600 60px "Cormorant Garamond"'), document.fonts.load('500 30px "Be Vietnam Pro"')]); } catch {}
+  await loadPosterFonts();
   const W = 1080, H = 1350, c = Object.assign(document.createElement('canvas'), { width: W, height: H }), x = c.getContext('2d');
   const serif = '"Cormorant Garamond", Georgia, "Times New Roman", serif', sans = '"Be Vietnam Pro", system-ui, "Segoe UI", sans-serif';
   const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#2b1d78'); g.addColorStop(0.55, '#150f45'); g.addColorStop(1, '#0a0730'); x.fillStyle = g; x.fillRect(0, 0, W, H);
   let seed = 7; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
   for (let i = 0; i < 90; i++) { x.globalAlpha = 0.2 + rnd() * 0.6; x.fillStyle = '#f7e6b0'; x.beginPath(); x.arc(rnd() * W, rnd() * H, 0.6 + rnd() * 1.6, 0, 6.283); x.fill(); } x.globalAlpha = 1;
   x.textAlign = 'center'; x.fillStyle = '#e9cf88'; x.font = `500 28px ${sans}`; x.fillText('HUYỀN MY LUẬN GIẢI', W / 2, 92);
-  x.fillStyle = '#fff'; x.font = `600 92px ${serif}`; x.fillText(`Top ${winners.length}`, W / 2, 190); x.fillStyle = '#e9cf88'; x.font = `italic 600 64px ${serif}`; x.fillText('tester xuất sắc nhất', W / 2, 262);
+  x.fillStyle = '#fff'; x.font = `600 92px ${serif}`; x.fillText('Top', W / 2 - 40, 190); x.font = `500 84px ${sans}`; x.fillText(String(winners.length), W / 2 + 74, 190); x.fillStyle = '#e9cf88'; x.font = `italic 500 64px ${serif}`; x.fillText('tester xuất sắc nhất', W / 2, 262);
   x.fillStyle = '#cfc6ee'; x.font = `400 26px ${sans}`; x.fillText('Cảm ơn các bạn đã đồng hành và góp ý chân thành', W / 2, 314);
   const top = 360, gap = 18, rowH = Math.min(150, Math.floor((H - top - 230 - gap * (winners.length - 1)) / Math.max(1, winners.length)));
   winners.forEach((w, i) => {
     const y = top + i * (rowH + gap), hi = i < 3;
     x.fillStyle = hi ? 'rgba(255,255,255,.1)' : 'rgba(255,255,255,.06)'; rr(x, 70, y, W - 140, rowH, 26); x.fill(); x.strokeStyle = hi ? 'rgba(233,207,136,.6)' : 'rgba(233,207,136,.25)'; x.lineWidth = 2; x.stroke();
     x.fillStyle = MEDAL[i] ?? '#7d6cf0'; x.beginPath(); x.arc(150, y + rowH / 2, Math.min(44, rowH / 2 - 12), 0, 6.283); x.fill();
-    x.fillStyle = i < 3 ? '#2a1b05' : '#fff'; x.font = `600 ${Math.round(rowH * 0.34)}px ${serif}`; x.textBaseline = 'middle'; x.fillText(String(w.rank), 150, y + rowH / 2 + 2);
-    x.textAlign = 'left'; x.fillStyle = '#fff'; x.font = `600 ${Math.round(rowH * 0.27)}px ${sans}`; x.fillText(fit(x, w.name, 560), 225, y + rowH * 0.36);
+    x.fillStyle = i < 3 ? '#2a1b05' : '#fff'; x.font = `500 ${Math.round(rowH * 0.32)}px ${sans}`; x.textBaseline = 'middle'; x.fillText(String(w.rank), 150, y + rowH / 2 + 2);
+    x.textAlign = 'left'; x.fillStyle = '#fff'; x.font = `500 ${Math.round(rowH * 0.27)}px ${sans}`; x.fillText(fit(x, w.name, 560), 225, y + rowH * 0.36);
     const best = [...w.parts].sort((a, b) => b.pts / b.w - a.pts / a.w).slice(0, 2).map((p) => p.label).join(' · ');
     x.fillStyle = '#cfc6ee'; x.font = `400 ${Math.round(rowH * 0.18)}px ${sans}`; x.fillText(fit(x, `Nổi bật: ${best}`, 560), 225, y + rowH * 0.69);
-    x.textAlign = 'right'; x.fillStyle = '#e9cf88'; x.font = `600 ${Math.round(rowH * 0.38)}px ${serif}`; x.fillText(String(Math.round(w.score)), W - 130, y + rowH * 0.46); x.fillStyle = '#b8aedf'; x.font = `400 ${Math.round(rowH * 0.16)}px ${sans}`; x.fillText('điểm', W - 130, y + rowH * 0.76);
+    x.textAlign = 'right'; x.fillStyle = '#e9cf88'; x.font = `500 ${Math.round(rowH * 0.36)}px ${sans}`; x.fillText(String(Math.round(w.score)), W - 130, y + rowH * 0.46); x.fillStyle = '#b8aedf'; x.font = `400 ${Math.round(rowH * 0.16)}px ${sans}`; x.fillText('điểm', W - 130, y + rowH * 0.76);
     x.textAlign = 'center'; x.textBaseline = 'alphabetic';
   });
   const by = H - 200; x.fillStyle = 'rgba(233,207,136,.14)'; rr(x, 70, by, W - 140, 118, 26); x.fill(); x.strokeStyle = 'rgba(233,207,136,.55)'; x.lineWidth = 2; x.stroke();
-  x.fillStyle = '#fff'; x.font = `600 38px ${sans}`; x.fillText(`Mỗi bạn được tặng +${minutes} phút mỗi ngày`, W / 2, by + 52); x.fillStyle = '#e9cf88'; x.font = `400 28px ${sans}`; x.fillText(days ? `trong ${days} ngày, từ Admin Huyền My` : 'không giới hạn thời gian, từ Admin Huyền My', W / 2, by + 94);
+  x.fillStyle = '#fff'; x.font = `500 38px ${sans}`; x.fillText(`Mỗi bạn được tặng +${minutes} phút mỗi ngày`, W / 2, by + 52); x.fillStyle = '#e9cf88'; x.font = `400 28px ${sans}`; x.fillText(days ? `trong ${days} ngày, từ Admin Huyền My` : 'không giới hạn thời gian, từ Admin Huyền My', W / 2, by + 94);
   x.fillStyle = '#b8aedf'; x.font = `400 22px ${sans}`; x.fillText('huyenmy.isavietnam.app', W / 2, H - 40);
   return c;
 }
