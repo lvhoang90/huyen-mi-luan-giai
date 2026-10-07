@@ -10,6 +10,11 @@ export function permissionHelp(ua = globalThis.navigator?.userAgent ?? '') {
   if (/Android/i.test(ua)) return 'Micro đang bị chặn cho trang này. Bạn chạm biểu tượng bên trái thanh địa chỉ, chọn Quyền (hoặc Cài đặt trang web), bật Micro, rồi tải lại trang. Nếu vẫn không được, vào Cài đặt điện thoại, Ứng dụng, trình duyệt đang dùng, Quyền, bật Micro.';
   return 'Micro đang bị chặn cho trang này. Bạn chạm biểu tượng ổ khóa bên trái thanh địa chỉ, đặt Micro là Cho phép, rồi tải lại trang.';
 }
+/** Trang đã được cho phép micro mà nhận dạng vẫn báo bị chặn: lỗi nằm ở dịch vụ giọng nói của máy, không phải quyền của trang. */
+export const SERVICE_HELP = 'Trang này đã được cho phép dùng micro, nhưng dịch vụ nhận dạng giọng nói của máy đang bị chặn. Bạn vào Cài đặt điện thoại, Ứng dụng, Google, Quyền, bật Micro (và để ứng dụng Google không bị tắt). Hoặc bạn chạm ô nhập rồi bấm biểu tượng micro trên bàn phím (Gboard) để nói, rất tiện nhé.';
+export async function micProbe() {
+  try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach((t) => t.stop()); return true; } catch { return false; }
+}
 export const VOICE_ERRORS = {
   'not-allowed': 'Trình duyệt chưa cho phép dùng micro. Bạn bật quyền micro cho trang này rồi thử lại nhé.',
   'service-not-allowed': 'Trình duyệt này chưa hỗ trợ nói vào. Bạn mở bằng Safari hoặc Chrome, hoặc gõ giúp My nhé.',
@@ -28,7 +33,18 @@ export function attachVoice(ta, btn, { status, lang = 'vi-VN', onChange = () => 
     rec = new R(); rec.lang = lang; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
     base = ta.value.trim() ? ta.value.replace(/\s+$/, '') + ' ' : '';
     rec.onresult = (e) => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; ta.value = (base + t).slice(0, ta.maxLength > 0 ? ta.maxLength : 2000); onChange(); };
-    rec.onerror = (e) => { onEvent('voice_error', { e: String(e.error ?? 'unknown').slice(0, 24) }); if (e.error !== 'aborted') say(e.error === 'not-allowed' ? permissionHelp() : (VOICE_ERRORS[e.error] ?? 'Chưa nghe được, bạn thử lại hoặc gõ giúp My nhé.')); };
+    rec.onerror = async (e) => {
+      const code = String(e.error ?? 'unknown').slice(0, 24);
+      if (code === 'aborted') return;
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        const ok = !/Zalo/i.test(globalThis.navigator?.userAgent ?? '') && await micProbe();
+        onEvent('voice_error', { e: ok ? 'svc-blocked' : code });
+        say(ok ? SERVICE_HELP : code === 'not-allowed' ? permissionHelp() : VOICE_ERRORS[code]);
+        return;
+      }
+      onEvent('voice_error', { e: code });
+      say(VOICE_ERRORS[code] ?? 'Chưa nghe được, bạn thử lại hoặc gõ giúp My nhé.');
+    };
     rec.onend = () => { setOn(false); if (status && status.textContent.startsWith('Đang nghe')) say(ta.value.trim() ? 'Bạn đọc lại, sửa nếu cần rồi bấm Gửi nhé.' : ''); ta.focus?.(); };
     try {
       rec.start(); setOn(true); onEvent('voice_start', {});
