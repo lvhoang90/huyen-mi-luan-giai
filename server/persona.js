@@ -1,4 +1,4 @@
-import { describeChart, describeTimeExtra, describeDayExtra, distinctiveTraits, famousLines } from '../src/engine/index.js';
+import { describeChart, describeTimeExtra, describeDayExtra, describeNhipExtra, distinctiveTraits, famousLines } from '../src/engine/index.js';
 import { repeatedPhrases, pickLinkers, lengthHint } from './voice.js';
 import { analyzeAffect } from './affect.js';
 import { cardById, topicLabel } from '../src/tarot/cards.js';
@@ -211,6 +211,7 @@ export function buildSystemBlocks(phase, profile, chart, messages = [], { minute
     PHASES[phase] ?? PHASES.companion,
     describeTimeExtra(profile, chart, messages.filter((m) => m.role === 'user').at(-1)?.content),
     describeDayExtra(profile, chart, messages.filter((m) => m.role === 'user').at(-1)?.content),
+    describeNhipExtra(profile, messages.filter((m) => m.role === 'user').map((m) => m.content)),
     resumeHint(resumeGreet, resumeLast),
     tarotBlock(tarot, tarotTopic),
     arcHint(minute),
