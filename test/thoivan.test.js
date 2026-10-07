@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lunarMonthsOfYear } from '../src/engine/lunar.js';
 import { normalizeProfile, buildChart, describeChart } from '../src/engine/index.js';
-import { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, describeTimeExtra, relation, chiRelation, LEVELS } from '../src/engine/thoivan.js';
+import { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, describeTimeExtra, describeDayExtra, dayCycle, moonPhase, relation, chiRelation, LEVELS } from '../src/engine/thoivan.js';
 import { TU_HOA } from '../src/engine/tuvi.js';
 import { demoReply } from '../server/demo.js';
 import { EVENTS } from '../server/events.js';
@@ -173,4 +173,32 @@ test('Thời vận bổ sung chỉ có khi người dùng nhắc năm hay tháng
   assert.match(describeTimeExtra(profile, chart, 'còn tháng 2 năm 2027', NOW), /\(năm 2027\) Tháng 2 \(/);
   assert.doesNotMatch(describeTimeExtra(profile, chart, 'năm 1900 và năm 2099', NOW), /Năm 1900|Năm 2099/, 'năm quá xa không tính');
   assert.doesNotMatch(y, /hạn nặng|sao xấu|vận đen|đại họa|tai họa|đoản mệnh|số khổ/i);
+});
+
+test('Thời vận theo ngày: chỉ có khi nhắc hôm nay/ngày mai/ngày cụ thể, số liệu khớp lịch', () => {
+  const { profile, chart } = mk();
+  const NOW7 = new Date('2026-10-07T03:00:00Z');
+  assert.equal(describeDayExtra(profile, chart, 'mình thấy mệt', NOW7), '');
+  const t = describeDayExtra(profile, chart, 'hôm nay là ngày thế nào với tôi', NOW7);
+  assert.match(t, /THỜI VẬN THEO NGÀY/); assert.match(t, /Hôm nay 7\/10\/2026/);
+  assert.match(t, /ngày 27 tháng 8 âm lịch/); assert.match(t, /Giáp Dần/); assert.match(t, /thần số: ngày cá nhân \d+/);
+  assert.match(describeDayExtra(profile, chart, 'ngày mai thì sao', NOW7), /Ngày mai 8\/10\/2026/);
+  assert.match(describeDayExtra(profile, chart, 'còn ngày 15/10 nhé', NOW7), /Ngày 15\/10\/2026/);
+  assert.equal(describeDayExtra(profile, chart, 'sinh nhật 31/2', NOW7), '', 'ngày không có thật bị bỏ qua');
+  assert.doesNotMatch(t, /hạn nặng|sao xấu|vận đen|đại họa|tai họa|số khổ|giờ hoàng đạo là/i);
+  // 23h ngày 6/10 giờ UTC đã là 7/10 ở Việt Nam
+  assert.match(describeDayExtra(profile, chart, 'hôm nay', new Date('2026-10-06T18:30:00Z')), /Hôm nay 7\/10\/2026/);
+});
+
+test('Trụ ngày và ngày âm của dayCycle đúng mốc đã biết', () => {
+  const { profile, chart } = mk();
+  assert.equal(dayCycle(profile, chart, { y: 2000, m: 1, d: 1 }).pillar, 'Mậu Ngọ');
+  const c = dayCycle(profile, chart, { y: 2026, m: 2, d: 17 }); // mùng 1 Tết Bính Ngọ
+  assert.deepEqual(c.lunar, { d: 1, m: 1, leap: false }); assert.match(c.moon, /trăng non/);
+  assert.match(moonPhase(15), /rằm|tròn/); assert.match(moonPhase(30), /cuối tháng/);
+});
+
+test('Khối thời vận chung hướng dẫn My dùng khối ngày thay vì từ chối', () => {
+  const { profile, chart } = mk();
+  assert.match(describeTimeCycle(profile, chart, NOW), /THỜI VẬN THEO NGÀY/);
 });

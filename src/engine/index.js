@@ -10,7 +10,7 @@ import { describeTimeCycle } from './thoivan.js';
 export { PLACES };
 export { findPlaces } from './places.js';
 export { pickFamous, famousFor, famousStory, famousLines, famousTies, FIELD_OPTIONS } from './famous.js';
-export { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, describeTimeExtra, LEVELS, CUNG_DOI_THUONG } from './thoivan.js';
+export { timeCycle, timeline, natalAttention, lifeStages, describeTimeCycle, describeTimeExtra, describeDayExtra, dayCycle, moonPhase, LEVELS, CUNG_DOI_THUONG } from './thoivan.js';
 
 /** Kiểm tra & chuẩn hóa hồ sơ người dùng. Ném Error nếu sai. */
 export function normalizeProfile(p) {

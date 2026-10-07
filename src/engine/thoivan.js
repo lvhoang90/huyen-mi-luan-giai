@@ -12,7 +12,7 @@
 // xem tools/compare-external.mjs. Thư viện đó theo trường phái Trung Hoa phổ biến, nên đây là bằng chứng nhất quán, chưa phải thẩm định của người xem Tử Vi.
 import { CAN, CHI, CAN_HANH, CHI_HANH, SINH, KHAC, computeBazi, yearPillarOfYear } from './bazi.js';
 import { CUNG_TEN, TU_HOA, HOUR_BRANCH } from './tuvi.js';
-import { lunarMonthsOfYear } from './lunar.js';
+import { lunarMonthsOfYear, solarToLunar } from './lunar.js';
 import { reduce, PERSONAL_YEAR_THEME } from './numerology.js';
 
 const mod = (n) => ((n % 12) + 12) % 12;
@@ -235,7 +235,7 @@ export function describeTimeCycle(profile, chart, now = new Date()) {
     const st = lifeStages(chart.tuvi, now).map((s) => `${s.from}-${s.to} tuổi: cung ${s.name} (mức chú ý nền ${lv(s.level)})${s.current ? ' [đang đi]' : ''}`);
     L.push('Các giai đoạn đời theo đại hạn: ' + st.join('; '));
   }
-  L.push('Chỉ nói về những năm và tháng có trong khối này hoặc khối THỜI VẬN BỔ SUNG nếu có. Năm hay tháng khác: nói thật là My chưa tính phần đó.');
+  L.push('Chỉ nói về những năm và tháng có trong khối này hoặc khối THỜI VẬN BỔ SUNG nếu có. Năm hay tháng khác: nói thật là My chưa tính phần đó. Một ngày cụ thể (hôm nay, ngày mai, dd/mm): chỉ nói khi có khối THỜI VẬN THEO NGÀY ở lượt này, dựa trên ngày âm, tuổi trăng và Trụ Ngày trong đó; nếu chưa có khối đó, mời người dùng hỏi lại bằng "hôm nay" hoặc "ngày mai", đừng bảo là My không tính được ngày.');
   for (const c of cur.caveats) L.push(`- Giới hạn: ${c}`);
   return L.join('\n');
 }
@@ -255,4 +255,56 @@ export function describeTimeExtra(profile, chart, text, now = new Date()) {
     for (const n of months) { const m = cyc.months.find((x) => x.month === n); if (m) L.push(`(năm ${yr}) ${monthLine(m).slice(2)}`.replace(/^/, '- ')); }
   }
   return L.length ? ['THỜI VẬN BỔ SUNG (đã tính, theo điều người dùng vừa nhắc; cùng quy tắc "mức chú ý" như trên):', ...L].join('\n') : '';
+}
+
+// ---------- theo ngày ----------
+// Tầng ngày dùng ba thứ có thể kiểm: (1) ngày âm lịch và tuổi trăng, tức dữ kiện thiên văn của lịch;
+// (2) Trụ Ngày Can Chi của ngày xem đặt cạnh Nhật chủ và chi ngày, chi năm sinh theo quy tắc Tứ Trụ (cùng quy tắc với năm và tháng);
+// (3) ngày cá nhân của thần số học = tháng cá nhân + ngày dương. Phần diễn giải 2 và 3 là cách soi cổ truyền, không có bằng chứng khoa học rằng nó dự báo được sự kiện.
+// Chưa có: giờ hoàng đạo, Thập nhị trực, sao ngày (Hoàng đạo / Hắc đạo), lưu nhật Tử Vi.
+const MOON_PHASES = [
+  [1, 'trăng non (gần như không thấy trăng)'], [6, 'trăng lưỡi liềm, đang lớn dần'], [9, 'gần nửa vòng (thượng huyền), đang lớn dần'],
+  [13, 'trăng khuyết lớn dần, gần tròn'], [16, 'trăng tròn hoặc gần tròn (quanh ngày rằm)'], [21, 'trăng khuyết, đang nhỏ dần'],
+  [24, 'gần nửa vòng (hạ huyền), đang nhỏ dần'], [28, 'lưỡi liềm nhỏ dần'], [30, 'cuối tháng, trăng gần như không còn'],
+];
+export const moonPhase = (lunarDay) => MOON_PHASES.find(([to]) => lunarDay <= to)[1];
+
+/** Thời vận một ngày dương lịch {y, m, d}: ngày âm, trăng, Trụ Ngày, mức chú ý, ngày cá nhân. */
+export function dayCycle(profile, chart, date) {
+  const { bazi } = chart;
+  const dp = computeBazi({ y: date.y, m: date.m, d: date.d, hour: 12, minute: 0 }).pillars.day;
+  const bd = baziLayer(bazi, dp, { cuts: [1, 3] });
+  const lu = solarToLunar(date.y, date.m, date.d);
+  const py = reduce(reduce(profile.birth.d) + reduce(profile.birth.m) + reduce(date.y));
+  const pm = reduce(py + reduce(date.m)), pd = reduce(pm + reduce(date.d));
+  return {
+    date, lunar: { d: lu.day, m: lu.month, leap: lu.leap }, moon: moonPhase(lu.day), pillar: dp.name, relation: bd.relation,
+    level: bd.level, notes: bd.notes, personalDay: pd, personalTheme: PERSONAL_YEAR_THEME[pd].replace(/^năm/, 'ngày'),
+  };
+}
+
+const addDays = (d, n) => { const t = new Date(Date.UTC(d.y, d.m - 1, d.d + n)); return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() }; };
+const validDate = (y, m, d) => { const t = new Date(Date.UTC(y, m - 1, d)); return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d; };
+const dayLine = (label, c) => {
+  const { date: x, lunar: l } = c;
+  return [`- ${label} ${x.d}/${x.m}/${x.y} (dương lịch) = ngày ${l.d} tháng ${l.m}${l.leap ? ' nhuận' : ''} âm lịch; trăng ước chừng: ${c.moon}`,
+    `  Tứ Trụ: ${c.notes.join('; ')}`, `  mức chú ý của ngày: ${lv(c.level)}`, `  thần số: ngày cá nhân ${c.personalDay} (${c.personalTheme})`].join('\n');
+};
+
+/** Khối "thời vận theo ngày" cho lượt này, chỉ khi người dùng vừa nhắc đến hôm nay, ngày mai, hôm qua, ngày cụ thể (dd/mm) hay "ngày". Rỗng nếu không. */
+export function describeDayExtra(profile, chart, text, now = new Date()) {
+  const raw = String(text ?? ''), today = vnToday(now), out = [];
+  const add = (label, date) => { if (out.length < 3 && !out.some((o) => keyOf(o.date) === keyOf(date))) out.push({ label, date }); };
+  if (/hôm nay|bữa nay|hôm này|ngày nay/i.test(raw)) add('Hôm nay', today);
+  if (/ngày mai|hôm sau|\bmai\b/i.test(raw)) add('Ngày mai', addDays(today, 1));
+  if (/hôm qua|bữa qua/i.test(raw)) add('Hôm qua', addDays(today, -1));
+  for (const m of raw.matchAll(/\b(\d{1,2})\s*[\/\-.]\s*(\d{1,2})(?:\s*[\/\-.]\s*(20\d{2}))?\b/g)) {
+    const d = +m[1], mo = +m[2], y = m[3] ? +m[3] : today.y;
+    if (validDate(y, mo, d) && Math.abs(y - today.y) <= 3) add('Ngày', { y, m: mo, d });
+  }
+  if (!out.length && /\bngày\b|tuần này|cuối tuần|buổi (sáng|chiều|tối)/i.test(raw)) add('Hôm nay', today);
+  if (!out.length) return '';
+  return ['THỜI VẬN THEO NGÀY (đã tính, theo điều người dùng vừa nhắc; "mức chú ý" nhẹ/vừa/nhiều chỉ cho biết có bao nhiêu yếu tố cùng kích hoạt, KHÔNG phải tốt hay xấu):',
+    ...out.map((o) => dayLine(o.label, dayCycle(profile, chart, o.date))),
+    '- Cách nói: dùng ngày âm, tuổi trăng và Trụ Ngày làm điểm tựa, rồi gợi nhịp sinh hoạt nhẹ (nên làm gì, nên tránh dồn gì). Là cách soi cổ truyền để suy ngẫm, không dự báo sự kiện; phần trăng là dữ kiện lịch, phần còn lại là diễn giải. Không đưa ra giờ tốt xấu hay ngày hoàng đạo vì My chưa tính phần đó.'].join('\n');
 }
