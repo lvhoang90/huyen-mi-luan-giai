@@ -628,3 +628,13 @@ test('Hỏi ít: bực vì bị hỏi thì ngừng hẳn; hai lượt liền k�
   const profile = normalizeProfile({ fullName: 'Lương Việt Hoàng', nickname: 'Hoàng', gender: 'nam', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } });
   assert.match(buildSystemPrompt('companion', profile, buildChart(profile), [u('xin chào')]), /HỎI ÍT, NHỚ NHIỀU/);
 });
+
+test('nút micro: lời nhắc cho My có nói tin do giọng nói chuyển thành chữ, sự kiện voice được phép', async () => {
+  const { buildSystemPrompt } = await import('../server/persona.js');
+  const { EVENTS } = await import('../server/events.js');
+  const { normalizeProfile, buildChart } = await import('../src/engine/index.js');
+  const profile = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } });
+  const p = buildSystemPrompt('companion', profile, buildChart(profile), [{ role: 'user', content: 'chào' }]);
+  assert.match(p, /NÓI rồi trình duyệt chuyển thành chữ/); assert.match(p, /không bắt lỗi chính tả/);
+  assert.ok(EVENTS.has('voice_start') && EVENTS.has('voice_error'));
+});
