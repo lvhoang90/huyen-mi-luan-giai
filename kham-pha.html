@@ -40,15 +40,15 @@
       <h2 id="ex-form-h">Xem lá số của bạn</h2>
       <form id="ex-form" novalidate autocomplete="off">
         <label class="ex-f">Họ và tên khai sinh<input class="field" name="name" type="text" maxlength="80" placeholder="Ví dụ: Nguyễn Văn An" required></label>
-        <fieldset class="ex-f ex-radios"><legend>Giới tính khi sinh <small>(để lập Tử Vi và Bát Trạch)</small></legend>
+        <div class="ex-f ex-radios" role="group" aria-labelledby="ex-lg1"><span class="ex-lg" id="ex-lg1">Giới tính khi sinh <small>(để lập Tử Vi và Bát Trạch)</small></span>
           <label><input type="radio" name="gender" value="nu"> Nữ</label><label><input type="radio" name="gender" value="nam"> Nam</label><label><input type="radio" name="gender" value="khac" checked> Không muốn nói</label>
-        </fieldset>
-        <fieldset class="ex-f"><legend>Ngày sinh dương lịch</legend>
+        </div>
+        <div class="ex-f" role="group" aria-labelledby="ex-lg2"><span class="ex-lg" id="ex-lg2">Ngày sinh dương lịch</span>
           <div class="ex-row"><input class="field num" name="d" inputmode="numeric" maxlength="2" placeholder="Ngày" aria-label="Ngày sinh"><input class="field num" name="m" inputmode="numeric" maxlength="2" placeholder="Tháng" aria-label="Tháng sinh"><input class="field num" name="y" inputmode="numeric" maxlength="4" placeholder="Năm" aria-label="Năm sinh"></div>
-        </fieldset>
-        <fieldset class="ex-f"><legend>Giờ sinh <small>(nhập giờ rồi chọn buổi; không nhớ cũng được)</small></legend>
+        </div>
+        <div class="ex-f" role="group" aria-labelledby="ex-lg3"><span class="ex-lg" id="ex-lg3">Giờ sinh <small>(nhập giờ rồi chọn buổi; không nhớ cũng được)</small></span>
           <div class="ex-row"><input class="field num" name="hh" inputmode="numeric" maxlength="2" placeholder="Giờ" aria-label="Giờ sinh"><input class="field num" name="mm" inputmode="numeric" maxlength="2" placeholder="Phút" aria-label="Phút sinh"><select class="field" name="period" aria-label="Buổi trong ngày"><option value="h24">24 giờ</option><option value="sang">Sáng</option><option value="trua">Trưa</option><option value="chieu">Chiều</option><option value="toi">Tối / đêm</option></select><label class="ex-check"><input type="checkbox" name="nohour"> Không rõ giờ sinh</label></div>
-        </fieldset>
+        </div>
         <label class="ex-f">Nơi sinh <small>(tỉnh hoặc thành phố; chỉ cần để tính cung mọc)</small><input class="field" name="place" type="text" list="ex-places" placeholder="Ví dụ: Cần Thơ" maxlength="60"></label>
         <datalist id="ex-places"></datalist>
         <p class="ex-err" id="ex-err" role="alert" hidden></p>
