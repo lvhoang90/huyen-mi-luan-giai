@@ -9,6 +9,7 @@ import { vnDay, parseCardIds, topicLabel } from './tarot/ids.js';
 import { shouldNudge, nudgeShown, nudgeSkipped, nudgeAccepted, NUDGE_KEY } from './nudge.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
+import { endedWithFarewell, clarifyResume } from './resume.js';
 import { GREETS, GV } from './greetings.js';
 import { sound } from './sound.js';
 import { parseTagged, stripTags, extractSuggestions } from './emotion-tags.js';
@@ -248,8 +249,12 @@ const lastAsk = (msgs) => {
   return q.slice(0, 200);
 };
 let resumeGreet = null; // { at: số tin nhắn lúc chào, text }
+// Buổi trước kết thúc bằng lời tạm biệt? Khi người dùng quay lại và đáp ngắn "ok", đó là muốn bắt đầu lại, không phải chào tạm biệt tiếp.
+let resumeChips = null; // lựa chọn hiện ngay sau lời chào quay lại, để không phải đoán ý người dùng
+/** Lịch sử gửi cho My. Tin ngắn đầu tiên ("ok") sau lời chào quay lại được nói rõ ý, vì lịch sử có thể vẫn kết thúc bằng lời tạm biệt; màn hình và bộ nhớ vẫn giữ đúng chữ người dùng gõ. */
+const apiMessages = () => clarifyResume(S.messages, resumeGreet);
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: S.messages, sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null, tarot: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? S.tarot : null, tarotTopic: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? (S.tarotTopic ?? null) : null }) });
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: apiMessages(), sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null, tarot: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? S.tarot : null, tarotTopic: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? (S.tarotTopic ?? null) : null }) });
   if (!res.ok) { const j = await res.json().catch(() => ({})); if (j.needAuth) throw Object.assign(new Error(j.error), { needAuth: true }); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {
@@ -658,6 +663,7 @@ const LENS_CHIPS = [
 ];
 /** Nút gợi ý theo ngữ cảnh: lượt đầu có lối vào; còn lại chỉ là gợi ý do My tự đưa ra khi hợp, không có thì để trống cho người dùng tự nói. */
 function contextChips(userTurns, justRead) {
+  if (resumeChips) { const c = resumeChips; resumeChips = null; return c; } // ngay sau lời chào quay lại
   const mine = suggestions.map((t) => ({ label: t, value: t }));
   if (S.phase === 'listen') return userTurns === 0 ? startChips() : [...mine, ...(userTurns >= 3 ? [READ_CHIP] : []), CHART_CHIP]; // đã kể đủ nhiều thì mới nhắc có thể mời luận giải
   if (S.phase === 'companion') return justRead ? LENS_CHIPS : mine;
@@ -883,7 +889,9 @@ async function enter(resume, { nudge = true } = {}) {
     chart = buildChart(S.profile); stage.setElement(chart.bazi.dayMaster.hanh); $('#btn-chart').hidden = false; dock();
     for (const m of S.messages) { if (m.role === 'assistant') { const b = new Bubble(true); b.push(m.content); b.end(); } else showUser(m.content); }
     note('- My vẫn ở đây -');
-    const greet = S.teaser ? `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Lần trước My hẹn kể về **${S.teaser}**. Bạn muốn nghe luôn, hay có điều gì mới muốn nói trước?` : `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`;
+    const farewell = endedWithFarewell(S.messages);
+    const greet = S.teaser ? `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Lần trước My hẹn kể về **${S.teaser}**. Bạn muốn nghe luôn, hay có điều gì mới muốn nói trước?` : farewell ? `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Mình bắt đầu lại nhé: bạn muốn tiếp tục chuyện đang dở, hay nói một chuyện mới?` : `[[vui]]Chào mừng ${S.profile.nickname} trở lại. Ta tiếp tục từ chỗ đang dở nhé.`;
+    resumeChips = [...(S.teaser ? [{ label: 'Nghe điều My hẹn', value: `Mình muốn nghe luôn điều My hẹn kể: ${S.teaser.replace(/\*/g, '')}.` }] : [{ label: 'Tiếp tục chuyện đang dở', value: 'Mình quay lại rồi, mình muốn tiếp tục chuyện đang dở lúc nãy.' }]), { label: 'Nói một chuyện mới', value: 'Mình quay lại rồi, mình muốn nói một chuyện mới.' }];
     await say(greet, 300);
     resumeGreet = { at: S.messages.length, text: stripTags(greet), last: lastAsk(S.messages) }; // lời chào chỉ hiện trên màn hình; báo cho AI để tin ngắn đầu tiên ("ok") được hiểu là đáp lại lời chào
     if (S.teaser) { S.teaser = null; save(); }
