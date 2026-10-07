@@ -1,6 +1,7 @@
 // Số liệu trang quản trị: phễu hành trình, giữ chân theo cohort, chất lượng tư vấn, và khuyến nghị có xếp hạng.
 // Khung tham chiếu: AARRR (McClure 2007), HEART (Rodden và cộng sự, Google 2010), NPS (Reichheld 2003).
 // Mọi tỉ lệ kèm khoảng tin cậy Wilson 95%, và khuyến nghị chỉ đưa ra kết luận khi đủ cỡ mẫu.
+import { refStats } from './refs.js';
 const DAY = 86_400_000, VN = 7 * 3_600_000;
 export const dayOf = (ts) => Math.floor((ts + VN) / DAY);
 const dayLabel = (d) => new Date(d * DAY).toISOString().slice(0, 10);
@@ -238,6 +239,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     explore: { visitors: actorsBy(['sample_view']).size, viewedChart: actorsBy(['static_view']).size, pickedSample: actorsBy(['sample_pick']).size, toChat: new Set(evs.filter((e) => e.name === 'sample_cta' && e.p.via === 'chat').map((e) => e.actor)).size, arrived: actorsBy(['explore_handoff']).size, zalo: actorsBy(['zalo_click']).size },
     thoivan: { openedTab: new Set(evs.filter((e) => e.name === 'chart_tab' && ['thoivan', 'cung12'].includes(e.p.tab)).map((e) => e.actor)).size, monthViews: actorsBy(['time_month']).size, asked: actorsBy(['chart_ask']).size, rated: actorsBy(['resonance_time']).size },
     segments: { age: seg('ageBand'), field: seg('field') }, startChoices: dist('start_choice', 'chip'), pace: dist('pace_toggle', 'mode'),
+    refTable: refStats(db, { from }),
     growth: { share: pct(sharers, readers), referrals: [...refs].map(([k, v]) => ({ ref: k, n: v })).sort((a, b) => b.n - a.n).slice(0, 8) },
     accounts: { total: users.c ?? 0, newInRange: users.n ?? 0, memoryConsent: pct(users.m ?? 0, users.c ?? 0) },
   };
