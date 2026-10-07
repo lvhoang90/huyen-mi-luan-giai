@@ -9,10 +9,9 @@ body.explore { overflow-x: hidden; }
 .ex-card { padding: 20px 20px 18px; border: 1px solid var(--line); border-radius: 22px; background: linear-gradient(180deg, rgba(26, 22, 70, .85), rgba(12, 10, 36, .88)); box-shadow: 0 14px 50px rgba(0, 0, 0, .35); }
 .ex-card h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 0 0 10px; color: var(--gold); }
 .ex-f { display: grid; gap: 6px; margin: 0 0 14px; padding: 0; border: 0; font-size: 14px; color: #d9d2f2; min-width: 0; }
-.ex-f legend, .ex-f > :first-child { padding: 0; } .ex-f small { color: var(--dim); font-size: 12px; font-weight: 300; }
+.ex-f > :first-child { padding: 0; } .ex-f small { color: var(--dim); font-size: 12px; font-weight: 300; }
 .ex-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ex-row .field.num { flex: none; width: 5em; text-align: center; padding-left: 8px; padding-right: 8px; }
-.ex-radios label, .ex-check { display: inline-flex; gap: 6px; align-items: center; margin-right: 12px; font-size: 14px; } .ex-radios, .ex-radios legend { }
-.ex-radios { display: block; } .ex-radios legend { margin-bottom: 6px; }
+.ex-radios label, .ex-check { display: inline-flex; gap: 6px; align-items: center; margin-right: 12px; font-size: 14px; } .ex-f.ex-radios { display: block; } .ex-radios .ex-lg { display: block; margin-bottom: 6px; }
 input[type=radio], input[type=checkbox] { accent-color: var(--gold); width: 18px; height: 18px; }
 .ex-err { margin: 0 0 10px; color: #ffb4a8; font-size: 14px; }
 .ex-samples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
