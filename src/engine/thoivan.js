@@ -14,6 +14,7 @@ import { CAN, CHI, CAN_HANH, CHI_HANH, SINH, KHAC, computeBazi, yearPillarOfYear
 import { CUNG_TEN, TU_HOA, HOUR_BRANCH } from './tuvi.js';
 import { lunarMonthsOfYear, solarToLunar } from './lunar.js';
 import { reduce, PERSONAL_YEAR_THEME } from './numerology.js';
+import { bioLine } from './nhip.js';
 
 const mod = (n) => ((n % 12) + 12) % 12;
 export const LEVELS = ['nhẹ', 'vừa', 'nhiều'];
@@ -279,7 +280,7 @@ export function dayCycle(profile, chart, date) {
   const pm = reduce(py + reduce(date.m)), pd = reduce(pm + reduce(date.d));
   return {
     date, lunar: { d: lu.day, m: lu.month, leap: lu.leap }, moon: moonPhase(lu.day), pillar: dp.name, relation: bd.relation,
-    level: bd.level, notes: bd.notes, personalDay: pd, personalTheme: PERSONAL_YEAR_THEME[pd].replace(/^năm/, 'ngày'),
+    level: bd.level, notes: bd.notes, bio: bioLine(profile.birth, date), personalDay: pd, personalTheme: PERSONAL_YEAR_THEME[pd].replace(/^năm/, 'ngày'),
   };
 }
 
@@ -288,7 +289,7 @@ const validDate = (y, m, d) => { const t = new Date(Date.UTC(y, m - 1, d)); retu
 const dayLine = (label, c) => {
   const { date: x, lunar: l } = c;
   return [`- ${label} ${x.d}/${x.m}/${x.y} (dương lịch) = ngày ${l.d} tháng ${l.m}${l.leap ? ' nhuận' : ''} âm lịch; trăng ước chừng: ${c.moon}`,
-    `  Tứ Trụ: ${c.notes.join('; ')}`, `  mức chú ý của ngày: ${lv(c.level)}`, `  thần số: ngày cá nhân ${c.personalDay} (${c.personalTheme})`].join('\n');
+    `  Tứ Trụ: ${c.notes.join('; ')}`, `  mức chú ý của ngày: ${lv(c.level)}`, `  thần số: ngày cá nhân ${c.personalDay} (${c.personalTheme})`, `  ${c.bio}`].join('\n');
 };
 
 /** Khối "thời vận theo ngày" cho lượt này, chỉ khi người dùng vừa nhắc đến hôm nay, ngày mai, hôm qua, ngày cụ thể (dd/mm) hay "ngày". Rỗng nếu không. */
