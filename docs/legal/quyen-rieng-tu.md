@@ -13,7 +13,6 @@ Có hiệu lực từ 05/10/2026. Chuyện bạn kể với My là chuyện riê
 
 **b. Nội dung trò chuyện.** Mỗi lượt bạn gửi được chuyển qua máy chủ của chúng tôi tới nhà cung cấp AI (xem mục 3) để tạo câu trả lời. Máy chủ của chúng tôi không ghi lại nội dung này, trừ trường hợp ở mục (d). Nếu bạn kể về sức khỏe, đời sống riêng tư, tôn giáo hay những chuyện nhạy cảm, đó là thông tin nhạy cảm: hãy chỉ chia sẻ khi bạn thấy thoải mái.
 
-**b2. Nói bằng micro (chỉ khi bạn bấm nút micro).** Nút micro trong ô trò chuyện dùng tính năng nhận dạng giọng nói có sẵn của trình duyệt trên thiết bị của bạn để đổi lời nói thành chữ. Âm thanh do trình duyệt xử lý, và tùy trình duyệt, nhà cung cấp trình duyệt có thể gửi âm thanh tới dịch vụ nhận dạng của họ theo chính sách của họ. Máy chủ của chúng tôi không nhận, không ghi và không lưu âm thanh; chúng tôi chỉ nhận phần chữ bạn đã xem và bấm gửi, và xử lý đúng như tin nhắn bạn gõ (mục b). Bạn có thể tắt quyền micro của trang bất cứ lúc nào trong phần cài đặt trình duyệt.
 
 **c. Tài khoản (nếu bạn đăng ký).** Địa chỉ email, thời điểm tạo tài khoản và đăng nhập, mã giới thiệu nếu có. Mã xác nhận 6 số chỉ lưu dạng băm, hết hạn sau 10 phút. Phiên đăng nhập lưu dạng băm.
 

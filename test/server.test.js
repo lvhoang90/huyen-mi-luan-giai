@@ -639,11 +639,9 @@ test('nút micro: lời nhắc cho My có nói tin do giọng nói chuyển thà
   assert.ok(EVENTS.has('voice_start') && EVENTS.has('voice_error'));
 });
 
-test('micro: hướng dẫn bật quyền theo loại thiết bị', async () => {
-  const { permissionHelp, VOICE_ERRORS } = await import('../src/voice.js');
-  assert.match(permissionHelp('Mozilla/5.0 (Linux; Android 14; Pixel 7) Chrome/120'), /Cài đặt điện thoại/);
-  assert.match(permissionHelp('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604'), /aA/);
-  assert.match(permissionHelp('Mozilla/5.0 (Linux; Android 13) Zalo/23.1'), /Mở bằng trình duyệt/);
-  assert.match(permissionHelp('Mozilla/5.0 (Windows NT 10.0) Chrome/120'), /ổ khóa/);
-  assert.ok(Object.keys(VOICE_ERRORS).length >= 5);
+test('ô trò chuyện không còn nút micro riêng, chỉ nhắc dùng micro bàn phím', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const m = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.ok(!/attachVoice|voiceSupported/.test(m) && !existsSync(new URL('../src/voice.js', import.meta.url)));
+  assert.match(m, /micro trên bàn phím/);
 });
