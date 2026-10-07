@@ -291,3 +291,6 @@ details.fw h2 { margin: 0; font-size: 14.5px; }
 .rw-form { align-items: flex-end; gap: 12px; } .fld { display: grid; gap: 4px; font-size: 12.5px; color: var(--ink2); } .fld.wide { margin: 8px 0 12px; }
 .fld input, .fld textarea, input.nm { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 7px 10px; }
 .fld textarea { width: 100%; resize: vertical; } input.nm { min-width: 170px; font-weight: 600; } .btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+
+/* bảng nhiều cột (xếp hạng tester, lịch sử tặng): giữ bề rộng đủ đọc, trượt ngang thay vì bóp chữ thành từng từ một dòng */
+.scroll > table.wide { min-width: 820px; } table.wide th, table.wide td { white-space: nowrap; } table.wide .det { white-space: normal; min-width: 240px; } table.wide input.nm { min-width: 150px; }
