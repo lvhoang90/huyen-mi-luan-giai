@@ -68,9 +68,9 @@ function feedbackCard(items, idx, total) {
   const css = `h1{font-family:'CG';font-weight:600;font-size:76px;line-height:1.05;margin:40px 0 8px}h1 i{font-style:italic;font-weight:500;color:#e9cf88}.sub{font-size:25px;color:#cfc6ee;margin-bottom:30px}
   .list{display:grid;gap:18px;margin:auto 0}.c{background:#fff;color:#1c1c28;border-radius:30px;padding:26px 30px;display:flex;gap:20px;box-shadow:0 26px 70px rgba(0,0,0,.4)}
   .pf{width:66px;height:66px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:500;font-size:30px;color:#fff;background:linear-gradient(135deg,#8a6bff,#d36bd0)}
-  .who{font-size:25px;font-weight:500}.who span{color:#7a7a8c;font-weight:400;font-size:21px;margin-left:8px}.tx{font-size:30px;line-height:1.38;margin-top:6px}.st5{color:#d9a826;font-size:24px;letter-spacing:2px;margin-top:6px}`;
+  .who{font-size:25px;font-weight:500}.who span{color:#7a7a8c;font-weight:400;font-size:21px;margin-left:8px}.tx{font-size:30px;line-height:1.38;margin-top:6px}.nps{display:inline-block;margin-top:10px;background:#efeaff;color:#4a2fb0;border-radius:99px;padding:4px 16px;font-size:22px;font-weight:500}.st5{color:#d9a826;font-size:24px;letter-spacing:2px;margin-top:6px}`;
   const body = `<h1>Họ nói gì về <i>Huyền My</i>?</h1><div class="sub">Góp ý thật của người dùng thử, đăng với sự đồng ý của họ${total > 1 ? ` · ${idx + 1}/${total}` : ''}</div>
-   <div class="list">${items.map((x) => `<div class="c"><div class="pf">${esc(initials(x.name))}</div><div><div class="who">${esc(x.name)}<span>· người dùng thử</span></div><div class="tx">${esc(x.text)}</div>${x.rating ? `<div class="st5">${'★'.repeat(Math.round(x.rating))}</div>` : ''}</div></div>`).join('')}</div>`;
+   <div class="list">${items.map((x) => `<div class="c"><div class="pf">${esc(initials(x.name))}</div><div><div class="who">${esc(x.name)}<span>· người dùng thử</span></div><div class="tx">${esc(x.text)}</div>${x.rating ? (x.kind === 'nps' ? `<div class="nps">${esc(x.rating)}/10 điểm giới thiệu</div>` : `<div class="st5">${'★'.repeat(Math.round(x.rating))}</div>`) : ''}</div></div>`).join('')}</div>`;
   return page(css, body);
 }
 
@@ -96,8 +96,8 @@ if (mode === 'meme') {
   await render(list.map((m, i) => memeCard(m, i, list.length)), list.map((_, i) => `huyenmy-loi-my-${i + 1}.png`));
 } else if (mode === 'feedback' && args[1]) {
   const file = resolve(args[1]), raw = readFileSync(file, 'utf8');
-  const all = file.endsWith('.json') ? JSON.parse(raw) : parseCsv(raw).map((r) => ({ text: r['Lời góp ý'], ok: /^(1|true|có|được)/i.test(r['Được trích dẫn'] ?? ''), name: r['Tên hiển thị'], rating: +r['Điểm'] || null }));
-  const items = all.filter((x) => (x.ok ?? x.quoteOk) && String(x.text ?? '').trim().length >= 8).map((x) => ({ text: String(x.text).trim(), name: String(x.name ?? '').trim() || 'Một người dùng thử', rating: x.rating }));
+  const all = file.endsWith('.json') ? JSON.parse(raw) : parseCsv(raw).map((r) => ({ text: r['Lời góp ý'], ok: /^(1|true|có|được)/i.test(r['Được trích dẫn'] ?? ''), name: r['Tên hiển thị'], rating: +r['Điểm'] || null, kind: r['Loại'] }));
+  const items = all.filter((x) => (x.ok ?? x.quoteOk) && String(x.text ?? '').trim().length >= 8).map((x) => ({ text: String(x.text).trim(), name: String(x.name ?? '').trim() || 'Một người dùng thử', rating: x.rating, kind: x.kind }));
   if (!items.length) { console.error('Không có góp ý nào được phép trích dẫn trong tệp này.'); process.exit(1); }
   const per = +opt('--per', 3), groups = []; for (let i = 0; i < items.length; i += per) groups.push(items.slice(i, i + per));
   await render(groups.map((g, i) => feedbackCard(g, i, groups.length)), groups.map((_, i) => `huyenmy-gop-y-${i + 1}.png`));
