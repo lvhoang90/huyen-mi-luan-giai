@@ -2,6 +2,7 @@ import { CUNG_TEN } from './engine/tuvi.js';
 import { natalAttention } from './engine/thoivan.js';
 import { HANH } from './engine/bazi.js';
 import { drawQr } from './qr.js';
+import { spreadText } from './tarot/spreads.js';
 
 // Thẻ chia sẻ: vẽ bằng canvas, không chứa ngày sinh hay họ tên đầy đủ, chỉ tên gọi và vài điểm chung.
 function wrap(ctx, text, x, y, maxW, lineH, maxLines = 4) {
@@ -182,7 +183,7 @@ const chartBlobs = new WeakMap();
 const chartBlob = (info) => { let p = chartBlobs.get(info.chart); if (!p) { p = makeChartCard(info); if (info.chart && typeof info.chart === 'object') { chartBlobs.set(info.chart, p); p.catch(() => chartBlobs.delete(info.chart)); } } return p; };
 export async function shareChart(info, mode = 'share') { return deliver(() => chartBlob(info), 'la-so-huyen-my.png', { mode, url: info.url, text: 'Mình vừa xem lá số cùng Huyền My, bạn thử xem sao:', maxWait: 3500 }); }
 
-// ---------- thẻ Tarot (một lá hoặc ba lá) ----------
+// ---------- thẻ Tarot (một lá, ba lá, năm lá hoặc bảy lá) ----------
 const svgImage = async (svg, w, h) => { const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg.replace('<svg ', `<svg width="${w}" height="${h}" `)); await img.decode(); return img; };
 const rr = (g, x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); };
 /** Vẽ một lá bài theo hệ toạ độ thiết kế 300 x 500, thu phóng theo chiều rộng w. */
@@ -199,10 +200,11 @@ function drawTarotCard(g, card, art, x, y, w) {
   g.fillStyle = '#b9b1dc'; g.font = '300 11px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(card.en.toUpperCase(), 150, 478);
   g.restore();
 }
-/** Thẻ Tarot 1080 x 1350: một lá lớn hoặc ba lá có nhãn vị trí. Không chứa điều người dùng nghĩ, chỉ tên lá bài. */
+/** Thẻ Tarot 1080 x 1480: một lá lớn, ba lá có nhãn vị trí, hoặc năm, bảy lá xếp hai hàng. Không chứa điều người dùng nghĩ, chỉ tên lá bài. */
 export async function makeTarotCard({ cards, positions = null, url }) {
   await fonts();
   const { cardArtSvg } = await import('./tarot/art.js');
+  const { SPREADS, spreadOfCount } = await import('./tarot/spreads.js');
   const W = 1080, H = 1480, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   const bg = g.createRadialGradient(W / 2, H * 0.32, 80, W / 2, H * 0.42, H);
@@ -212,19 +214,30 @@ export async function makeTarotCard({ cards, positions = null, url }) {
   for (let i = 0; i < 90; i++) { g.fillStyle = `rgba(235,232,255,${0.15 + rnd() * 0.6})`; g.beginPath(); g.arc(rnd() * W, rnd() * H, rnd() * 2.2 + 0.4, 0, 6.283); g.fill(); }
   g.strokeStyle = 'rgba(226,194,125,.5)'; g.lineWidth = 2; g.strokeRect(40, 40, W - 80, H - 80);
   await drawBrand(g, W, 100);
-  g.fillStyle = '#d9cdf7'; g.font = '300 28px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(cards.length > 1 ? 'Tarot · Ba lá của mình' : 'Tarot · Lá bài hôm nay của mình', W / 2, 168);
+  const sp = SPREADS[spreadOfCount(cards.length)];
+  g.fillStyle = '#d9cdf7'; g.font = '300 28px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText(cards.length > 1 ? (sp?.share ?? 'Tarot · Các lá của mình') : 'Tarot · Lá bài hôm nay của mình', W / 2, 168);
   const arts = await Promise.all(cards.map((card, i) => svgImage(cardArtSvg(card, `s${i}`), 520, 728)));
+  const label = (txt, cx, y, size) => { g.textAlign = 'center'; g.fillStyle = '#e2c27d'; g.font = `400 ${size}px "Be Vietnam Pro", system-ui, sans-serif`; g.fillText(String(txt ?? '').toUpperCase(), cx, y); };
   if (cards.length === 1) drawTarotCard(g, cards[0], arts[0], 260, 205, 560);
-  else cards.forEach((card, i) => {
-    const x = 45 + i * 345; drawTarotCard(g, card, arts[i], x, 375, 300);
-    g.textAlign = 'center'; g.fillStyle = '#e2c27d'; g.font = '400 24px "Be Vietnam Pro", system-ui, sans-serif'; g.fillText((positions?.[i] ?? '').toUpperCase(), x + 150, 345);
+  else if (cards.length <= 3) cards.forEach((card, i) => {
+    const x = 45 + i * 345; drawTarotCard(g, card, arts[i], x, 375, 300); label(positions?.[i], x + 150, 345, 24);
     g.fillStyle = '#ece7fb'; g.font = '300 25px "Be Vietnam Pro", system-ui, sans-serif'; card.keys.forEach((k, j) => g.fillText(k, x + 150, 937 + j * 40));
   });
+  else {
+    // năm lá: 3 + 2, bảy lá: 4 + 3; mỗi hàng căn giữa, nhãn vị trí in trên từng lá
+    const rows = cards.length === 5 ? [3, 2] : [4, 3], w = cards.length === 5 ? 235 : 225, gap = cards.length === 5 ? 40 : 24, h = (w * 5) / 3;
+    let k = 0, y = 262;
+    for (const n of rows) {
+      const x0 = (W - (n * w + (n - 1) * gap)) / 2;
+      for (let i = 0; i < n; i++, k++) { const x = x0 + i * (w + gap); label(positions?.[k], x + w / 2, y - 14, cards.length === 5 ? 20 : 18); drawTarotCard(g, cards[k], arts[k], x, y, w); }
+      y += h + 56;
+    }
+  }
   drawFooter(g, W, H, url, 'Quét mã để rút bài cùng My');
   return new Promise((r) => c.toBlob(r, 'image/png'));
 }
 /** Vẽ sẵn ảnh Tarot (gọi ngay khi lá bài hiện ra) để lúc bấm chia sẻ hay tải thì có ảnh liền. */
 export const prepareTarot = (info) => makeTarotCard(info);
-const tarotText = (cards) => (cards.length > 1 ? `Mình vừa trải ba lá Tarot cùng Huyền My (${cards.map((c) => c.name).join(', ')}). Bạn thử xem sao:` : `Mình vừa rút lá ${cards[0].name} cùng Huyền My. Bạn thử rút lá của mình nhé:`);
+const tarotText = (cards) => (cards.length > 1 ? `Mình vừa trải ${spreadText(cards.length)} Tarot cùng Huyền My (${cards.map((c) => c.name).join(', ')}). Bạn thử xem sao:` : `Mình vừa rút lá ${cards[0].name} cùng Huyền My. Bạn thử rút lá của mình nhé:`);
 /** info.blob: ảnh đã vẽ sẵn bằng prepareTarot (không bắt buộc). */
 export async function shareTarot(info, mode = 'share') { return deliver(async () => (await info.blob) ?? makeTarotCard(info), 'tarot-huyen-my.png', { mode, url: info.url, text: tarotText(info.cards), maxWait: 3500 }); }

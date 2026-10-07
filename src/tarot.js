@@ -1,4 +1,4 @@
-// Trang Tarot Huyền My: rút một lá mỗi ngày hoặc trải ba lá, đọc theo hướng soi mình, tải ảnh hoặc chia sẻ kèm liên kết giới thiệu.
+// Trang Tarot Huyền My: rút một lá mỗi ngày, trải ba lá, năm lá về một lựa chọn hoặc bảy lá về tình cảm, đọc theo hướng soi mình, tải ảnh hoặc chia sẻ kèm liên kết giới thiệu.
 // Không gửi lên máy chủ điều bạn nghĩ hay lá bạn rút; chỉ ghi nhận tên sự kiện ẩn danh (rút lá, chia sẻ).
 import './pwa.js';
 import './style.css';
@@ -13,6 +13,7 @@ import { SUITS } from './tarot/minor.js';
 import { cardArtSvg, cardBackSvg } from './tarot/art.js';
 import { mountCta } from './cta.js';
 import { shareTarot, prepareTarot, shareMessage } from './share.js';
+import { SPREADS, spreadOfCount } from './tarot/spreads.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -33,9 +34,21 @@ const setDaily = (id) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify(
 
 const HIST_KEY = 'huyenmy.tarothist';
 const addHist = (mode, ids) => { try { const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; h.unshift({ d: vnDay(), m: mode, ids }); localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); } catch {} };
-const POS = [['Điều đang diễn ra', 'gist'], ['Điều nên để ý', 'mirror'], ['Bước nhỏ nên thử', 'step']];
-const HINT = { daily: 'Mỗi ngày một lá. Bạn chọn điều mình đang nghĩ tới, nhìn vào bộ bài và chạm vào lá đang gọi mình.', three: 'Trải ba lá cho một điều bạn đang băn khoăn: chọn ba lá từ bộ bài úp, bạn không cần nói điều đó với ai.' };
+const HINT = { daily: 'Mỗi ngày một lá. Bạn chọn điều mình đang nghĩ tới, nhìn vào bộ bài và chạm vào lá đang gọi mình.', three: 'Trải ba lá cho một điều bạn đang băn khoăn: chọn ba lá từ bộ bài úp, bạn không cần nói điều đó với ai.', choice: 'Khi bạn đang đứng giữa hai lối đi: chọn năm lá, mỗi lá là một góc nhìn để bạn nghe rõ điều mình muốn. Lá bài không chọn thay bạn.', love: 'Cho chuyện lòng đang nặng: chọn bảy lá để soi lại mình và cách bạn ở trong mối quan hệ. Không đoán tâm ý ai.' };
+const NUM = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy'], needOf = () => SPREADS[mode]?.n ?? 1;
+// nhãn vị trí: ba lá giữ câu đầy đủ, năm và bảy lá dùng nhãn ngắn cho vừa chỗ
+const posLabel = (n, i) => { const p = SPREADS[spreadOfCount(n)]?.pos[i]; return p ? (n <= 3 ? p.label : p.short) : ''; };
 let mode = 'daily', shown = [], uidN = 0;
+// Ghi chú một dòng sau khi xem lá: chỉ lưu trên máy này, gắn vào lần rút trong lịch sử của "Góc của tôi"; không gửi đi đâu.
+const sameIds = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+function noteOf(ids) { try { return (JSON.parse(localStorage.getItem(HIST_KEY)) ?? []).find((h) => h.d === vnDay() && sameIds(h.ids, ids))?.n ?? ''; } catch { return ''; } }
+function saveNote(ids, text) {
+  try {
+    const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; let e = h.find((x) => x.d === vnDay() && sameIds(x.ids, ids));
+    if (!e) { e = { d: vnDay(), m: spreadOfCount(ids.length) ?? 'daily', ids }; h.unshift(e); }
+    if (text) e.n = text; else delete e.n; localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); return true;
+  } catch { return false; }
+}
 
 function cardHtml(c, { back = false } = {}) {
   const uid = `u${uidN++}`;
@@ -52,20 +65,21 @@ function readingHtml(cards, topicKey = null) {
     return `${tag}<h2>${esc(c.name)} <small>${esc(c.en)}</small></h2>${keysHtml(c)}<p>${esc(c.gist)}</p>
       <div class="tr-q"><b>Câu hỏi để soi mình</b>${esc(c.mirror)}</div><div class="tr-s"><b>Một bước nhỏ</b>${esc(c.step)}</div>${actions()}`;
   }
-  return `${tag}<h2>Ba lá của bạn</h2><div class="tr-row3">${cards.map((c, i) => `<div class="one"><h3><small>${POS[i][0]}</small>${esc(c.name)}</h3>${keysHtml(c)}<p>${esc(c[POS[i][1]])}</p></div>`).join('')}</div>${actions()}`;
+  const sp = SPREADS[spreadOfCount(cards.length)] ?? SPREADS.three;
+  return `${tag}<h2>${esc(sp.title)}</h2>${sp.intro ? `<p class="tr-intro">${esc(sp.intro)}</p>` : ''}<div class="tr-row3 n${cards.length}">${cards.map((c, i) => `<div class="one"><h3><small>${esc(sp.pos[i]?.label ?? '')}</small>${esc(c.name)}</h3>${keysHtml(c)}<p>${esc(c[sp.pos[i]?.field ?? 'gist'])}</p></div>`).join('')}</div>${actions()}`;
 }
-const actions = () => `<div class="tr-acts"><a class="btn primary" id="tr-ask" href="#">Hỏi My về ${shown.length > 1 ? 'ba lá này' : 'lá bài này'}</a><button type="button" class="btn" id="tr-dl">${icon('download')} Tải ảnh</button><button type="button" class="btn" id="tr-share">${icon('share')} Chia sẻ</button></div>
+const actions = () => `<div class="tr-acts"><a class="btn primary" id="tr-ask" href="#">Hỏi My về ${shown.length > 1 ? 'những lá này' : 'lá bài này'}</a><button type="button" class="btn" id="tr-dl">${icon('download')} Tải ảnh</button><button type="button" class="btn" id="tr-share">${icon('share')} Chia sẻ</button></div>
   <p class="sub tr-note" id="tr-note" role="status" aria-live="polite" style="margin:0" hidden></p>
   <p class="sub" style="margin:0">Lá bài chỉ là một lăng kính để suy ngẫm, không dự báo điều gì sẽ xảy ra.</p>`;
 
 function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = false } = {}) {
   shown = ids.map(cardById).filter(Boolean);
-  const positions0 = shown.length > 1 ? POS.map((p) => p[0]) : null, cards0 = shown;
+  const positions0 = shown.length > 1 ? shown.map((_, i) => posLabel(shown.length, i)) : null, cards0 = shown;
   // vẽ sẵn ảnh để chia sẻ ngay từ lúc bắt đầu lật bài, sớm hơn khi lời đọc hiện ra khoảng một đến hai giây
   const ready = meReady.then((me) => prepareTarot({ cards: cards0, positions: positions0, url: urlOf(me) })).catch(() => null);
   const stage = $('#tr-stage'), read = $('#tr-read');
-  stage.hidden = false; read.hidden = true; stage.className = 'tr-stage' + (shown.length > 1 ? ' three' : '');
-  stage.innerHTML = shown.map((c, i) => `<div class="tr-slot">${cardHtml(c, { back: true })}${shown.length > 1 ? `<span class="pos">${POS[i][0]}</span>` : ''}</div>`).join('');
+  stage.hidden = false; read.hidden = true; stage.className = 'tr-stage' + (shown.length === 1 ? '' : shown.length <= 3 ? ' three' : ` many n${shown.length}`);
+  stage.innerHTML = shown.map((c, i) => `<div class="tr-slot">${cardHtml(c, { back: true })}${shown.length > 1 ? `<span class="pos">${esc(posLabel(shown.length, i))}</span>` : ''}</div>`).join('');
   stage.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   shown.forEach((c, i) => setTimeout(() => stage.querySelectorAll('.tcard')[i]?.classList.remove('back'), flipDelay + i * 420));
   setTimeout(() => {
@@ -74,7 +88,7 @@ function show(ids, { flipDelay = 450, via = 'draw', topicKey = null, next = fals
     $('#tr-ask').href = `/?tarot=${ids.join(',')}${topicKey ? `&chu=${topicKey}` : ''}`; $('#tr-ask').onclick = () => track('tarot_ask', { n: ids.length });
     const note = $('#tr-note'), say = (t) => { note.hidden = !t; note.textContent = t || ''; };
     // ảnh đã được vẽ sẵn từ lúc bắt đầu lật bài (xem biến `ready` ở trên): bấm "Chia sẻ" thì hộp thoại của điện thoại mở liền
-    const positions = shown.length > 1 ? POS.map((p) => p[0]) : null, cards = shown;
+    const positions = shown.length > 1 ? shown.map((_, i) => posLabel(shown.length, i)) : null, cards = shown;
     const share = async (m) => {
       say(m === 'download' ? 'Đang tạo ảnh…' : 'Đang chuẩn bị chia sẻ…');
       try {
@@ -107,6 +121,14 @@ function afterReading(read, { ids, topicKey }) {
       box.querySelector('.tr-feel').innerHTML = '<p class="tf-thanks">Cảm ơn bạn. My ghi lại để hiểu bộ bài này hợp với mọi người đến đâu.</p>';
     };
   }
+  const note = document.createElement('div'); note.className = 'tr-journal'; const cur = noteOf(ids);
+  note.innerHTML = `<label for="tj-t">Ghi một dòng cho chính bạn <small>(chỉ lưu trên máy này)</small></label><div class="tj-row"><textarea id="tj-t" rows="2" maxlength="200" placeholder="Lúc này bạn thấy gì trong lòng?">${esc(cur)}</textarea><button type="button" class="btn" id="tj-s">${cur ? 'Cập nhật' : 'Lưu'}</button></div><p class="sub tj-ok" id="tj-ok" role="status" aria-live="polite" hidden></p>`;
+  box.append(note);
+  note.querySelector('#tj-s').onclick = () => {
+    const t = note.querySelector('#tj-t').value.replace(/\s+/g, ' ').trim(), ok = note.querySelector('#tj-ok'); ok.hidden = false;
+    if (saveNote(ids, t)) { ok.textContent = t ? 'Đã lưu vào Bộ bài của tôi, trong Góc của tôi.' : 'Đã xóa ghi chú.'; track('tarot_note', { n: ids.length, has: t ? 1 : 0 }); note.querySelector('#tj-s').textContent = t ? 'Cập nhật' : 'Lưu'; }
+    else ok.textContent = 'Máy này không cho lưu, bạn thử lại sau nhé.';
+  };
   const host = document.createElement('div'); host.id = 'tr-cta'; box.append(host);
   meReady.then((me) => {
     if (!me || me.user || me.accounts === false) return; // đã đăng nhập hoặc chưa mở đăng ký: không mời
@@ -117,7 +139,7 @@ function afterReading(read, { ids, topicKey }) {
 // ---------- nghi thức trước khi bốc bài ----------
 const R = $('#tr-ritual'), REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let topic = null, picks = [], ritualTimer = 0;
-const FAN_DESKTOP = 9, FAN_PHONE = 9, TODAY_DONE = () => getDaily() != null;
+const FAN_DESKTOP = 9, FAN_PHONE = 9, FAN_MANY = 12, TODAY_DONE = () => getDaily() != null;
 const streakNow = () => liveStreak(getStreak(), vnDay());
 
 function nextBlock() {
@@ -148,6 +170,7 @@ function startRitual() {
 function phaseTopic() {
   R.innerHTML = `<div class="rit"><p class="rit-step">Bước 1 trên 2</p><h2>Hôm nay bạn đang nghĩ về điều gì?</h2>
     <p class="rit-sub">Chọn một chủ đề để lá bài chạm đúng chuyện của bạn. Bạn không cần viết gì cả, và không ai đọc điều bạn nghĩ.</p>
+    <p class="rit-calm">Bốc khi lòng tương đối yên nhé. Đừng mong một câu trả lời chắc chắn: lá bài chỉ là một cớ để bạn nhìn lại mình.</p>
     <div class="rit-topics" role="group" aria-label="Chủ đề">${TOPICS.map(([k, v]) => `<button type="button" data-k="${k}" aria-pressed="false">${esc(v)}</button>`).join('')}</div>
     <div class="rit-acts"><button type="button" class="btn primary" id="rit-next" disabled>Tiếp tục, nhìn vào bộ bài</button><button type="button" class="rit-link" id="rit-skip">Bỏ qua, mình để trống</button></div></div>`;
   for (const b of R.querySelectorAll('.rit-topics button')) b.onclick = () => {
@@ -158,28 +181,28 @@ function phaseTopic() {
 }
 function phasePick() {
   picks = [];
-  const three = mode === 'three', phone = matchMedia('(max-width: 640px)').matches, n = phone ? FAN_PHONE : FAN_DESKTOP;
+  const need = needOf(), multi = need > 1, phone = matchMedia('(max-width: 640px)').matches, n = need > 3 ? FAN_MANY : phone ? FAN_PHONE : FAN_DESKTOP;
   // điện thoại: lưới 3 x 3 lá to, không chồng nhau để chạm trúng; máy tính: xòe quạt
   const cards = Array.from({ length: n }, (_, i) => {
     const t = i / (n - 1) - 0.5, a = phone ? (i % 2 ? 2.2 : -2.2) : t * 64, x = Math.sin((a * Math.PI) / 180), y = 1 - Math.cos((a * Math.PI) / 180);
     return `<button type="button" class="fan-card" style="--a:${a.toFixed(1)}deg;--x:${x.toFixed(3)};--y:${y.toFixed(3)};--d:${(i * 0.14).toFixed(2)}s" data-i="${i}" aria-label="Lá bài úp số ${i + 1}">${cardBackSvg()}<span class="fan-n"></span></button>`;
   }).join('');
   R.innerHTML = `<div class="rit"><p class="rit-step">Bước 2 trên 2${topic ? ` · <b>${esc(topicLabel(topic))}</b>` : ''}</p><h2>Hãy nhìn vào bộ bài</h2>
-    <p class="rit-sub" id="rit-sub">Hít một hơi thật chậm, giữ điều bạn muốn hỏi trong lòng. ${three ? 'Khi sẵn sàng, chạm vào <b>ba lá</b> đang gọi bạn, lần lượt từng lá.' : 'Khi sẵn sàng, chạm vào <b>một lá</b> đang gọi bạn.'}</p>
+    <p class="rit-sub" id="rit-sub">Hít một hơi thật chậm, giữ điều bạn muốn hỏi trong lòng. ${multi ? `Khi sẵn sàng, chạm vào <b>${NUM[need]} lá</b> đang gọi bạn, lần lượt từng lá.` : 'Khi sẵn sàng, chạm vào <b>một lá</b> đang gọi bạn.'}</p>
     <div class="fan${phone ? ' grid' : ''}" id="fan">${cards}</div>
-    <p class="rit-count" id="rit-count" aria-live="polite">${three ? `Đã chọn 0/3 · ${POS[0][0]}` : 'Chưa chọn lá nào'}</p>
+    <p class="rit-count" id="rit-count" aria-live="polite">${multi ? `Đã chọn 0/${need} · ${posLabel(need, 0)}` : 'Chưa chọn lá nào'}</p>
     <div class="rit-acts"><button type="button" class="rit-link" id="rit-back">‹ Đổi chủ đề</button></div></div>`;
   $('#rit-back').onclick = phaseTopic;
   for (const b of R.querySelectorAll('.fan-card')) b.onclick = () => {
     if (b.classList.contains('picked')) return;
-    picks.push(+b.dataset.i); b.classList.add('picked'); b.querySelector('.fan-n').textContent = three ? picks.length : '';
-    if (picks.length >= (three ? 3 : 1)) { for (const x of R.querySelectorAll('.fan-card')) x.disabled = true; return setTimeout(phaseCharge, REDUCED ? 100 : 600); }
-    $('#rit-count').textContent = `Đã chọn ${picks.length}/3 · ${POS[picks.length][0]}`;
+    picks.push(+b.dataset.i); b.classList.add('picked'); b.querySelector('.fan-n').textContent = multi ? picks.length : '';
+    if (picks.length >= need) { for (const x of R.querySelectorAll('.fan-card')) x.disabled = true; return setTimeout(phaseCharge, REDUCED ? 100 : 600); }
+    $('#rit-count').textContent = `Đã chọn ${picks.length}/${need} · ${posLabel(need, picks.length)}`;
   };
 }
 function phaseCharge() {
-  const three = mode === 'three', lines = ['Hít một hơi thật chậm…', 'Giữ điều bạn muốn hỏi trong lòng…', 'Lá bài đang đến với bạn…'], gap = REDUCED ? 300 : 1100;
-  R.innerHTML = `<div class="rit charge"><div class="aura" aria-hidden="true"></div><div class="ch-cards">${Array.from({ length: three ? 3 : 1 }, (_, i) => `<div class="ch-card" style="--i:${i}">${cardBackSvg()}</div>`).join('')}</div>
+  const shownBacks = Math.min(3, needOf()), lines = ['Hít một hơi thật chậm…', 'Giữ điều bạn muốn hỏi trong lòng…', 'Lá bài đang đến với bạn…'], gap = REDUCED ? 300 : 1100;
+  R.innerHTML = `<div class="rit charge"><div class="aura" aria-hidden="true"></div><div class="ch-cards">${Array.from({ length: shownBacks }, (_, i) => `<div class="ch-card" style="--i:${i}">${cardBackSvg()}</div>`).join('')}</div>
     <p class="ch-line" id="ch-line" aria-live="polite">${lines[0]}</p><div class="ch-bar" aria-hidden="true"><i style="animation-duration:${gap * 3}ms"></i></div></div>`;
   let k = 0; const iv = setInterval(() => { k++; if (k < lines.length) $('#ch-line').textContent = lines[k]; }, gap);
   ritualTimer = setTimeout(() => { clearInterval(iv); reveal(false); }, gap * 3 + 200);
@@ -192,7 +215,7 @@ function reveal(again) {
     track('tarot_draw', { mode: 'daily', id, again: was }); if (!was) addHist('daily', [id]);
     show([id], { topicKey: again ? null : topic, next: true });
   } else {
-    const ids = drawCards(3); addHist('three', ids); track('tarot_draw', { mode: 'three', id: ids[0] }); show(ids, { topicKey: topic });
+    const ids = drawCards(needOf()); addHist(mode, ids); track('tarot_draw', { mode: 'three', spread: mode, id: ids[0] }); show(ids, { topicKey: topic }); // mọi kiểu nhiều lá vẫn tính chung là 'three' trong số liệu, kèm spread để tách riêng
   }
   refreshIdle();
 }

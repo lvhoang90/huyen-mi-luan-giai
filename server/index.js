@@ -116,7 +116,7 @@ async function handleChat(req, res) {
     record(true); send({ done: true }); return res.end();
   }
 
-  const system = buildSystemBlocks(phase, profile, chart, messages, { minute, lens: Object.hasOwn(LENSES, body.lens) ? body.lens : null, resumeGreet: typeof body.resumeGreet === 'string' ? body.resumeGreet : null, resumeLast: typeof body.resumeLast === 'string' ? body.resumeLast : null, tarot: Array.isArray(body.tarot) ? body.tarot.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 77).slice(0, 3) : null, tarotTopic: typeof body.tarotTopic === 'string' ? body.tarotTopic.slice(0, 20) : null });
+  const system = buildSystemBlocks(phase, profile, chart, messages, { minute, lens: Object.hasOwn(LENSES, body.lens) ? body.lens : null, resumeGreet: typeof body.resumeGreet === 'string' ? body.resumeGreet : null, resumeLast: typeof body.resumeLast === 'string' ? body.resumeLast : null, tarot: Array.isArray(body.tarot) ? body.tarot.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 77).slice(0, 7) : null, tarotTopic: typeof body.tarotTopic === 'string' ? body.tarotTopic.slice(0, 20) : null });
   const stream = client.messages.stream({ model: MODEL, max_tokens: phase === 'reading' ? 1400 : 1000, thinking: { type: 'between_tools' }, system, messages });
   res.on('close', () => { try { stream.abort(); } catch {} });
   stream.on('text', (t) => { if (ttft == null) ttft = Date.now() - t0; reply += t; send({ t }); });
