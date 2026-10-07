@@ -181,24 +181,47 @@ function phaseTopic() {
 }
 function phasePick() {
   picks = [];
-  const need = needOf(), multi = need > 1, phone = matchMedia('(max-width: 640px)').matches, n = need > 3 ? FAN_MANY : phone ? FAN_PHONE : FAN_DESKTOP;
-  // điện thoại: lưới 3 x 3 lá to, không chồng nhau để chạm trúng; máy tính: xòe quạt
+  const need = needOf(), multi = need > 1, phone = matchMedia('(max-width: 640px)').matches, many = need > 3, n = many ? FAN_MANY : phone ? FAN_PHONE : FAN_DESKTOP;
+  // điện thoại hoặc nhiều lá: lưới lá to, không chồng nhau, cuộn được, để chạm trúng đúng lá; máy tính chọn một lá: xòe quạt
+  const asGrid = phone || multi; // nhiều lá luôn dùng lưới (không chồng nhau) để không chạm nhầm lá bên cạnh; chỉ một lá trên máy tính mới xòe quạt
   const cards = Array.from({ length: n }, (_, i) => {
-    const t = i / (n - 1) - 0.5, a = phone ? (i % 2 ? 2.2 : -2.2) : t * 64, x = Math.sin((a * Math.PI) / 180), y = 1 - Math.cos((a * Math.PI) / 180);
-    return `<button type="button" class="fan-card" style="--a:${a.toFixed(1)}deg;--x:${x.toFixed(3)};--y:${y.toFixed(3)};--d:${(i * 0.14).toFixed(2)}s" data-i="${i}" aria-label="Lá bài úp số ${i + 1}">${cardBackSvg()}<span class="fan-n"></span></button>`;
+    const t = i / (n - 1) - 0.5, a = asGrid ? (many ? 0 : i % 2 ? 2.2 : -2.2) : t * 64, x = Math.sin((a * Math.PI) / 180), y = 1 - Math.cos((a * Math.PI) / 180);
+    return `<button type="button" class="fan-card" style="--a:${a.toFixed(1)}deg;--x:${x.toFixed(3)};--y:${y.toFixed(3)};--d:${(i * 0.14).toFixed(2)}s" data-i="${i}" aria-pressed="false" aria-label="Lá bài úp số ${i + 1}">${cardBackSvg()}<span class="fan-n"></span></button>`;
   }).join('');
   R.innerHTML = `<div class="rit"><p class="rit-step">Bước 2 trên 2${topic ? ` · <b>${esc(topicLabel(topic))}</b>` : ''}</p><h2>Hãy nhìn vào bộ bài</h2>
-    <p class="rit-sub" id="rit-sub">Hít một hơi thật chậm, giữ điều bạn muốn hỏi trong lòng. ${multi ? `Khi sẵn sàng, chạm vào <b>${NUM[need]} lá</b> đang gọi bạn, lần lượt từng lá.` : 'Khi sẵn sàng, chạm vào <b>một lá</b> đang gọi bạn.'}</p>
-    <div class="fan${phone ? ' grid' : ''}" id="fan">${cards}</div>
-    <p class="rit-count" id="rit-count" aria-live="polite">${multi ? `Đã chọn 0/${need} · ${posLabel(need, 0)}` : 'Chưa chọn lá nào'}</p>
+    <p class="rit-sub" id="rit-sub">Hít một hơi thật chậm, giữ điều bạn muốn hỏi trong lòng. ${multi ? `Khi sẵn sàng, chạm vào <b>${NUM[need]} lá</b> đang gọi bạn, lần lượt từng lá. Chạm lại một lá để bỏ chọn, bạn chưa mở bài cho tới khi bấm xác nhận.` : 'Khi sẵn sàng, chạm vào <b>một lá</b> đang gọi bạn.'}</p>
+    <div class="fan${asGrid ? ' grid' : ''}${many ? ' many' : ''}" id="fan">${cards}</div>
+    <div class="rit-bar"><p class="rit-count" id="rit-count" aria-live="polite">${multi ? `Đã chọn 0/${need} · ${posLabel(need, 0)}` : 'Chưa chọn lá nào'}</p>
+    ${multi ? `<button type="button" class="btn primary" id="rit-ok" disabled>Xác nhận, mở ${NUM[need]} lá</button><button type="button" class="rit-link" id="rit-reset" hidden>Chọn lại từ đầu</button>` : ''}</div>
     <div class="rit-acts"><button type="button" class="rit-link" id="rit-back">‹ Đổi chủ đề</button></div></div>`;
   $('#rit-back').onclick = phaseTopic;
-  for (const b of R.querySelectorAll('.fan-card')) b.onclick = () => {
-    if (b.classList.contains('picked')) return;
-    picks.push(+b.dataset.i); b.classList.add('picked'); b.querySelector('.fan-n').textContent = multi ? picks.length : '';
-    if (picks.length >= need) { for (const x of R.querySelectorAll('.fan-card')) x.disabled = true; return setTimeout(phaseCharge, REDUCED ? 100 : 600); }
-    $('#rit-count').textContent = `Đã chọn ${picks.length}/${need} · ${posLabel(need, picks.length)}`;
+  const btns = [...R.querySelectorAll('.fan-card')];
+  if (!multi) {
+    for (const b of btns) b.onclick = () => {
+      if (b.classList.contains('picked')) return;
+      picks.push(+b.dataset.i); b.classList.add('picked');
+      for (const x of btns) x.disabled = true; setTimeout(phaseCharge, REDUCED ? 100 : 600);
+    };
+    return;
+  }
+  // nhiều lá: chạm để chọn hoặc bỏ chọn, đủ lá thì các lá còn lại khóa lại (tránh chạm nhầm), bấm xác nhận mới mở bài
+  const ok = $('#rit-ok'), reset = $('#rit-reset'), count = $('#rit-count');
+  const sync = () => {
+    const full = picks.length >= need;
+    btns.forEach((b) => {
+      const k = picks.indexOf(+b.dataset.i);
+      b.classList.toggle('picked', k >= 0); b.setAttribute('aria-pressed', String(k >= 0)); b.querySelector('.fan-n').textContent = k >= 0 ? k + 1 : ''; b.disabled = full && k < 0;
+    });
+    count.textContent = full ? `Đã đủ ${need} lá. Xem lại rồi bấm xác nhận nhé, hoặc chạm một lá để bỏ chọn.` : `Đã chọn ${picks.length}/${need} · ${posLabel(need, picks.length)}`;
+    ok.disabled = !full; reset.hidden = !picks.length;
   };
+  btns.forEach((b) => (b.onclick = () => {
+    const i = +b.dataset.i, k = picks.indexOf(i);
+    if (k >= 0) picks.splice(k, 1); else if (picks.length < need) picks.push(i);
+    sync();
+  }));
+  reset.onclick = () => { picks = []; sync(); };
+  ok.onclick = () => { ok.disabled = true; btns.forEach((b) => (b.disabled = true)); setTimeout(phaseCharge, REDUCED ? 100 : 400); };
 }
 function phaseCharge() {
   const shownBacks = Math.min(3, needOf()), lines = ['Hít một hơi thật chậm…', 'Giữ điều bạn muốn hỏi trong lòng…', 'Lá bài đang đến với bạn…'], gap = REDUCED ? 300 : 1100;

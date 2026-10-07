@@ -114,3 +114,23 @@
 .tr-stage.many .tr-slot { min-width: 0; width: 100%; } .tr-stage.many .pos { font-size: 10.5px; letter-spacing: .03em; max-width: 100%; }
 .tr-stage.many .tc-name b { font-size: 10.5px; } .tr-stage.many .tc-name i { display: none; } .tr-stage.many .tc-top { font-size: 8px; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 92%; margin-inline: auto; }
 @media (min-width: 700px) { .tr-row3.n5, .tr-row3.n7 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* chọn 3, 5, 7 lá: rộng rãi, dễ chạm, bỏ chọn được, xác nhận mới mở bài */
+.rit-bar { display: grid; justify-items: center; gap: 8px; margin: 6px 0 4px; }
+.rit-bar .btn[disabled] { opacity: .45; pointer-events: none; }
+.rit-bar:has(#rit-ok) { position: sticky; bottom: 10px; z-index: 8; padding: 10px 14px 12px; border-radius: 18px; background: rgba(12, 9, 38, .92); border: 1px solid rgba(233, 207, 136, .35); backdrop-filter: blur(6px); }
+.fan.grid.many { grid-template-columns: repeat(3, var(--cw)); --cw: min(27vw, 120px); gap: 22px 14px; padding: 14px 0 10px; margin-bottom: 8px; }
+.fan.grid.many .fan-card { min-height: 44px; }
+.fan.grid.many .fan-card:hover, .fan.grid.many .fan-card:focus-visible, .fan.grid.many .fan-card:active { transform: translateY(-3px) scale(1.04); }
+.fan.grid.many .fan-card.picked { transform: translateY(-6px) scale(1.08); box-shadow: 0 0 0 3px #fff3c9, 0 0 36px rgba(255, 226, 150, .95); }
+.fan.grid .fan-card:disabled:not(.picked) { opacity: .28; }
+@media (min-width: 641px) { .fan.grid.many { grid-template-columns: repeat(6, var(--cw)); --cw: 104px; gap: 22px 16px; width: min(100%, 760px); margin-inline: auto; } }
+.fan-card { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (min-width: 641px) { .fan.grid:not(.many) { grid-template-columns: repeat(5, var(--cw)); --cw: 104px; gap: 20px 16px; width: min(100%, 640px); margin-inline: auto; } }
+/* chừa chỗ cho lá phóng to khi chọn và đưa số thứ tự thành huy hiệu ở góc */
+.fan.grid.many { --cw: min(24vw, 110px); gap: 22px 12px; }
+@media (min-width: 641px) { .fan.grid.many { --cw: 104px; } }
+.fan.grid .fan-n { left: 6px; top: 6px; transform: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #fff3c9; color: #2a1b05; font: 600 15px/1 var(--sans, system-ui); text-shadow: none; box-shadow: 0 2px 8px rgba(0, 0, 0, .5); }
+.fan.grid .fan-n:empty { display: none; }
+.fan.grid.many { --cw: min(23vw, 106px); gap: 24px 16px; }
+.fan.grid.many .fan-card.picked { transform: translateY(-4px) scale(1.04); }
+@media (min-width: 641px) { .fan.grid.many { --cw: 104px; gap: 24px 18px; } }
