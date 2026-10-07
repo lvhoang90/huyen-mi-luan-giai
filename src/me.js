@@ -58,6 +58,7 @@ function timeCard(d) {
     <div class="me-time-row">${ring(t.usedMin, t.totalMin)}<ul class="me-break">
       <li><span>Mỗi ngày</span><b>${t.baseMin} phút</b></li>
       <li><span>Quà từ bạn bè</span><b class="gold">+${t.bonusMin} phút</b></li>
+      ${t.giftMin ? `<li><span>Quà từ Admin</span><b class="gold">+${t.giftMin} phút</b></li>` : ''}
       <li class="sum"><span>Tổng mỗi ngày</span><b>${t.totalMin} phút</b></li>
       <li><span>Đã dùng hôm nay</span><b>${t.usedMin} phút</b></li></ul></div>
     <p class="sub">Thời gian làm mới mỗi sáng. Phút từ bạn bè được tính mỗi ngày và cộng dồn, không mất đi.</p></section>`;
@@ -137,4 +138,5 @@ function lazyArt() {
   const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { const el = e.target, c = cardById(el.dataset.id); el.querySelector('.art').innerHTML = cardArtSvg(c, `m${c.id}`); io.unobserve(el); } }, { rootMargin: '200px' });
   document.querySelectorAll('.mc.on').forEach((el) => io.observe(el));
 }
+import('./gift.js').then((m) => m.showGifts()).catch(() => {});
 main();

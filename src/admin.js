@@ -1,5 +1,6 @@
 import './admin.css';
 import { esc, nf, fx, pct, ci, download, toCsv, FIELD } from './admin-ui.js';
+import { loadRewards } from './admin-reward.js';
 import { renderJourney, wireJourney } from './admin-journey.js';
 import { loadPeople } from './admin-people.js';
 import { tarotBlock } from './admin-tarot.js';
@@ -8,7 +9,7 @@ import { initViz, tile, ring, donut, barList, funnelChart, areaChart, cohortHeat
 const app = document.getElementById('app');
 const SEV = { critical: ['▲', 'Nghiêm trọng'], warn: ['●', 'Cần xem'], info: ['○', 'Gợi ý'] };
 let days = +(new URLSearchParams(location.search).get('days')) || 14, data = null, journey = null;
-const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Cảm xúc'], ['nguoi', 'Người dùng'], ['chi-phi', 'Chi phí AI'], ['tang-truong', 'Tăng trưởng'], ['chat-luong', 'Chất lượng'], ['gop-y', 'Góp ý'], ['phuong-phap', 'Phương pháp']];
+const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Cảm xúc'], ['nguoi', 'Người dùng'], ['chi-phi', 'Chi phí AI'], ['tang-truong', 'Tăng trưởng'], ['chat-luong', 'Chất lượng'], ['thuong', 'Thưởng tester'], ['gop-y', 'Góp ý'], ['phuong-phap', 'Phương pháp']];
 const tabNow = () => { const h = location.hash.replace(/^#\/?/, ''); return TABS.some(([k]) => k === h) ? h : 'tong-quan'; };
 
 async function load() {
@@ -213,6 +214,7 @@ async function paintTab(tab) {
   else if (tab === 'tang-truong') { host.innerHTML = growthTab(data); wireGrowth(host); wireRef(host); }
   else if (tab === 'chat-luong') host.innerHTML = qualityTab(data);
   else if (tab === 'gop-y') await loadFeedback(host);
+  else if (tab === 'thuong') await loadRewards(host);
   else if (tab === 'phuong-phap') host.innerHTML = methodTab();
   else if (tab === 'nguoi') await loadPeople(host, 0);
   else if (tab === 'chi-phi') await loadCost(host);

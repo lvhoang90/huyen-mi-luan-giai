@@ -801,6 +801,7 @@ const meReady = fetch('/api/me' + (urlRef ? `?ref=${urlRef}` : '')).then((r) => 
   ACCOUNT = { accounts: !!me.accounts, user: me.user ?? null, refCode: me.refCode ?? '' };
   $('#btn-account').hidden = !ACCOUNT.accounts; showAdmin();
   $('#veil-login').hidden = !ACCOUNT.accounts || !!ACCOUNT.user;
+  if (ACCOUNT.user) import('./gift.js').then((m) => m.showGifts()).catch(() => {}); // quà từ Admin: màn chúc mừng, đóng xong mới đánh dấu đã xem
   // Đăng nhập trên thiết bị mới: lấy lại cuộc trò chuyện đã lưu nếu người dùng đã đồng ý.
   if (ACCOUNT.user?.consentMemory && await restoreFromServer()) { offerResume(); enter(true); } // thiết bị mới đã đăng nhập sẵn: vào thẳng đúng phiên (không await: enter chờ chính promise này)
 }).catch(() => {});

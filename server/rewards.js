@@ -5,7 +5,7 @@
 const DAY = 86_400_000, GAP_MAX = 5 * 60_000;
 export const vnDayKey = (t) => new Date(t + 7 * 3_600_000).toISOString().slice(0, 10);
 
-export function createRewards({ db, env = process.env, now = () => Date.now() }) {
+export function createRewards({ db, env = process.env, now = () => Date.now(), giftMin = () => 0 }) {
   const cfg = {
     baseMin: Number.isFinite(+env.HUYENMY_DAILY_MINUTES) && env.HUYENMY_DAILY_MINUTES !== undefined && env.HUYENMY_DAILY_MINUTES !== '' ? +env.HUYENMY_DAILY_MINUTES : 30,
     perMin: +env.HUYENMY_REF_BONUS_MINUTES || 30,
@@ -69,8 +69,8 @@ export function createRewards({ db, env = process.env, now = () => Date.now() })
   function allowance(userId, role = 'user', t = now()) {
     const refs = referralsOf(userId), ok = refs.filter((r) => r.qualified).length, counted = Math.min(ok, cfg.maxRefs);
     const unlimited = role === 'admin' || cfg.baseMin === 0;
-    const bonusMin = counted * cfg.perMin, totalMin = cfg.baseMin + bonusMin, usedMin = Math.floor(usedMs(userId, t) / 60_000);
-    return { unlimited, baseMin: cfg.baseMin, bonusMin, totalMin, usedMin, leftMin: unlimited ? null : Math.max(0, totalMin - Math.ceil(usedMs(userId, t) / 60_000)), invited: refs.length, qualified: ok, maxRefs: cfg.maxRefs, perMin: cfg.perMin, qualifyMin: cfg.qualifyMin, refs };
+    const gift = giftMin(userId, t), bonusMin = counted * cfg.perMin, totalMin = cfg.baseMin + bonusMin + gift, usedMin = Math.floor(usedMs(userId, t) / 60_000);
+    return { unlimited, baseMin: cfg.baseMin, bonusMin, giftMin: gift, totalMin, usedMin, leftMin: unlimited ? null : Math.max(0, totalMin - Math.ceil(usedMs(userId, t) / 60_000)), invited: refs.length, qualified: ok, maxRefs: cfg.maxRefs, perMin: cfg.perMin, qualifyMin: cfg.qualifyMin, refs };
   }
   const exhausted = (userId, role, t = now()) => { const a = allowance(userId, role, t); return !a.unlimited && usedMs(userId, t) >= a.totalMin * 60_000 ? a : null; };
   const forget = (userId) => { db.prepare('DELETE FROM usage_day WHERE user_id = ?').run(userId); db.prepare('DELETE FROM referrals WHERE referrer_id = ?').run(userId); }; // người được giới thiệu xóa tài khoản: lượt đã đạt vẫn giữ cho người giới thiệu (chỉ còn mã số, không còn danh tính)
