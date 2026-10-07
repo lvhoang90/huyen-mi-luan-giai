@@ -110,7 +110,7 @@ function growthTab(m) {
     ${compareBlock(m.compare)}${upgradeBlock(m.upgrade)}
     <div class="grid2"><section class="panel"><h2>Theo nhóm tuổi</h2>${segList(m.segments.age)}</section><section class="panel"><h2>Theo lĩnh vực làm việc</h2>${segList(m.segments.field)}</section></div>
     <div class="grid2"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${barList(m.startChoices.map((x) => ({ label: x.name, value: x.n })), { tone: 's2', empty: 'Chưa có dữ liệu.' })}</section>
-      <section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}). Mã ref theo từng kênh.</p>${barList(m.growth.referrals.map((x) => ({ label: x.ref, value: x.n })), { tone: 's5', empty: 'Chưa có lượt giới thiệu.' })}</section></div>`;
+      <section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}). Mã ref theo từng kênh.</p>${barList(m.growth.referrals.map((x) => ({ label: x.ref, value: x.n })), { tone: 's5', empty: 'Chưa có lượt giới thiệu.' })}</section></div>${refBlock(m.refTable)}`;
 }
 
 function qualityTab(m) {
@@ -151,10 +151,36 @@ const methodTab = () => `<section class="panel"><h2>Phương pháp và quyền r
       <p class="note"><b>Giới hạn.</b> Từ điển cảm xúc tiếng Việt chưa được kiểm định; nhóm người thử còn nhỏ và tự chọn nên không đại diện cho cộng đồng; các so sánh trước-sau không loại trừ được yếu tố khác (hôm đó người dùng vốn đang vui hay buồn). Không dùng số liệu này để gán nhãn hay chẩn đoán từng người.</p>
       <p class="note"><b>Lưu trữ và xóa.</b> Nội dung trò chuyện chỉ được lưu khi người dùng đã đăng nhập và đồng ý, mã hóa nếu đặt <code>HUYENMY_DATA_KEY</code>. Khi người dùng xóa tài khoản, sự kiện, chỉ số lượt và liên kết của họ bị xóa theo. Mã người trong tệp CSV từng lượt là mã băm một chiều; đặt <code>HUYENMY_PEPPER</code> cố định để mã không đổi sau mỗi lần khởi động lại.</p></section>`;
 
+const REF_KIND = { member: 'Bạn bè giới thiệu', channel: 'Kênh' };
+/** Theo dõi mã giới thiệu: mỗi dòng một mã ?ref=, phễu từ lượt vào tới người đã trò chuyện đủ giờ. Chỉ số lượng, không có email. */
+function refBlock(t) {
+  const rows = t?.rows ?? [], tot = t?.totals ?? {};
+  const body = rows.map((r) => `<tr><td><code>${esc(r.code)}</code></td><td>${esc(REF_KIND[r.kind])}${r.memberId ? ` <span class="m">(tài khoản #${esc(r.memberId)})</span>` : ''}</td><td class="num">${nf.format(r.visitors)}</td><td class="num">${nf.format(r.chatted)}</td><td class="num">${nf.format(r.signups)}</td><td class="num">${nf.format(r.qualified)}</td><td class="num">${r.conv == null ? '–' : r.conv + '%'}</td><td class="num"><button type="button" class="btn" data-refcopy="${esc(r.code)}">Chép liên kết</button></td></tr>`).join('');
+  return `<section class="panel" id="refpanel"><h2>Theo dõi mã giới thiệu (ref)</h2>
+    <p class="sub">Mỗi liên kết dạng <code>/?ref=MÃ</code>. Mã 8 ký tự là của một thành viên (bạn bè mời nhau); mã do bạn đặt là kênh (ví dụ nhóm Zalo, bài Facebook) để biết kênh nào đem người tới. Phễu: vào trang, đã trò chuyện, đăng ký email, bạn đã trò chuyện đủ giờ (chỉ tính với mã thành viên). Chỉ có số lượng, không có email.</p>
+    <div class="row-actions"><input id="ref-new" type="text" maxlength="30" placeholder="Tên kênh, ví dụ: zalo-nhom-tarot" aria-label="Tên kênh mới" style="min-width:240px;padding:7px 10px;border:1px solid var(--axis);border-radius:8px;background:var(--surface);color:inherit"><button type="button" class="btn" id="ref-make">Tạo liên kết kênh</button><button type="button" class="btn" id="ref-csv">Tải CSV</button><span id="ref-out" class="m" role="status"></span></div>
+    <p class="sub">Tổng trong kỳ: ${nf.format(tot.visitors ?? 0)} lượt vào, ${nf.format(tot.chatted ?? 0)} đã trò chuyện, ${nf.format(tot.signups ?? 0)} đăng ký (${nf.format(tot.member ?? 0)} qua bạn bè, ${nf.format(tot.channel ?? 0)} qua kênh), ${nf.format(tot.qualified ?? 0)} bạn đã trò chuyện đủ giờ.</p>
+    <div class="scroll"><table><thead><tr><th>Mã</th><th>Loại</th><th class="num">Vào trang</th><th class="num">Đã trò chuyện</th><th class="num">Đăng ký</th><th class="num">Đạt</th><th class="num">Tỉ lệ đăng ký</th><th></th></tr></thead><tbody>${body || '<tr><td colspan="8" class="m">Chưa có lượt vào nào qua liên kết có mã. Tạo liên kết kênh ở trên rồi đăng lên nơi bạn muốn thử.</td></tr>'}</tbody></table></div></section>`;
+}
+const slugRef = (v) => String(v ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20);
+async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch { return false; } }
+function wireRef(host) {
+  const out = host.querySelector('#ref-out'); if (!out) return;
+  const say = (t) => { out.textContent = t; };
+  host.querySelector('#ref-make').onclick = async () => {
+    const code = slugRef(host.querySelector('#ref-new').value);
+    if (code.length < 2) return say('Đặt tên kênh từ 2 ký tự trở lên (chữ, số, dấu gạch).');
+    const link = `${location.origin}/?ref=${code}`;
+    say((await copyText(link)) ? `Đã chép: ${link}` : link);
+  };
+  host.querySelectorAll('[data-refcopy]').forEach((b) => (b.onclick = async () => { const link = `${location.origin}/?ref=${b.dataset.refcopy}`; say((await copyText(link)) ? `Đã chép: ${link}` : link); }));
+  host.querySelector('#ref-csv').onclick = () => download('huyenmy-ref.csv', toCsv([{ key: 'code', label: 'Mã' }, { key: 'kind', label: 'Loại' }, { key: 'visitors', label: 'Vào trang' }, { key: 'chatted', label: 'Đã trò chuyện' }, { key: 'signups', label: 'Đăng ký' }, { key: 'qualified', label: 'Đạt' }, { key: 'conv', label: 'Tỉ lệ đăng ký %' }], (data.refTable?.rows ?? []).map((r) => ({ ...r, kind: REF_KIND[r.kind] }))));
+}
+
 async function paintTab(tab) {
   const host = document.getElementById('tabbody'); if (!host) return;
   if (tab === 'tong-quan') host.innerHTML = overviewTab(data);
-  else if (tab === 'tang-truong') host.innerHTML = growthTab(data);
+  else if (tab === 'tang-truong') { host.innerHTML = growthTab(data); wireRef(host); }
   else if (tab === 'chat-luong') host.innerHTML = qualityTab(data);
   else if (tab === 'gop-y') await loadFeedback(host);
   else if (tab === 'phuong-phap') host.innerHTML = methodTab();

@@ -10,6 +10,7 @@ import { listParticipants, participantDetail, computeJourney, exportTurns, compu
 import { assessTurn } from './quality.js';
 import { newToken } from './reminders.js';
 import { createRewards } from './rewards.js';
+import { refFunnelOf } from './refs.js';
 
 const DAY = 86_400_000;
 export const ANON_LIMIT_MS = 32 * 60_000; // 30 phút + 2 phút châm chước
@@ -113,7 +114,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       const sh = (name) => db.prepare('SELECT COUNT(*) c FROM events WHERE actor = ? AND name = ?').get(id.actor, name).c;
       const row = db.prepare('SELECT created_at FROM users WHERE id = ?').get(id.user.id);
       return json(res, 200, { user: { email: id.user.email, since: row?.created_at ?? null, role: id.user.role, consentMemory: id.user.consentMemory, remind: id.user.remind }, refCode: refCodeOf(id), time: { unlimited: a.unlimited, baseMin: a.baseMin, bonusMin: a.bonusMin, totalMin: a.totalMin, usedMin: a.usedMin, leftMin: a.leftMin },
-        referral: { perMin: a.perMin, qualifyMin: a.qualifyMin, maxRefs: a.maxRefs, invited: a.invited, qualified: a.qualified, list: a.refs.map(({ n, at, qualified, chatMin }) => ({ n, at, qualified, chatMin })) },
+        referral: { funnel: refFunnelOf(db, refCodeOf(id)), perMin: a.perMin, qualifyMin: a.qualifyMin, maxRefs: a.maxRefs, invited: a.invited, qualified: a.qualified, list: a.refs.map(({ n, at, qualified, chatMin }) => ({ n, at, qualified, chatMin })) },
         shares: { tarot: sh('tarot_share'), chart: sh('share_card') } }), true;
     }
     if (pathname === '/api/auth/request' && method === 'POST') {

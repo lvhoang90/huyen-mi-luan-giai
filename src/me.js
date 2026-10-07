@@ -71,6 +71,7 @@ function inviteCard(d) {
     <p>Mỗi người bạn đăng ký bằng email qua liên kết của bạn và trò chuyện với My trên <b>${r.qualifyMin} phút</b>, bạn được thêm <b>${r.perMin} phút mỗi ngày</b>. Cộng dồn, tối đa ${r.maxRefs} người bạn.</p>
     <div class="me-link"><input id="me-link" readonly value="${esc(link)}" aria-label="Liên kết giới thiệu của bạn"><button type="button" class="btn primary" id="me-copy">Sao chép</button><button type="button" class="btn" id="me-share">Chia sẻ</button></div>
     <div class="me-slots" aria-label="${r.qualified} trên ${r.maxRefs} người bạn đã đạt">${slots}</div>
+    ${r.funnel ? `<ul class="me-funnel" aria-label="Liên kết của bạn đang đi tới đâu"><li><b>${r.funnel.visitors}</b><span>người đã mở liên kết</span></li><li><b>${r.funnel.chatted}</b><span>đã trò chuyện với My</span></li><li><b>${r.funnel.signups}</b><span>đã đăng ký</span></li><li><b>${r.qualified}</b><span>đã tặng bạn giờ</span></li></ul>` : ''}
     <p class="sub">${r.invited ? `${r.qualified} đã đạt, ${r.invited - r.qualified} đang trên đường.` : 'Chưa có người bạn nào đăng ký qua liên kết của bạn.'} Bạn chỉ thấy số thứ tự, không thấy email của họ.</p>
     ${rows ? `<ul class="me-friends">${rows}</ul>` : ''}</section>`;
 }
