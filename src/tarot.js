@@ -33,7 +33,10 @@ const getStreak = () => { try { return JSON.parse(localStorage.getItem(STREAK_KE
 const setDaily = (id) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ day: vnDay(), id })); localStorage.setItem('huyenmy.tarotnudge', JSON.stringify({ last: vnDay(), skips: 0 })); localStorage.setItem(STREAK_KEY, JSON.stringify(nextStreak(getStreak(), vnDay()))); } catch {} };
 
 const HIST_KEY = 'huyenmy.tarothist';
-const addHist = (mode, ids) => { try { const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; h.unshift({ d: vnDay(), m: mode, ids }); localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); } catch {} };
+const COL_KEY = 'huyenmy.tarotcol';
+const getCol = () => { try { const a = JSON.parse(localStorage.getItem(COL_KEY)); if (Array.isArray(a)) return a; } catch {} try { return [...new Set((JSON.parse(localStorage.getItem(HIST_KEY)) ?? []).flatMap((h) => h.ids))]; } catch { return []; } };
+const addCol = (ids) => { try { localStorage.setItem(COL_KEY, JSON.stringify([...new Set([...getCol(), ...ids])])); } catch {} };
+const addHist = (mode, ids) => { addCol(ids); try { const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; h.unshift({ d: vnDay(), m: mode, ids }); localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); } catch {} };
 const HINT = { daily: 'Mỗi ngày một lá. Bạn chọn điều mình đang nghĩ tới, nhìn vào bộ bài và chạm vào lá đang gọi mình.', three: 'Trải ba lá cho một điều bạn đang băn khoăn: chọn ba lá từ bộ bài úp, bạn không cần nói điều đó với ai.', choice: 'Khi bạn đang đứng giữa hai lối đi: chọn năm lá, mỗi lá là một góc nhìn để bạn nghe rõ điều mình muốn. Lá bài không chọn thay bạn.', love: 'Cho chuyện lòng đang nặng: chọn bảy lá để soi lại mình và cách bạn ở trong mối quan hệ. Không đoán tâm ý ai.' };
 const NUM = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy'], needOf = () => SPREADS[mode]?.n ?? 1;
 // nhãn vị trí: ba lá giữ câu đầy đủ, năm và bảy lá dùng nhãn ngắn cho vừa chỗ
@@ -240,7 +243,7 @@ function reveal(again) {
   } else {
     const ids = drawCards(needOf()); addHist(mode, ids); track('tarot_draw', { mode: 'three', spread: mode, id: ids[0] }); show(ids, { topicKey: topic }); // mọi kiểu nhiều lá vẫn tính chung là 'three' trong số liệu, kèm spread để tách riêng
   }
-  refreshIdle();
+  refreshIdle(); setTimeout(() => { try { renderCollection(); } catch {} }, 2500);
 }
 for (const b of document.querySelectorAll('.tr-modes button')) b.onclick = () => {
   mode = b.dataset.mode; R.hidden = true;
@@ -250,15 +253,21 @@ for (const b of document.querySelectorAll('.tr-modes button')) b.onclick = () =>
 $('#tr-go').onclick = startRitual;
 refreshIdle();
 
-// cả bộ: tranh chỉ được vẽ khi lá cuộn tới gần màn hình (mỗi lá có nhân vật nên khá nặng)
+// Bộ sưu tập: chỉ hiện những lá bạn đã bốc được. Các lá còn lại giữ bí mật, để mỗi lần bốc là một lần khám phá.
 const grid = $('#tr-grid');
-const SECTIONS = [['Ẩn Chính', 'hành trình lớn của đời người', (c) => !c.minor], ...Object.entries(SUITS).map(([k, s]) => [`Bộ ${s.vi}`, `${s.element}: ${s.theme}`, (c) => c.suit === k])];
-const tile = (c) => `<figure class="tcard" data-id="${c.id}" tabindex="0" role="button" aria-label="Đọc lá ${esc(c.name)}"><div class="tc-inner"><div class="tc-face"><div class="tc-top">${c.roman}</div><div class="tc-art"></div><div class="tc-name"><b>${esc(c.name)}</b><i>${esc(c.en)}</i></div></div><div class="tc-back"></div></div></figure>`;
-grid.innerHTML = SECTIONS.map(([h, sub, pick]) => `<h3 class="tr-sec">${esc(h)} <small>${esc(sub)}</small></h3><div class="tr-sgrid">${CARDS.filter(pick).map(tile).join('')}</div>`).join('');
+const tile = (c) => `<figure class="tcard" data-id="${c.id}" tabindex="0" role="button" aria-label="Đọc lại lá ${esc(c.name)}"><div class="tc-inner"><div class="tc-face"><div class="tc-top">${c.roman}</div><div class="tc-art"></div><div class="tc-name"><b>${esc(c.name)}</b><i>${esc(c.en)}</i></div></div><div class="tc-back">${cardBackSvg()}</div></div></figure>`;
 const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { const el = e.target, c = cardById(el.dataset.id); el.querySelector('.tc-art').innerHTML = cardArtSvg(c, `g${c.id}`); io.unobserve(el); } }, { rootMargin: '300px' });
-for (const el of grid.querySelectorAll('.tcard')) {
-  io.observe(el);
-  const open = () => { track('tarot_browse', { id: +el.dataset.id }); show([+el.dataset.id], { flipDelay: 150, via: 'browse' }); };
-  el.onclick = open; el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+function renderCollection() {
+  const have = getCol().map(cardById).filter(Boolean), n = have.length, total = CARDS.length;
+  $('#tr-col-n').textContent = n ? `${n}/${total} lá` : '';
+  $('#tr-col-bar').style.setProperty('--p', `${Math.round((n / total) * 100)}%`);
+  $('#tr-col-sub').textContent = n ? 'Chạm vào một lá để đọc lại. Những lá còn lại vẫn đang chờ bạn bốc.' : 'Mỗi lá bạn bốc được sẽ nằm lại ở đây. Những lá chưa gặp vẫn là bí mật.';
+  grid.innerHTML = n ? `<div class="tr-sgrid">${have.sort((x, y) => x.id - y.id).map(tile).join('')}</div>` : `<div class="tr-lock" aria-hidden="true">${[0, 1, 2].map(() => `<div class="tcard back"><div class="tc-inner"><div class="tc-back">${cardBackSvg()}</div></div></div>`).join('')}</div>`;
+  for (const el of grid.querySelectorAll('.tcard[data-id]')) {
+    io.observe(el);
+    const open = () => { track('tarot_browse', { id: +el.dataset.id }); show([+el.dataset.id], { flipDelay: 150, via: 'browse' }); };
+    el.onclick = open; el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } };
+  }
 }
+renderCollection();
 const deep = new URLSearchParams(location.search).get('c'); if (deep != null && cardById(deep)) show([+deep], { flipDelay: 150, via: 'link' });

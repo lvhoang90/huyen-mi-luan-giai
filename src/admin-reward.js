@@ -17,13 +17,13 @@ export async function loadRewards(host) {
 const nameOf = (x) => state.names[x.id] ?? x.masked;
 function rankTable(r) {
   const head = r.criteria.map((c) => `<th class="num" title="${esc(c.hint)}">${esc(c.label)}<br><small>/${c.w}</small></th>`).join('');
-  const rows = r.top.map((x) => `<tr><td><b>#${x.rank}</b></td><td><input type="text" class="nm" data-id="${x.id}" maxlength="30" value="${esc(nameOf(x))}" aria-label="Tên hiển thị hạng ${x.rank}"><div class="m">${esc(x.email)}${x.gifted ? ` · đã được tặng ${x.gifted} lần` : ''}</div></td><td class="num"><b>${x.score}</b></td>${x.parts.map((p) => `<td class="num">${p.pts}</td>`).join('')}<td class="m">${x.days} ngày, ${x.minutes} phút, ${x.feedbackN} góp ý, ${x.reports} báo cáo, ${x.qualified} bạn mời đạt, ${x.shares} chia sẻ</td></tr>`).join('');
-  return `<div class="scroll"><table><thead><tr><th>Hạng</th><th>Tên hiển thị (sửa được)</th><th class="num">Điểm</th>${head}<th>Chi tiết</th></tr></thead><tbody>${rows || '<tr><td colspan="12" class="muted">Chưa có tester nào đủ điều kiện (cần trò chuyện từ 3 phút hoặc có góp ý).</td></tr>'}</tbody></table></div>`;
+  const rows = r.top.map((x) => `<tr><td><b>#${x.rank}</b></td><td><input type="text" class="nm" data-id="${x.id}" maxlength="30" value="${esc(nameOf(x))}" aria-label="Tên hiển thị hạng ${x.rank}"><div class="m">${esc(x.email)}${x.gifted ? ` · đã được tặng ${x.gifted} lần` : ''}</div></td><td class="num"><b>${x.score}</b></td>${x.parts.map((p) => `<td class="num">${p.pts}</td>`).join('')}<td class="m det">${x.days} ngày, ${x.minutes} phút, ${x.feedbackN} góp ý, ${x.reports} báo cáo, ${x.qualified} bạn mời đạt, ${x.shares} chia sẻ</td></tr>`).join('');
+  return `<div class="scroll"><table class="wide"><thead><tr><th>Hạng</th><th>Tên hiển thị (sửa được)</th><th class="num">Điểm</th>${head}<th class="det">Chi tiết</th></tr></thead><tbody>${rows || '<tr><td colspan="12" class="muted">Chưa có tester nào đủ điều kiện (cần trò chuyện từ 3 phút hoặc có góp ý).</td></tr>'}</tbody></table></div>`;
 }
 const statusOf = (g, t = Date.now()) => (g.revokedAt ? 'Đã thu hồi' : g.expiresAt && g.expiresAt <= t ? 'Hết hạn' : g.seenAt ? 'Đã xem' : 'Chưa xem');
 function histTable(list) {
   const rows = list.map((g) => `<tr><td>${fmtDate(g.createdAt)}</td><td>${esc(g.email ?? '(đã xóa)')}</td><td class="num">+${g.minutes}</td><td>${g.days ? `${g.days} ngày (đến ${fmtDate(g.expiresAt)})` : 'không hết hạn'}</td><td>${g.rank ? '#' + g.rank : ''} ${esc(g.title ?? '')}</td><td>${statusOf(g)}</td><td>${g.revokedAt || (g.expiresAt && g.expiresAt <= Date.now()) ? '' : `<button type="button" class="btn" data-revoke="${g.id}">Thu hồi</button>`}</td></tr>`).join('');
-  return `<div class="scroll"><table><thead><tr><th>Ngày tặng</th><th>Người nhận</th><th class="num">Phút/ngày</th><th>Thời hạn</th><th>Lời</th><th>Trạng thái</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="muted">Chưa tặng quà nào.</td></tr>'}</tbody></table></div>`;
+  return `<div class="scroll"><table class="wide"><thead><tr><th>Ngày tặng</th><th>Người nhận</th><th class="num">Phút/ngày</th><th>Thời hạn</th><th>Lời</th><th>Trạng thái</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="7" class="muted">Chưa tặng quà nào.</td></tr>'}</tbody></table></div>`;
 }
 
 function paint(host, r, grants) {

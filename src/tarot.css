@@ -134,3 +134,8 @@
 .fan.grid.many { --cw: min(23vw, 106px); gap: 24px 16px; }
 .fan.grid.many .fan-card.picked { transform: translateY(-4px) scale(1.04); }
 @media (min-width: 641px) { .fan.grid.many { --cw: 104px; gap: 24px 18px; } }
+
+/* bộ sưu tập: chỉ lá đã bốc */
+.tr-deck h2 small { font-family: var(--sans); font-size: 14px; color: #f3d98f; margin-left: 8px; letter-spacing: .04em; }
+.tr-colbar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .1); overflow: hidden; margin: 4px 0 10px; } .tr-colbar i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, #e2c27d, #f6e2a4); border-radius: 6px; }
+.tr-lock { display: flex; gap: 12px; justify-content: center; margin-top: 12px; opacity: .85; } .tr-lock .tcard { --w: min(26vw, 110px); }

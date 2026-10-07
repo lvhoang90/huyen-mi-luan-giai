@@ -645,3 +645,10 @@ test('ô trò chuyện không còn nút micro riêng, chỉ nhắc dùng micro b
   assert.ok(!/attachVoice|voiceSupported/.test(m) && !existsSync(new URL('../src/voice.js', import.meta.url)));
   assert.match(m, /micro trên bàn phím/);
 });
+
+test('trang Tarot không phơi cả bộ bài: chỉ có bộ sưu tập những lá đã bốc', async () => {
+  const { readFileSync } = await import('node:fs');
+  const h = readFileSync(new URL('../tarot.html', import.meta.url), 'utf8'), j = readFileSync(new URL('../src/tarot.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(h, /Cả bộ 78 lá/); assert.match(h, /Bộ sưu tập của bạn/);
+  assert.doesNotMatch(j, /CARDS\.filter\(pick\)/); assert.match(j, /huyenmy\.tarotcol/);
+});
