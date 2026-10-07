@@ -1,14 +1,15 @@
 import './admin.css';
-import { esc, nf, fx, pct, ci, download, toCsv } from './admin-ui.js';
+import { esc, nf, fx, pct, ci, download, toCsv, FIELD } from './admin-ui.js';
+import { loadRewards } from './admin-reward.js';
 import { renderJourney, wireJourney } from './admin-journey.js';
 import { loadPeople } from './admin-people.js';
 import { tarotBlock } from './admin-tarot.js';
-import { initViz, tile, ring, barList, funnelChart, areaChart, cohortHeat, npsBar, agreeBar, feelBar } from './admin-viz.js';
+import { initViz, tile, ring, donut, barList, funnelChart, areaChart, cohortHeat, npsBar, agreeBar, feelBar } from './admin-viz.js';
 
 const app = document.getElementById('app');
 const SEV = { critical: ['▲', 'Nghiêm trọng'], warn: ['●', 'Cần xem'], info: ['○', 'Gợi ý'] };
 let days = +(new URLSearchParams(location.search).get('days')) || 14, data = null, journey = null;
-const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Cảm xúc'], ['nguoi', 'Người dùng'], ['chi-phi', 'Chi phí AI'], ['tang-truong', 'Tăng trưởng'], ['chat-luong', 'Chất lượng'], ['gop-y', 'Góp ý'], ['phuong-phap', 'Phương pháp']];
+const TABS = [['tong-quan', 'Tổng quan'], ['cam-xuc', 'Cảm xúc'], ['nguoi', 'Người dùng'], ['chi-phi', 'Chi phí AI'], ['tang-truong', 'Tăng trưởng'], ['chat-luong', 'Chất lượng'], ['thuong', 'Thưởng tester'], ['gop-y', 'Góp ý'], ['phuong-phap', 'Phương pháp']];
 const tabNow = () => { const h = location.hash.replace(/^#\/?/, ''); return TABS.some(([k]) => k === h) ? h : 'tong-quan'; };
 
 async function load() {
@@ -94,23 +95,53 @@ const upgradeBlock = (rows) => `<section class="panel"><h2>Thử nút nâng cấ
     <div class="rings one">${ring(r.opens ? r.clickRate?.p : null, { label: 'Quan tâm / mở', sub: r.opens >= 30 ? wl(r.clickRate) : `n=${r.opens}, chưa đủ 30`, tone: 's2', w: r.clickRate })}</div>
     <h3>Cảm nhận giá</h3>${feelBar(r.feel)}</article>`).join('')}</div>` : '<p class="muted">Chưa có dữ liệu. Bật bằng UPGRADE_TEST=on trên máy chủ.</p>'}</section>`;
 
+const G_SECS = [['giu-chan', 'Giữ chân và hài lòng'], ['tinh-nang', 'Tính năng'], ['nguoi-dung', 'Người dùng'], ['gioi-thieu', 'Giới thiệu và thưởng'], ['doanh-thu', 'Doanh thu']];
+let gSec = (() => { try { const v = sessionStorage.getItem('hm_gsec'); return G_SECS.some(([k]) => k === v) ? v : 'giu-chan'; } catch { return 'giu-chan'; } })();
+
+/** Tab Tăng trưởng chia thành năm mục, mỗi lần chỉ mở một mục để trang ngắn và dễ đọc. */
 function growthTab(m) {
   const r = m.satisfaction.resonance, rt = m.retention, e = m.explore, t = m.thoivan, tf = m.satisfaction.timeFit;
-  return `<section class="panel"><h2>Giữ chân</h2><p class="sub">Người mới quay lại đúng ngày thứ 1, 3, 7 sau lần đầu.</p>
+  const secs = {
+    'giu-chan': () => `<section class="panel"><h2>Giữ chân</h2><p class="sub">Người mới quay lại đúng ngày thứ 1, 3, 7 sau lần đầu.</p>
       <div class="rings">${ring(rt.d1?.p, { label: 'Sau 1 ngày', sub: wl(rt.d1), tone: 's3', w: rt.d1 })}${ring(rt.d3?.p, { label: 'Sau 3 ngày', sub: wl(rt.d3), tone: 's3', w: rt.d3 })}${ring(rt.d7?.p, { label: 'Sau 7 ngày', sub: wl(rt.d7), tone: 's3', w: rt.d7 })}</div>
       ${cohortHeat(rt.cohorts)}</section>
     <section class="panel"><h2>Hài lòng và độ đúng</h2><p class="sub">Đánh giá sau luận giải và điểm giới thiệu cuối buổi.</p>
       <div class="rings">${ring(r.good?.p, { label: 'My nói đúng', sub: 'gần đúng trở lên', tone: 's1', w: r.good })}${ring(r.strong?.p, { label: 'Rất đúng', sub: wl(r.strong), tone: 's1', w: r.strong })}${ring(tf.n ? tf.good?.p : null, { label: 'Thời vận khớp', sub: tf.n ? `${tf.n} câu trả lời` : 'chưa có ai trả lời', tone: 's7', w: tf.good })}${ring(m.intro?.skipFirstVisit?.p, { label: 'Bỏ qua mở đầu', sub: 'lần đầu, trên 40% thì rút ngắn', tone: 's8', w: m.intro?.skipFirstVisit })}</div>
       <h3>Độ đúng người dùng đánh giá</h3>${agreeBar(r.dist)}<h3>Điểm giới thiệu</h3>${npsBar(m.satisfaction.nps)}
-      <p class="note">Hiệu ứng Barnum: lời nói chung chung dễ bị thấy là "đúng với mình". Đừng dùng điểm này một mình để kết luận My chính xác; đọc cùng tỉ lệ "bám lời người dùng" ở tab Chất lượng và phản hồi tự do.</p></section>
-    <div class="grid2"><section class="panel"><h2>Trang Khám phá</h2><p class="sub">Xem lá số không cần đăng nhập. Số người, không trùng.</p>${barList([{ label: 'Vào trang', value: e.visitors }, { label: 'Xem một lá số', value: e.viewedChart }, { label: 'Chọn hồ sơ mẫu', value: e.pickedSample }, { label: 'Bấm sang trò chuyện với My', value: e.toChat }, { label: 'Đã đến ứng dụng với hồ sơ', value: e.arrived }, { label: 'Bấm vào Zalo', value: e.zalo }], { tone: 's3', empty: '' })}</section>
-      <section class="panel"><h2>12 cung và thời vận</h2><p class="sub">Số người, không trùng.</p>${barList([{ label: 'Mở tab 12 cung hoặc Thời vận', value: t.openedTab }, { label: 'Xem chi tiết một tháng', value: t.monthViews }, { label: 'Bấm hỏi My từ lá số', value: t.asked }, { label: 'Trả lời năm đã qua có khớp không', value: t.rated }], { tone: 's7', empty: '' })}</section></div>
-    ${tarotBlock(m.tarot)}
-    <section class="panel"><h2>Giới thiệu bạn bè</h2><p class="sub">Người mở "Góc của tôi" và các lượt giới thiệu. Một lượt đạt là bạn đã đăng ký bằng email và trò chuyện đủ số phút quy định.</p>${barList([{ label: 'Mở Góc của tôi', value: m.referral.opened }, { label: 'Sao chép hoặc chia sẻ liên kết', value: m.referral.copied }, { label: 'Bạn được mời đã đăng ký', value: m.referral.invited }, { label: 'Lượt giới thiệu đạt', value: m.referral.qualified }, { label: 'Người nhận thêm giờ', value: m.referral.referrers }], { tone: 's3', empty: 'Chưa có dữ liệu.' })}<p class="sub">Từ trước đến nay: ${m.referral.totalInvited} bạn đã đăng ký qua liên kết, ${m.referral.totalQualified} lượt đạt.</p></section>
-    ${compareBlock(m.compare)}${upgradeBlock(m.upgrade)}
-    <div class="grid2"><section class="panel"><h2>Theo nhóm tuổi</h2>${segList(m.segments.age)}</section><section class="panel"><h2>Theo lĩnh vực làm việc</h2>${segList(m.segments.field)}</section></div>
-    <div class="grid2"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${barList(m.startChoices.map((x) => ({ label: x.name, value: x.n })), { tone: 's2', empty: 'Chưa có dữ liệu.' })}</section>
-      <section class="panel"><h2>Giới thiệu</h2><p class="sub">Chia sẻ thẻ: ${pct(m.growth.share)} (${ci(m.growth.share)}). Mã ref theo từng kênh.</p>${barList(m.growth.referrals.map((x) => ({ label: x.ref, value: x.n })), { tone: 's5', empty: 'Chưa có lượt giới thiệu.' })}</section></div>${refBlock(m.refTable)}`;
+      <p class="note">Hiệu ứng Barnum: lời nói chung chung dễ bị thấy là "đúng với mình". Đừng dùng điểm này một mình để kết luận My chính xác; đọc cùng tỉ lệ "bám lời người dùng" ở tab Chất lượng và phản hồi tự do.</p></section>`,
+    'tinh-nang': () => `<div class="grid2"><section class="panel"><h2>Trang Khám phá</h2><p class="sub">Xem lá số không cần đăng nhập. Số người, không trùng.</p>${barList([{ label: 'Vào trang', value: e.visitors }, { label: 'Xem một lá số', value: e.viewedChart }, { label: 'Chọn hồ sơ mẫu', value: e.pickedSample }, { label: 'Bấm sang trò chuyện với My', value: e.toChat }, { label: 'Đã đến ứng dụng với hồ sơ', value: e.arrived }, { label: 'Bấm vào Zalo', value: e.zalo }], { tone: 's3', empty: '' })}</section>
+      <section class="panel"><h2>12 cung và thời vận</h2><p class="sub">Số người, không trùng.</p>${barList([{ label: 'Mở tab 12 cung hoặc Thời vận', value: t.openedTab }, { label: 'Xem chi tiết một tháng', value: t.monthViews }, { label: 'Bấm hỏi My từ lá số', value: t.asked }, { label: 'Trả lời năm đã qua có khớp không', value: t.rated }], { tone: 's7', empty: '' })}</section></div>${tarotBlock(m.tarot)}`,
+    'nguoi-dung': () => peopleSection(m),
+    'gioi-thieu': () => referralSection(m),
+    'doanh-thu': () => `${compareBlock(m.compare)}${upgradeBlock(m.upgrade)}`,
+  };
+  const nav = `<nav class="subnav" aria-label="Các mục tăng trưởng">${G_SECS.map(([k, l]) => `<button type="button" data-gsec="${k}" aria-pressed="${k === gSec}">${esc(l)}</button>`).join('')}</nav>`;
+  return nav + secs[gSec]();
+}
+function wireGrowth(host) {
+  host.querySelectorAll('[data-gsec]').forEach((b) => (b.onclick = () => { gSec = b.dataset.gsec; try { sessionStorage.setItem('hm_gsec', gSec); } catch {} host.innerHTML = growthTab(data); wireGrowth(host); wireRef(host); host.scrollIntoView?.({ block: 'start' }); }));
+}
+
+/** Nhóm người dùng theo tuổi, lĩnh vực: phần chia của một tổng nên dùng biểu đồ tròn; chi tiết từng nhóm nằm trong mục mở rộng. */
+function peopleSection(m) {
+  const don = (rows, map = {}) => donut(rows.map((g) => ({ label: map[g.name] ?? (g.name === 'none' ? 'Chưa nói' : g.name), value: g.n })), { unit: 'người' });
+  return `<div class="grid2"><section class="panel"><h2>Theo nhóm tuổi</h2>${don(m.segments.age)}<details><summary>Chi tiết từng nhóm</summary>${segList(m.segments.age)}</details></section>
+    <section class="panel"><h2>Theo lĩnh vực làm việc</h2>${don(m.segments.field, FIELD)}<details><summary>Chi tiết từng nhóm</summary>${segList(m.segments.field)}</details></section></div>
+    <div class="grid2"><section class="panel"><h2>Gợi ý bắt đầu được chọn</h2>${donut(m.startChoices.map((x) => ({ label: x.name, value: x.n })), { unit: 'lượt' })}</section>
+      <section class="panel"><h2>Chia sẻ thẻ</h2><p class="sub">Tỉ lệ người đọc xong luận giải rồi chia sẻ thẻ.</p><div class="rings">${ring(m.growth.share?.p, { label: 'Chia sẻ thẻ', sub: ci(m.growth.share), tone: 's5', w: m.growth.share })}</div></section></div>`;
+}
+
+/** Giới thiệu và thưởng: chỉ số, nguồn đăng ký (biểu đồ tròn), phễu, thưởng phút cho thành viên tích cực, bảng theo mã. */
+function referralSection(m) {
+  const rf = m.referral, tt = m.refTable?.totals ?? {}, rw = m.refTable?.rewards, rows = m.refTable?.rows ?? [];
+  const tiles = `<div class="tiles">${tile({ label: 'Vào trang qua liên kết có mã', value: nf.format(tt.visitors ?? 0), tone: 's1' })}${tile({ label: 'Đăng ký qua liên kết', value: nf.format(tt.signups ?? 0), sub: `${nf.format(tt.member ?? 0)} qua bạn bè, ${nf.format(tt.channel ?? 0)} qua kênh`, tone: 's3' })}${tile({ label: 'Bạn trò chuyện đủ giờ', value: nf.format(rf.totalQualified ?? 0), sub: 'từ trước đến nay', tone: 's7' })}${tile({ label: 'Phút thưởng đang tặng', value: rw ? `${nf.format(rw.minPerDay)}` : '–', sub: rw ? `phút mỗi ngày, cho ${nf.format(rw.rewarded)} thành viên` : '', tone: 's4' })}</div>`;
+  const sources = donut(rows.filter((r) => r.signups > 0).map((r) => ({ label: r.kind === 'member' ? `Bạn bè (${r.code})` : `Kênh ${r.code}`, value: r.signups })), { unit: 'đăng ký', empty: 'Chưa có đăng ký nào qua liên kết có mã.' });
+  const funnel = barList([{ label: 'Mở Góc của tôi', value: rf.opened }, { label: 'Sao chép hoặc chia sẻ liên kết', value: rf.copied }, { label: 'Bạn được mời đã đăng ký', value: rf.invited }, { label: 'Lượt giới thiệu đạt', value: rf.qualified }, { label: 'Người nhận thêm giờ', value: rf.referrers }], { tone: 's3', empty: 'Chưa có dữ liệu.' });
+  const reward = rw ? `<p class="rwnote">Mỗi bạn được mời đăng ký và trò chuyện đủ <b>${rw.cfg.qualifyMin} phút</b> thì người mời được <b>+${rw.cfg.perMin} phút mỗi ngày</b>, cộng dồn, tối đa <b>${rw.cfg.maxRefs} bạn</b> (+${rw.cfg.perMin * rw.cfg.maxRefs} phút mỗi ngày). ${nf.format(rw.referrers)} thành viên đã mời bạn, ${nf.format(rw.rewarded)} đã được thưởng, ${nf.format(rw.capped)} đã chạm trần.</p>
+    <div class="scroll"><table><thead><tr><th>Thành viên</th><th class="num">Đã mời</th><th class="num">Đạt</th><th class="num">Thưởng mỗi ngày</th><th>Trạng thái</th></tr></thead><tbody>${rw.top.map((x) => `<tr><td>tài khoản #${esc(x.id)}</td><td class="num">${nf.format(x.invited)}</td><td class="num">${nf.format(x.qualified)}</td><td class="num">${x.minPerDay ? '+' + nf.format(x.minPerDay) + ' phút' : '–'}</td><td>${x.capped ? 'Đã chạm trần' : x.qualified ? 'Đang được thưởng' : 'Chờ bạn trò chuyện đủ giờ'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">Chưa có thành viên nào mời được bạn.</td></tr>'}</tbody></table></div>` : '<p class="muted">Chưa có dữ liệu thưởng.</p>';
+  return `${tiles}<div class="grid2"><section class="panel"><h2>Đăng ký đến từ đâu</h2><p class="sub">Bạn bè mời nhau và từng kênh bạn đặt mã.</p>${sources}</section>
+    <section class="panel"><h2>Hành trình giới thiệu</h2><p class="sub">Số người, trong kỳ đang xem.</p>${funnel}</section></div>
+    <section class="panel"><h2>Thưởng phút cho thành viên tích cực</h2>${reward}</section>${refBlock(m.refTable)}`;
 }
 
 function qualityTab(m) {
@@ -180,9 +211,10 @@ function wireRef(host) {
 async function paintTab(tab) {
   const host = document.getElementById('tabbody'); if (!host) return;
   if (tab === 'tong-quan') host.innerHTML = overviewTab(data);
-  else if (tab === 'tang-truong') { host.innerHTML = growthTab(data); wireRef(host); }
+  else if (tab === 'tang-truong') { host.innerHTML = growthTab(data); wireGrowth(host); wireRef(host); }
   else if (tab === 'chat-luong') host.innerHTML = qualityTab(data);
   else if (tab === 'gop-y') await loadFeedback(host);
+  else if (tab === 'thuong') await loadRewards(host);
   else if (tab === 'phuong-phap') host.innerHTML = methodTab();
   else if (tab === 'nguoi') await loadPeople(host, 0);
   else if (tab === 'chi-phi') await loadCost(host);

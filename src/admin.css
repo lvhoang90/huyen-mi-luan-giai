@@ -273,3 +273,21 @@ details.fw h2 { margin: 0; font-size: 14.5px; }
 .evl { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 6px; } .evl li { display: grid; grid-template-columns: 150px 60px 56px 1fr; gap: 8px; align-items: center; font-size: 13px; } .evl .el { font-weight: 500; } .evl .muted { font-size: 12px; }
 @media (max-width: 560px) { .evl li { grid-template-columns: 1fr 60px 52px; } .evl li .muted { grid-column: 1 / -1; } }
 .rowlink { cursor: pointer; } .rowlink:hover { background: rgba(120, 120, 120, .1); }
+
+/* biểu đồ tròn và thanh chọn mục */
+.dn { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin: 6px 0 4px; }
+.dn svg { width: 156px; height: 156px; flex: none; } .dn-s { transition: opacity .15s; } .dn-s:hover, .dn-s:focus { opacity: .8; outline: none; }
+.dn-t { font-size: 20px; font-weight: 650; fill: var(--ink); } .dn-u { font-size: 8.5px; fill: var(--muted); }
+.dn-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; flex: 1; min-width: 190px; }
+.dn-l li { display: flex; align-items: center; gap: 8px; font-size: 13px; } .dn-sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.dn-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .dn-l b { margin-left: auto; font-weight: 600; } .dn-l small { color: var(--muted); width: 38px; text-align: right; }
+.subnav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; padding: 2px 0; }
+.subnav button { border: 1px solid var(--axis); background: var(--surface); color: var(--ink2); padding: 7px 14px; border-radius: 999px; cursor: pointer; font-size: 13.5px; }
+.subnav button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.subnav button:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.rwnote { font-size: 13px; color: var(--ink2); margin: 8px 0 4px; line-height: 1.55; }
+
+/* tab thưởng tester */
+.rw-form { align-items: flex-end; gap: 12px; } .fld { display: grid; gap: 4px; font-size: 12.5px; color: var(--ink2); } .fld.wide { margin: 8px 0 12px; }
+.fld input, .fld textarea, input.nm { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 8px; padding: 7px 10px; }
+.fld textarea { width: 100%; resize: vertical; } input.nm { min-width: 170px; font-weight: 600; } .btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }

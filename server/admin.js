@@ -121,7 +121,7 @@ export function tarotStats(evs, actorsBy, { today, actorDays, from }) {
   return { journey, cta, feel, returnBy, habit };
 }
 
-export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
+export function computeMetrics(db, { days = 14, now = Date.now(), refCfg = null } = {}) {
   const from = now - days * DAY;
   const evs = db.prepare('SELECT ts, actor, sid, name, props FROM events WHERE ts >= ? ORDER BY ts').all(from).map((e) => ({ ...e, p: parse(e.props) }));
   const actorsBy = (names) => new Set(evs.filter((e) => names.includes(e.name)).map((e) => e.actor));
@@ -239,7 +239,7 @@ export function computeMetrics(db, { days = 14, now = Date.now() } = {}) {
     explore: { visitors: actorsBy(['sample_view']).size, viewedChart: actorsBy(['static_view']).size, pickedSample: actorsBy(['sample_pick']).size, toChat: new Set(evs.filter((e) => e.name === 'sample_cta' && e.p.via === 'chat').map((e) => e.actor)).size, arrived: actorsBy(['explore_handoff']).size, zalo: actorsBy(['zalo_click']).size },
     thoivan: { openedTab: new Set(evs.filter((e) => e.name === 'chart_tab' && ['thoivan', 'cung12'].includes(e.p.tab)).map((e) => e.actor)).size, monthViews: actorsBy(['time_month']).size, asked: actorsBy(['chart_ask']).size, rated: actorsBy(['resonance_time']).size },
     segments: { age: seg('ageBand'), field: seg('field') }, startChoices: dist('start_choice', 'chip'), pace: dist('pace_toggle', 'mode'),
-    refTable: refStats(db, { from }),
+    refTable: refStats(db, { from, cfg: refCfg }),
     growth: { share: pct(sharers, readers), referrals: [...refs].map(([k, v]) => ({ ref: k, n: v })).sort((a, b) => b.n - a.n).slice(0, 8) },
     accounts: { total: users.c ?? 0, newInRange: users.n ?? 0, memoryConsent: pct(users.m ?? 0, users.c ?? 0) },
   };

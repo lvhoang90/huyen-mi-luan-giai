@@ -1,0 +1,16 @@
+.gift-back { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 20px; background: radial-gradient(900px 600px at 50% 30%, #2a1c70, #0a0724 85%); animation: gift-in .35s ease both; overflow: auto; }
+.gift-fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.gift-card { position: relative; z-index: 2; width: min(440px, 100%); text-align: center; padding: 28px 24px 24px; border-radius: 26px; color: #f4efff;
+  background: linear-gradient(180deg, rgba(34, 26, 92, .96), rgba(14, 10, 46, .97)); border: 1px solid rgba(233, 207, 136, .6); box-shadow: 0 24px 80px rgba(0, 0, 0, .55), 0 0 60px rgba(233, 207, 136, .18); animation: gift-pop .5s cubic-bezier(.2, 1.2, .3, 1) both; }
+.gift-ic { font-size: 52px; line-height: 1; margin-bottom: 6px; filter: drop-shadow(0 6px 14px rgba(233, 207, 136, .45)); }
+.gift-card h2 { margin: 6px 0 4px; font-family: var(--serif, 'Cormorant Garamond', serif); font-weight: 600; font-size: 38px; line-height: 1.1; color: #e9cf88; }
+.gift-rank { display: inline-block; margin: 4px 0 2px; padding: 3px 14px; border-radius: 999px; font-size: 14px; color: #1a1240; background: linear-gradient(135deg, #f7e6b0, #d9b866); font-weight: 500; }
+.gift-msg { margin: 12px 0 14px; font-size: 16px; line-height: 1.6; color: #e4ddf7; }
+.gift-big { display: grid; gap: 2px; margin: 8px 0 12px; padding: 14px 10px; border-radius: 18px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(233, 207, 136, .3); }
+.gift-big b { font-size: 40px; line-height: 1.1; font-weight: 600; color: #fff; } .gift-big span { font-size: 15px; color: #cfc6ee; }
+.gift-from { margin: 0 0 16px; font-size: 13px; color: #b8aedf; }
+.gift-ok { appearance: none; border: 0; cursor: pointer; width: 100%; padding: 14px 18px; border-radius: 999px; font-size: 16px; font-weight: 500; color: #1a1240; background: linear-gradient(135deg, #f7e6b0, #d9b866); }
+.gift-ok:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+html.gift-open { overflow: hidden; }
+@keyframes gift-in { from { opacity: 0; } } @keyframes gift-pop { from { opacity: 0; transform: scale(.88) translateY(14px); } }
+@media (prefers-reduced-motion: reduce) { .gift-back, .gift-card { animation: none; } }

@@ -5,7 +5,7 @@
 // Chỉ có số lượng. Không trả email hay nội dung trò chuyện của ai.
 const safe = (db, sql, ...a) => { try { return db.prepare(sql).all(...a); } catch { return []; } };
 
-export function refStats(db, { from = 0, limit = 40 } = {}) {
+export function refStats(db, { from = 0, limit = 40, cfg = null } = {}) {
   const visits = safe(db, 'SELECT ref code, COUNT(*) visitors, SUM(first_chat IS NOT NULL) chatted, MAX(first_seen) lastSeen FROM anon WHERE ref IS NOT NULL AND first_seen >= ? GROUP BY ref', from);
   const signups = new Map(safe(db, "SELECT ref code, COUNT(*) n FROM users WHERE role = 'user' AND ref IS NOT NULL AND created_at >= ? GROUP BY ref", from).map((r) => [r.code, r.n]));
   const qual = new Map(safe(db, 'SELECT code, SUM(qualified_at IS NOT NULL) q FROM referrals WHERE created_at >= ? GROUP BY code', from).map((r) => [r.code, r.q ?? 0]));
@@ -17,8 +17,10 @@ export function refStats(db, { from = 0, limit = 40 } = {}) {
     kind: members.has(r.code) ? 'member' : 'channel', memberId: members.get(r.code) ?? null,
     conv: r.visitors ? Math.round(((signups.get(r.code) ?? 0) / r.visitors) * 1000) / 10 : null,
   })).sort((a, b) => b.signups - a.signups || b.visitors - a.visitors).slice(0, limit);
+  const out = { rows, totals: null, rewards: cfg ? rewardStats(db, cfg, members) : null };
   const sum = (k, kind) => rows.filter((r) => !kind || r.kind === kind).reduce((s, r) => s + r[k], 0);
-  return { rows, totals: { visitors: sum('visitors'), chatted: sum('chatted'), signups: sum('signups'), qualified: sum('qualified'), member: sum('signups', 'member'), channel: sum('signups', 'channel') } };
+  out.totals = { visitors: sum('visitors'), chatted: sum('chatted'), signups: sum('signups'), qualified: sum('qualified'), member: sum('signups', 'member'), channel: sum('signups', 'channel') };
+  return out;
 }
 
 /** Phễu của riêng một mã (cho thành viên xem liên kết của mình): số người vào, đã trò chuyện, đã đăng ký. Không có danh tính. */
@@ -30,3 +32,25 @@ export function refFunnelOf(db, code) {
 
 /** Chuẩn hóa mã kênh quản trị gõ vào thành mã dùng được trong ?ref=. */
 export const channelCode = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20);
+
+/**
+ * Thưởng phút cho người giới thiệu: mỗi bạn "đạt" (đã đăng ký và trò chuyện đủ qualifyMin phút) cộng perMin phút mỗi ngày,
+ * cộng dồn, tối đa maxRefs bạn. Tính trên toàn bộ lượt từ trước đến nay vì phần thưởng cộng dồn và không mất đi.
+ * Chỉ trả số thứ tự tài khoản và con số, không có email.
+ */
+export function rewardStats(db, cfg, members = new Map()) {
+  const rows = safe(db, 'SELECT code, referrer_id rid, qualified_at q FROM referrals');
+  const by = new Map();
+  for (const r of rows) {
+    const id = r.rid ?? members.get(r.code); if (!id) continue; // chưa xác định được người giới thiệu thì chưa tính
+    const e = by.get(id) ?? { id, invited: 0, qualified: 0 }; e.invited++; if (r.q) e.qualified++; by.set(id, e);
+  }
+  const list = [...by.values()].map((e) => ({ ...e, minPerDay: Math.min(e.qualified, cfg.maxRefs) * cfg.perMin, capped: e.qualified >= cfg.maxRefs }))
+    .sort((a, b) => b.minPerDay - a.minPerDay || b.invited - a.invited || a.id - b.id);
+  const rewarded = list.filter((e) => e.minPerDay > 0);
+  return {
+    cfg: { perMin: cfg.perMin, maxRefs: cfg.maxRefs, qualifyMin: cfg.qualifyMin },
+    referrers: list.length, rewarded: rewarded.length, capped: list.filter((e) => e.capped).length,
+    minPerDay: rewarded.reduce((s, e) => s + e.minPerDay, 0), top: list.slice(0, 15),
+  };
+}

@@ -11,6 +11,7 @@ import { assessTurn } from './quality.js';
 import { newToken } from './reminders.js';
 import { createRewards } from './rewards.js';
 import { refFunnelOf } from './refs.js';
+import { createGifts, rankTesters } from './gifts.js';
 
 const DAY = 86_400_000;
 export const ANON_LIMIT_MS = 32 * 60_000; // 30 phút + 2 phút châm chước
@@ -19,7 +20,8 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
   const accountsOn = (env.HUYENMY_ACCOUNTS ?? 'on') !== 'off';
   const adminEmails = String(env.ADMIN_EMAILS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const pepper = env.HUYENMY_PEPPER || crypto.randomBytes(16).toString('hex');
-  const rewards = createRewards({ db, env, now });
+  const gifts = createGifts({ db, now });
+  const rewards = createRewards({ db, env, now, giftMin: (uid, t) => gifts.activeMinutes(uid, t) });
   // Đơn giá mỗi triệu token (USD) do quản trị tự khai theo bảng giá hiện hành của nhà cung cấp; không khai thì chỉ hiện số token.
   const num = (v) => (v !== undefined && v !== '' && Number.isFinite(+v) && +v >= 0 ? +v : undefined);
   const prices = num(env.HUYENMY_PRICE_IN) !== undefined || num(env.HUYENMY_PRICE_OUT) !== undefined
@@ -113,7 +115,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       const a = rewards.allowance(id.user.id, id.user.role);
       const sh = (name) => db.prepare('SELECT COUNT(*) c FROM events WHERE actor = ? AND name = ?').get(id.actor, name).c;
       const row = db.prepare('SELECT created_at FROM users WHERE id = ?').get(id.user.id);
-      return json(res, 200, { user: { email: id.user.email, since: row?.created_at ?? null, role: id.user.role, consentMemory: id.user.consentMemory, remind: id.user.remind }, refCode: refCodeOf(id), time: { unlimited: a.unlimited, baseMin: a.baseMin, bonusMin: a.bonusMin, totalMin: a.totalMin, usedMin: a.usedMin, leftMin: a.leftMin },
+      return json(res, 200, { user: { email: id.user.email, since: row?.created_at ?? null, role: id.user.role, consentMemory: id.user.consentMemory, remind: id.user.remind }, refCode: refCodeOf(id), time: { unlimited: a.unlimited, baseMin: a.baseMin, bonusMin: a.bonusMin, giftMin: a.giftMin, totalMin: a.totalMin, usedMin: a.usedMin, leftMin: a.leftMin },
         referral: { funnel: refFunnelOf(db, refCodeOf(id)), perMin: a.perMin, qualifyMin: a.qualifyMin, maxRefs: a.maxRefs, invited: a.invited, qualified: a.qualified, list: a.refs.map(({ n, at, qualified, chatMin }) => ({ n, at, qualified, chatMin })) },
         shares: { tarot: sh('tarot_share'), chart: sh('share_card') } }), true;
     }
@@ -225,6 +227,48 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       auth.deleteAccount(id.user.id);
       return json(res, 200, { ok: true }, { 'Set-Cookie': cookie('hm_s', '', { maxAgeSec: 0, secure: secure(req) }) }), true;
     }
+    // Quà tặng: người nhận xem lời chúc rồi bấm đóng (đánh dấu đã xem).
+    if (pathname === '/api/gift' && method === 'GET') {
+      const id = identify(req, res); if (!id.user) return json(res, 200, { gifts: [] }), true;
+      return json(res, 200, { gifts: gifts.unseenFor(id.user.id) }), true;
+    }
+    if (pathname === '/api/gift/seen' && method === 'POST') {
+      const id = identify(req, res); if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      let b; try { b = await readBody(req, 512); } catch (e) { return json(res, 400, { error: e.message }), true; }
+      return json(res, 200, { ok: gifts.markSeen(id.user.id, +b.id) }), true;
+    }
+    // Quản trị: chọn top tester, tặng phút (tay hoặc theo hạng), xem và thu hồi quà.
+    if (pathname.startsWith('/api/admin/grants') || pathname === '/api/admin/testers') {
+      const id = identify(req, res);
+      if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      if (id.user.role !== 'admin') return json(res, 403, { error: 'Chỉ dành cho quản trị viên.' }), true;
+      const mask = (e) => { const [u, d] = String(e).split('@'); return `${u.slice(0, 2)}${'*'.repeat(Math.max(2, Math.min(6, u.length - 2)))}@${d ?? ''}`; };
+      if (pathname === '/api/admin/testers' && method === 'GET') {
+        const n = Math.min(20, Math.max(1, +new URL(req.url, 'http://x').searchParams.get('n') || 5));
+        const r = rankTesters(db, { n, now: now() });
+        return json(res, 200, { ...r, top: r.top.map((x) => ({ ...x, masked: mask(x.email) })) }), true;
+      }
+      if (pathname === '/api/admin/grants' && method === 'GET') return json(res, 200, { grants: gifts.list().map((g) => ({ ...g, masked: g.email ? mask(g.email) : null })) }), true;
+      if (pathname === '/api/admin/grants' && method === 'POST') {
+        let b; try { b = await readBody(req, 16_384); } catch (e) { return json(res, 400, { error: e.message }), true; }
+        const items = Array.isArray(b.items) ? b.items.slice(0, 20) : [];
+        if (!items.length) return json(res, 400, { error: 'Chưa chọn ai để tặng.' }), true;
+        const done = [], failed = [];
+        for (const it of items) {
+          try {
+            const uid = Number.isInteger(+it.userId) && +it.userId > 0 ? +it.userId : gifts.userIdByEmail(it.email);
+            if (!uid) throw new Error('Không thấy thành viên với email này.');
+            done.push({ id: gifts.grant(uid, { minutes: it.minutes, days: it.days, title: it.title, message: it.message, rank: it.rank, byAdmin: id.user.id }), userId: uid });
+          } catch (e) { failed.push({ who: it.email ?? it.userId, error: e.message }); }
+        }
+        return json(res, failed.length && !done.length ? 400 : 200, { ok: done.length > 0, done, failed }), true;
+      }
+      if (pathname === '/api/admin/grants/revoke' && method === 'POST') {
+        let b; try { b = await readBody(req, 512); } catch (e) { return json(res, 400, { error: e.message }), true; }
+        return json(res, 200, { ok: gifts.revoke(+b.id) }), true;
+      }
+      return false;
+    }
     if (pathname.startsWith('/api/admin/') && pathname !== '/api/admin/metrics' && method === 'GET') {
       const id = identify(req, res);
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
@@ -251,7 +295,7 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
       if (id.user.role !== 'admin') return json(res, 403, { error: 'Chỉ dành cho quản trị viên.' }), true;
       const days = Math.min(90, Math.max(1, +new URL(req.url, 'http://x').searchParams.get('days') || 14));
-      return json(res, 200, computeMetrics(db, { days, now: now() })), true;
+      return json(res, 200, computeMetrics(db, { days, now: now(), refCfg: rewards.cfg })), true;
     }
     return false;
   }
