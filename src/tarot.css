@@ -139,3 +139,5 @@
 .tr-deck h2 small { font-family: var(--sans); font-size: 14px; color: #f3d98f; margin-left: 8px; letter-spacing: .04em; }
 .tr-colbar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .1); overflow: hidden; margin: 4px 0 10px; } .tr-colbar i { display: block; height: 100%; width: var(--p, 0%); background: linear-gradient(90deg, #e2c27d, #f6e2a4); border-radius: 6px; }
 .tr-lock { display: flex; gap: 12px; justify-content: center; margin-top: 12px; opacity: .85; } .tr-lock .tcard { --w: min(26vw, 110px); }
+
+.tr-sgrid .tcard { content-visibility: auto; contain-intrinsic-size: auto 210px; } .tr-more { display: block; margin: 16px auto 0; }

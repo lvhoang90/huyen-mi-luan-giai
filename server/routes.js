@@ -190,6 +190,19 @@ export function createApi({ db, env = process.env, mailer, now = () => Date.now(
         return json(res, 200, { ok: true }), true;
       }
     }
+    // Bộ sưu tập Tarot: chỉ số thứ tự các lá đã bốc (0-77), để đổi máy vẫn còn. Không kèm ngày, chủ đề hay ghi chú.
+    if (pathname === '/api/cards' && (method === 'GET' || method === 'PUT')) {
+      const id = identify(req, res);
+      if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;
+      const parse = (v) => { try { return (JSON.parse(v) ?? []).filter((n) => Number.isInteger(n) && n >= 0 && n < 78); } catch { return []; } };
+      let ids = parse(db.prepare('SELECT tarot_cards FROM users WHERE id = ?').get(id.user.id)?.tarot_cards);
+      if (method === 'PUT') {
+        let b; try { b = await readBody(req, 2 * 1024); } catch (e) { return json(res, 400, { error: e.message }), true; }
+        ids = [...new Set([...ids, ...(Array.isArray(b.ids) ? b.ids.filter((n) => Number.isInteger(n) && n >= 0 && n < 78) : [])])].sort((x, y) => x - y);
+        db.prepare('UPDATE users SET tarot_cards = ? WHERE id = ?').run(JSON.stringify(ids), id.user.id);
+      }
+      return json(res, 200, { ids }), true;
+    }
     if (pathname === '/api/account/hook' && method === 'POST') {
       const id = identify(req, res);
       if (!id.user) return json(res, 401, { error: 'Cần đăng nhập.' }), true;

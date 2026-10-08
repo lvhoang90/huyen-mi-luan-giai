@@ -5,7 +5,7 @@ import { createBackdrop } from './backdrop.js';
 import { track, sessionId, ageBand } from './track.js';
 import { icon } from './icons.js';
 import { hourFrom, describeHour, PERIODS } from './engine/birthtime.js';
-import { vnDay, parseCardIds, topicLabel } from './tarot/ids.js';
+import { myDay as vnDay, tzMin, parseCardIds, topicLabel } from './tarot/ids.js';
 import { shouldNudge, nudgeShown, nudgeSkipped, nudgeAccepted, NUDGE_KEY } from './nudge.js';
 import { mountLogo } from './logo.js';
 import { createIntro } from './intro.js';
@@ -261,7 +261,7 @@ let resumeChips = null; // lựa chọn hiện ngay sau lời chào quay lại, 
 /** Lịch sử gửi cho My. Tin ngắn đầu tiên ("ok") sau lời chào quay lại được nói rõ ý, vì lịch sử có thể vẫn kết thúc bằng lời tạm biệt; màn hình và bộ nhớ vẫn giữ đúng chữ người dùng gõ. */
 const apiMessages = () => clarifyResume(S.messages, resumeGreet);
 async function streamChat(phase, onText) {
-  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ phase, profile: S.profile, messages: apiMessages(), sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null, tarot: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? S.tarot : null, tarotTopic: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? (S.tarotTopic ?? null) : null }) });
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': getCode() }, body: JSON.stringify({ tz: tzMin(), phase, profile: S.profile, messages: apiMessages(), sid: sessionId, minute: Math.round(elapsedMin()), lens: S.lens ?? null, resumeGreet: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.text : null, resumeLast: resumeGreet && S.messages.length === resumeGreet.at + 1 ? resumeGreet.last : null, tarot: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? S.tarot : null, tarotTopic: S.tarot && S.messages.filter((m) => m.role === 'user').length <= 6 ? (S.tarotTopic ?? null) : null }) });
   if (!res.ok) { const j = await res.json().catch(() => ({})); if (j.needAuth) throw Object.assign(new Error(j.error), { needAuth: true }); if (res.status === 401) { setCode(''); setTimeout(() => location.reload(), 2500); } throw new Error(j.error || 'Không kết nối được tới My.'); }
   const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '';
   for (;;) {

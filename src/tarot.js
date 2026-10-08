@@ -6,7 +6,7 @@ import './explore.css';
 import './tarot.css';
 import { mountLogo } from './logo.js';
 import { track } from './track.js';
-import { CARDS, cardById, drawCards, dailyCard, vnDay, TOPICS, topicLabel } from './tarot/cards.js';
+import { CARDS, cardById, drawCards, dailyCard, myDay as vnDay, tzMin, TOPICS, topicLabel } from './tarot/cards.js';
 import { nextStreak, liveStreak, msUntilNextVnDay, fmtCountdown } from './tarot/ritual.js';
 import { icon } from './icons.js';
 import { SUITS } from './tarot/minor.js';
@@ -14,6 +14,7 @@ import { cardArtSvg, cardBackSvg } from './tarot/art.js';
 import { mountCta } from './cta.js';
 import { shareTarot, prepareTarot, shareMessage } from './share.js';
 import { SPREADS, spreadOfCount } from './tarot/spreads.js';
+import { localCol, saveLocal, syncCol, setLoggedIn } from './tarot/collection.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -33,9 +34,7 @@ const getStreak = () => { try { return JSON.parse(localStorage.getItem(STREAK_KE
 const setDaily = (id) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ day: vnDay(), id })); localStorage.setItem('huyenmy.tarotnudge', JSON.stringify({ last: vnDay(), skips: 0 })); localStorage.setItem(STREAK_KEY, JSON.stringify(nextStreak(getStreak(), vnDay()))); } catch {} };
 
 const HIST_KEY = 'huyenmy.tarothist';
-const COL_KEY = 'huyenmy.tarotcol';
-const getCol = () => { try { const a = JSON.parse(localStorage.getItem(COL_KEY)); if (Array.isArray(a)) return a; } catch {} try { return [...new Set((JSON.parse(localStorage.getItem(HIST_KEY)) ?? []).flatMap((h) => h.ids))]; } catch { return []; } };
-const addCol = (ids) => { try { localStorage.setItem(COL_KEY, JSON.stringify([...new Set([...getCol(), ...ids])])); } catch {} };
+const getCol = localCol, addCol = (ids) => { saveLocal([...localCol(), ...ids]); syncCol(ids); };
 const addHist = (mode, ids) => { addCol(ids); try { const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; h.unshift({ d: vnDay(), m: mode, ids }); localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); } catch {} };
 const HINT = { daily: 'Mỗi ngày một lá. Bạn chọn điều mình đang nghĩ tới, nhìn vào bộ bài và chạm vào lá đang gọi mình.', three: 'Trải ba lá cho một điều bạn đang băn khoăn: chọn ba lá từ bộ bài úp, bạn không cần nói điều đó với ai.', choice: 'Khi bạn đang đứng giữa hai lối đi: chọn năm lá, mỗi lá là một góc nhìn để bạn nghe rõ điều mình muốn. Lá bài không chọn thay bạn.', love: 'Cho chuyện lòng đang nặng: chọn bảy lá để soi lại mình và cách bạn ở trong mối quan hệ. Không đoán tâm ý ai.' };
 const NUM = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy'], needOf = () => SPREADS[mode]?.n ?? 1;
@@ -147,19 +146,19 @@ const streakNow = () => liveStreak(getStreak(), vnDay());
 
 function nextBlock() {
   const n = getStreak()?.last === vnDay() ? getStreak().n : 0;
-  return `<div class="tr-next"><div class="tn-main"><span class="tn-ic">${icon('tarot')}</span><div><b>Lá bài của ngày mai đang chờ bạn</b><small>Mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay())}</time> nữa. Quay lại để biết bộ bài sẽ nói gì.</small></div></div>${n ? `<div class="tn-streak">${icon('flame')}<b>${n}</b> ngày liên tiếp${n >= 2 ? '. Giữ chuỗi bằng cách quay lại ngày mai.' : '. Quay lại ngày mai để nối chuỗi.'}</div>` : ''}</div>`;
+  return `<div class="tr-next"><div class="tn-main"><span class="tn-ic">${icon('tarot')}</span><div><b>Lá bài của ngày mai đang chờ bạn</b><small>Mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay(Date.now(), tzMin() * 60_000))}</time> nữa. Quay lại để biết bộ bài sẽ nói gì.</small></div></div>${n ? `<div class="tn-streak">${icon('flame')}<b>${n}</b> ngày liên tiếp${n >= 2 ? '. Giữ chuỗi bằng cách quay lại ngày mai.' : '. Quay lại ngày mai để nối chuỗi.'}</div>` : ''}</div>`;
 }
 let cdTimer = 0;
 function tickCountdown() {
   clearInterval(cdTimer);
-  const upd = () => { const t = fmtCountdown(msUntilNextVnDay()); for (const e of document.querySelectorAll('[data-cd]')) e.textContent = t; };
-  upd(); cdTimer = setInterval(() => { upd(); if (msUntilNextVnDay() > 86_399_000) { clearInterval(cdTimer); refreshIdle(); } }, 1000); // qua 0 giờ: ngày mới, bộ bài có lá mới
+  const upd = () => { const t = fmtCountdown(msUntilNextVnDay(Date.now(), tzMin() * 60_000)); for (const e of document.querySelectorAll('[data-cd]')) e.textContent = t; };
+  upd(); cdTimer = setInterval(() => { upd(); if (msUntilNextVnDay(Date.now(), tzMin() * 60_000) > 86_399_000) { clearInterval(cdTimer); refreshIdle(); } }, 1000); // qua 0 giờ: ngày mới, bộ bài có lá mới
 }
 function refreshIdle() {
   const done = mode === 'daily' && TODAY_DONE(), n = streakNow(), el = $('#tr-streak'), w = $('#tr-wait');
   $('#tr-hint').textContent = HINT[mode]; $('#tr-go').textContent = done ? 'Xem lại lá hôm nay' : 'Bắt đầu bốc bài';
   el.hidden = !n; el.innerHTML = n ? `${icon('flame')} Bạn đã bốc bài <b>${n}</b> ngày liên tiếp. ${TODAY_DONE() ? 'Hôm nay bạn đã bốc rồi.' : 'Bốc hôm nay để nối chuỗi nhé.'}` : '';
-  w.hidden = !done; w.innerHTML = done ? `Lá bài của ngày mai mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay())}</time>` : '';
+  w.hidden = !done; w.innerHTML = done ? `Lá bài của ngày mai mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay(Date.now(), tzMin() * 60_000))}</time>` : '';
   tickCountdown();
 }
 
@@ -256,13 +255,17 @@ refreshIdle();
 // Bộ sưu tập: chỉ hiện những lá bạn đã bốc được. Các lá còn lại giữ bí mật, để mỗi lần bốc là một lần khám phá.
 const grid = $('#tr-grid');
 const tile = (c) => `<figure class="tcard" data-id="${c.id}" tabindex="0" role="button" aria-label="Đọc lại lá ${esc(c.name)}"><div class="tc-inner"><div class="tc-face"><div class="tc-top">${c.roman}</div><div class="tc-art"></div><div class="tc-name"><b>${esc(c.name)}</b><i>${esc(c.en)}</i></div></div><div class="tc-back">${cardBackSvg()}</div></div></figure>`;
-const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { const el = e.target, c = cardById(el.dataset.id); el.querySelector('.tc-art').innerHTML = cardArtSvg(c, `g${c.id}`); io.unobserve(el); } }, { rootMargin: '300px' });
+// Mỗi lá có nhân vật vẽ bằng SVG khá nặng: chỉ vẽ khi lá gần màn hình, cuộn đi xa thì gỡ ra, và chỉ hiện 12 lá một lần để máy yếu vẫn mượt khi bộ sưu tập đầy.
+const io = new IntersectionObserver((es) => { for (const e of es) { const el = e.target, art = el.querySelector('.tc-art'); if (e.isIntersecting) { if (!art.firstChild) art.innerHTML = cardArtSvg(cardById(el.dataset.id), `g${el.dataset.id}`); } else art.replaceChildren(); } }, { rootMargin: '400px 0px' });
+const PAGE = 12; let shownN = PAGE, accountOn = false; meReady.then((me) => { accountOn = !!me?.user || me?.accounts === false; renderCollection(); });
 function renderCollection() {
-  const have = getCol().map(cardById).filter(Boolean), n = have.length, total = CARDS.length;
+  io.disconnect();
+  const have = getCol().map(cardById).filter(Boolean).sort((x, y) => x.id - y.id), n = have.length, total = CARDS.length;
   $('#tr-col-n').textContent = n ? `${n}/${total} lá` : '';
   $('#tr-col-bar').style.setProperty('--p', `${Math.round((n / total) * 100)}%`);
-  $('#tr-col-sub').textContent = n ? 'Chạm vào một lá để đọc lại. Những lá còn lại vẫn đang chờ bạn bốc.' : 'Mỗi lá bạn bốc được sẽ nằm lại ở đây. Những lá chưa gặp vẫn là bí mật.';
-  grid.innerHTML = n ? `<div class="tr-sgrid">${have.sort((x, y) => x.id - y.id).map(tile).join('')}</div>` : `<div class="tr-lock" aria-hidden="true">${[0, 1, 2].map(() => `<div class="tcard back"><div class="tc-inner"><div class="tc-back">${cardBackSvg()}</div></div></div>`).join('')}</div>`;
+  $('#tr-col-sub').textContent = n && !accountOn ? 'Bộ sưu tập đang lưu trên máy này. Đăng nhập để giữ lại khi đổi máy hoặc xóa dữ liệu trình duyệt.' : n ? 'Chạm vào một lá để đọc lại. Những lá còn lại vẫn đang chờ bạn bốc.' : 'Mỗi lá bạn bốc được sẽ nằm lại ở đây. Những lá chưa gặp vẫn là bí mật.';
+  grid.innerHTML = n ? `<div class="tr-sgrid">${have.slice(0, shownN).map(tile).join('')}</div>${n > shownN ? `<button type="button" class="btn tr-more" id="tr-more">Xem thêm ${Math.min(PAGE, n - shownN)} lá (còn ${n - shownN})</button>` : ''}` : `<div class="tr-lock" aria-hidden="true">${[0, 1, 2].map(() => `<div class="tcard back"><div class="tc-inner"><div class="tc-back">${cardBackSvg()}</div></div></div>`).join('')}</div>`;
+  $('#tr-more')?.addEventListener('click', () => { shownN += PAGE; renderCollection(); });
   for (const el of grid.querySelectorAll('.tcard[data-id]')) {
     io.observe(el);
     const open = () => { track('tarot_browse', { id: +el.dataset.id }); show([+el.dataset.id], { flipDelay: 150, via: 'browse' }); };
@@ -270,4 +273,6 @@ function renderCollection() {
   }
 }
 renderCollection();
+// đã đăng nhập: gộp bộ sưu tập với tài khoản để đổi máy vẫn còn đủ
+meReady.then(async (me) => { if (!me?.user) return; setLoggedIn(true); const before = getCol().length, all = await syncCol(); if (all.length !== before) renderCollection(); });
 const deep = new URLSearchParams(location.search).get('c'); if (deep != null && cardById(deep)) show([+deep], { flipDelay: 150, via: 'link' });

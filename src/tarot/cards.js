@@ -3,8 +3,8 @@
 // Các lá thường bị gọi là "xấu" (Chuyển Hóa, Tòa Tháp, Ràng Buộc) được đọc theo hướng thay đổi, bài học và việc có thể làm.
 // Lời trong tệp này nên được người chơi Tarot lâu năm đọc lại.
 import { MINOR } from './minor.js';
-import { TOPICS, topicLabel, parseCardIds, vnDay } from './ids.js';
-export { TOPICS, topicLabel, parseCardIds, vnDay };
+import { TOPICS, topicLabel, parseCardIds, vnDay, myDay, tzMin } from './ids.js';
+export { TOPICS, topicLabel, parseCardIds, vnDay, myDay, tzMin };
 const MAJOR = [
   { id: 0, roman: '0', name: 'Kẻ Khờ', en: 'The Fool', keys: ['khởi đầu', 'liều một chút', 'tin vào bước đi'],
     gist: 'Một chặng mới đang mở ra, chưa có bản đồ đầy đủ. Lá bài nói về lòng can đảm của người dám bước đi khi chưa chắc mọi thứ.',
@@ -109,5 +109,6 @@ export function drawCards(n, rand = (m) => (globalThis.crypto?.getRandomValues ?
 /** Lá của ngày: cùng một người, cùng một ngày thì ra cùng một lá. `seed` là chuỗi riêng của người đó; `day` là ngày theo giờ Việt Nam. */
 export function dailyCard(seed, day) {
   let h = 2166136261; for (const ch of `${seed}|${day}`) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
-  return CARDS[h % CARDS.length].id;
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b) >>> 0; h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35) >>> 0; h ^= h >>> 16; // trộn lại bit cuối: nếu không, chỉ ra được các lá số chẵn
+  return CARDS[(h >>> 0) % CARDS.length].id;
 }
