@@ -14,6 +14,7 @@ import { cardArtSvg, cardBackSvg } from './tarot/art.js';
 import { mountCta } from './cta.js';
 import { shareTarot, prepareTarot, shareMessage } from './share.js';
 import { SPREADS, spreadOfCount } from './tarot/spreads.js';
+import { localCol, saveLocal, syncCol, setLoggedIn } from './tarot/collection.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -33,9 +34,7 @@ const getStreak = () => { try { return JSON.parse(localStorage.getItem(STREAK_KE
 const setDaily = (id) => { try { localStorage.setItem(DAILY_KEY, JSON.stringify({ day: vnDay(), id })); localStorage.setItem('huyenmy.tarotnudge', JSON.stringify({ last: vnDay(), skips: 0 })); localStorage.setItem(STREAK_KEY, JSON.stringify(nextStreak(getStreak(), vnDay()))); } catch {} };
 
 const HIST_KEY = 'huyenmy.tarothist';
-const COL_KEY = 'huyenmy.tarotcol';
-const getCol = () => { try { const a = JSON.parse(localStorage.getItem(COL_KEY)); if (Array.isArray(a)) return a; } catch {} try { return [...new Set((JSON.parse(localStorage.getItem(HIST_KEY)) ?? []).flatMap((h) => h.ids))]; } catch { return []; } };
-const addCol = (ids) => { try { localStorage.setItem(COL_KEY, JSON.stringify([...new Set([...getCol(), ...ids])])); } catch {} };
+const getCol = localCol, addCol = (ids) => { saveLocal([...localCol(), ...ids]); syncCol(ids); };
 const addHist = (mode, ids) => { addCol(ids); try { const h = JSON.parse(localStorage.getItem(HIST_KEY)) ?? []; h.unshift({ d: vnDay(), m: mode, ids }); localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 200))); } catch {} };
 const HINT = { daily: 'Mỗi ngày một lá. Bạn chọn điều mình đang nghĩ tới, nhìn vào bộ bài và chạm vào lá đang gọi mình.', three: 'Trải ba lá cho một điều bạn đang băn khoăn: chọn ba lá từ bộ bài úp, bạn không cần nói điều đó với ai.', choice: 'Khi bạn đang đứng giữa hai lối đi: chọn năm lá, mỗi lá là một góc nhìn để bạn nghe rõ điều mình muốn. Lá bài không chọn thay bạn.', love: 'Cho chuyện lòng đang nặng: chọn bảy lá để soi lại mình và cách bạn ở trong mối quan hệ. Không đoán tâm ý ai.' };
 const NUM = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy'], needOf = () => SPREADS[mode]?.n ?? 1;
@@ -258,13 +257,13 @@ const grid = $('#tr-grid');
 const tile = (c) => `<figure class="tcard" data-id="${c.id}" tabindex="0" role="button" aria-label="Đọc lại lá ${esc(c.name)}"><div class="tc-inner"><div class="tc-face"><div class="tc-top">${c.roman}</div><div class="tc-art"></div><div class="tc-name"><b>${esc(c.name)}</b><i>${esc(c.en)}</i></div></div><div class="tc-back">${cardBackSvg()}</div></div></figure>`;
 // Mỗi lá có nhân vật vẽ bằng SVG khá nặng: chỉ vẽ khi lá gần màn hình, cuộn đi xa thì gỡ ra, và chỉ hiện 12 lá một lần để máy yếu vẫn mượt khi bộ sưu tập đầy.
 const io = new IntersectionObserver((es) => { for (const e of es) { const el = e.target, art = el.querySelector('.tc-art'); if (e.isIntersecting) { if (!art.firstChild) art.innerHTML = cardArtSvg(cardById(el.dataset.id), `g${el.dataset.id}`); } else art.replaceChildren(); } }, { rootMargin: '400px 0px' });
-const PAGE = 12; let shownN = PAGE;
+const PAGE = 12; let shownN = PAGE, accountOn = false; meReady.then((me) => { accountOn = !!me?.user || me?.accounts === false; renderCollection(); });
 function renderCollection() {
   io.disconnect();
   const have = getCol().map(cardById).filter(Boolean).sort((x, y) => x.id - y.id), n = have.length, total = CARDS.length;
   $('#tr-col-n').textContent = n ? `${n}/${total} lá` : '';
   $('#tr-col-bar').style.setProperty('--p', `${Math.round((n / total) * 100)}%`);
-  $('#tr-col-sub').textContent = n ? 'Chạm vào một lá để đọc lại. Những lá còn lại vẫn đang chờ bạn bốc.' : 'Mỗi lá bạn bốc được sẽ nằm lại ở đây. Những lá chưa gặp vẫn là bí mật.';
+  $('#tr-col-sub').textContent = n && !accountOn ? 'Bộ sưu tập đang lưu trên máy này. Đăng nhập để giữ lại khi đổi máy hoặc xóa dữ liệu trình duyệt.' : n ? 'Chạm vào một lá để đọc lại. Những lá còn lại vẫn đang chờ bạn bốc.' : 'Mỗi lá bạn bốc được sẽ nằm lại ở đây. Những lá chưa gặp vẫn là bí mật.';
   grid.innerHTML = n ? `<div class="tr-sgrid">${have.slice(0, shownN).map(tile).join('')}</div>${n > shownN ? `<button type="button" class="btn tr-more" id="tr-more">Xem thêm ${Math.min(PAGE, n - shownN)} lá (còn ${n - shownN})</button>` : ''}` : `<div class="tr-lock" aria-hidden="true">${[0, 1, 2].map(() => `<div class="tcard back"><div class="tc-inner"><div class="tc-back">${cardBackSvg()}</div></div></div>`).join('')}</div>`;
   $('#tr-more')?.addEventListener('click', () => { shownN += PAGE; renderCollection(); });
   for (const el of grid.querySelectorAll('.tcard[data-id]')) {
@@ -274,4 +273,6 @@ function renderCollection() {
   }
 }
 renderCollection();
+// đã đăng nhập: gộp bộ sưu tập với tài khoản để đổi máy vẫn còn đủ
+meReady.then(async (me) => { if (!me?.user) return; setLoggedIn(true); const before = getCol().length, all = await syncCol(); if (all.length !== before) renderCollection(); });
 const deep = new URLSearchParams(location.search).get('c'); if (deep != null && cardById(deep)) show([+deep], { flipDelay: 150, via: 'link' });

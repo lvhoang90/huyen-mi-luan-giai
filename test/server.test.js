@@ -650,7 +650,7 @@ test('trang Tarot không phơi cả bộ bài: chỉ có bộ sưu tập những
   const { readFileSync } = await import('node:fs');
   const h = readFileSync(new URL('../tarot.html', import.meta.url), 'utf8'), j = readFileSync(new URL('../src/tarot.js', import.meta.url), 'utf8');
   assert.doesNotMatch(h, /Cả bộ 78 lá/); assert.match(h, /Bộ sưu tập của bạn/);
-  assert.doesNotMatch(j, /CARDS\.filter\(pick\)/); assert.match(j, /huyenmy\.tarotcol/);
+  assert.doesNotMatch(j, /CARDS\.filter\(pick\)/); assert.match(readFileSync(new URL('../src/tarot/collection.js', import.meta.url), 'utf8'), /huyenmy\.tarotcol/); assert.match(j, /syncCol/);
 });
 
 test('ngày theo múi giờ thiết bị: người ở nước ngoài có ngày mới theo nơi họ ở', async () => {
@@ -670,4 +670,16 @@ test('lá của hôm nay có thể ra đủ cả 78 lá, phân bố không lệc
   const cnt = new Map(); for (let i = 0; i < 20000; i++) { const id = dailyCard('s' + i, '2026-10-' + String(1 + (i % 28)).padStart(2, '0')); cnt.set(id, (cnt.get(id) ?? 0) + 1); }
   assert.equal(cnt.size, CARDS.length); assert.ok(Math.min(...cnt.values()) > 150 && Math.max(...cnt.values()) < 400);
   assert.equal(dailyCard('abc', '2026-10-08'), dailyCard('abc', '2026-10-08'));
+});
+
+test('bộ sưu tập Tarot trên tài khoản: cần đăng nhập, chỉ nhận số lá hợp lệ, gộp chứ không ghi đè', async () => {
+  const h = await harness({});
+  assert.equal((await h.call('GET', '/api/cards')).status, 401);
+  await h.call('POST', '/api/auth/request', { email: 'a@b.vn' });
+  await h.call('POST', '/api/auth/verify', { email: 'a@b.vn', code: codeOf(h.mails[0]) });
+  assert.deepEqual((await h.call('GET', '/api/cards')).body.ids, []);
+  assert.deepEqual((await h.call('PUT', '/api/cards', { ids: [5, 3, 5, 99, -1, 'x', 77] })).body.ids, [3, 5, 77]);
+  assert.deepEqual((await h.call('PUT', '/api/cards', { ids: [0, 3] })).body.ids, [0, 3, 5, 77], 'gộp với bộ đã có, không mất lá cũ');
+  assert.deepEqual((await h.call('GET', '/api/cards')).body.ids, [0, 3, 5, 77]);
+  h.close();
 });

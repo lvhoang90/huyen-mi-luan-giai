@@ -35,7 +35,7 @@ export function openDb(file) {
   if (!cols.includes('active_ms')) db.exec('ALTER TABLE anon ADD COLUMN active_ms INTEGER NOT NULL DEFAULT 0');
   if (!cols.includes('last_chat')) db.exec('ALTER TABLE anon ADD COLUMN last_chat INTEGER');
   const ucols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
-  for (const [name, ddl] of [['remind_optin', 'INTEGER NOT NULL DEFAULT 0'], ['remind_token', 'TEXT'], ['remind_last', 'INTEGER'], ['remind_count', 'INTEGER NOT NULL DEFAULT 0']])
+  for (const [name, ddl] of [['remind_optin', 'INTEGER NOT NULL DEFAULT 0'], ['remind_token', 'TEXT'], ['remind_last', 'INTEGER'], ['remind_count', 'INTEGER NOT NULL DEFAULT 0'], ['tarot_cards', 'TEXT']])
     if (!ucols.includes(name)) db.exec(`ALTER TABLE users ADD COLUMN ${name} ${ddl}`);
   // Hành trình cảm xúc: chỉ lưu con số ước lượng từ từng lượt, không lưu nội dung (xem server/affect.js).
   const tcols = db.prepare('PRAGMA table_info(turns)').all().map((c) => c.name);

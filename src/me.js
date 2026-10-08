@@ -10,6 +10,7 @@ import { track } from './track.js';
 import { icon } from './icons.js';
 import { CARDS, cardById } from './tarot/cards.js';
 import { SPREADS } from './tarot/spreads.js';
+import { localCol, setLoggedIn, syncCol } from './tarot/collection.js';
 import { cardArtSvg } from './tarot/art.js';
 import { buildChart } from './engine/index.js';
 import { CHINH_TINH } from './chart-explain.js';
@@ -28,6 +29,7 @@ async function main() {
   let data = null, status = 0;
   try { const r = await fetch('/api/panel'); status = r.status; data = r.ok ? await r.json() : null; } catch {}
   if (!data) return root.innerHTML = guest(status);
+  setLoggedIn(true); await syncCol();
   root.innerHTML = [hero(data), timeCard(data), inviteCard(data), cardsCard(), chartCard(), shareCard(data), settings(data)].join('');
   wire(data); lazyArt();
 }
@@ -79,14 +81,14 @@ function inviteCard(d) {
 }
 
 function cardsCard() {
-  const hist = read('huyenmy.tarothist') ?? [], seen = new Set(hist.flatMap((h) => h.ids)), total = CARDS.length;
+  const hist = read('huyenmy.tarothist') ?? [], seen = new Set(localCol()), total = CARDS.length;
   const recent = hist.slice(0, 6).map((h) => `<li><b>${fmtDay(h.d + 'T12:00:00')}</b> <span>${SPREADS[h.m]?.tag ?? 'Lá của ngày'}</span><div>${h.ids.map((id) => cardById(id)?.name).filter(Boolean).map(esc).join(', ')}</div>${h.n ? `<p class="hn">“${esc(h.n)}”</p>` : ''}</li>`).join('');
   const grid = CARDS.map((c) => seen.has(c.id) ? `<a class="mc on" href="/tarot?c=${c.id}" data-id="${c.id}" title="${esc(c.name)}"><span class="art"></span></a>` : `<span class="mc" title="Chưa gặp"><i>?</i></span>`).join('');
   return `<section class="me-card"><h2>Bộ bài của tôi</h2>
     <p>Bạn đã gặp <b>${seen.size}/${total}</b> lá. <i class="bar wide"><u style="width:${Math.round((seen.size / total) * 100)}%"></u></i></p>
     <div class="me-deck">${grid}</div>
     ${recent ? `<h3>Những lần rút gần đây</h3><ul class="me-hist">${recent}</ul>` : '<p class="sub">Bạn chưa rút lá nào. Mỗi lá bạn rút sẽ hiện ra ở đây.</p>'}
-    <p class="sub">Danh sách này chỉ lưu trên máy này, không gửi đi đâu.</p><a class="btn" href="/tarot">Rút lá hôm nay</a></section>`;
+    <p class="sub">Bộ bài (chỉ số thứ tự các lá bạn đã gặp) được giữ trong tài khoản để bạn đổi máy vẫn còn. Lịch sử từng lần rút và ghi chú chỉ nằm trên máy này.</p><a class="btn" href="/tarot">Rút lá hôm nay</a></section>`;
 }
 
 function chartCard() {
