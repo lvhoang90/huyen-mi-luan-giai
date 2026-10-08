@@ -6,4 +6,9 @@ export const parseCardIds = (param) => {
   const ids = String(param ?? '').split(',').map((x) => x.trim()).filter((x) => /^\d+$/.test(x)).map(Number).filter((n) => n >= 0 && n < 78).filter((n, i, a) => a.indexOf(n) === i).slice(0, 7);
   return ids.slice(0, ids.length <= 3 ? ids.length : ids.length < 5 ? 3 : ids.length < 7 ? 5 : 7);
 };
+/** Phút lệch múi giờ của thiết bị so với UTC (Việt Nam là 420). Người ở nước ngoài có ngày mới theo giờ nơi họ ở. */
+export const tzMin = () => { try { const o = -new Date().getTimezoneOffset(); return Number.isFinite(o) ? o : 420; } catch { return 420; } };
+export const dayAt = (now, offMin) => { const t = new Date(now.getTime() + offMin * 60_000); return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`; };
+/** Ngày hôm nay theo múi giờ thiết bị. */
+export const myDay = (now = new Date()) => dayAt(now, tzMin());
 export const vnDay = (now = new Date()) => { const t = new Date(now.getTime() + 7 * 3600_000); return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`; };

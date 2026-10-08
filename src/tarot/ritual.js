@@ -14,8 +14,8 @@ export function liveStreak(prev, today) {
   if (!prev?.last) return 0;
   return prev.last === today || prev.last === prevDay(today) ? Math.max(0, +prev.n || 0) : 0;
 }
-/** Số mili giây từ `now` tới 0 giờ ngày kế tiếp theo giờ Việt Nam. */
-export const msUntilNextVnDay = (now = Date.now()) => DAY - ((now + VN) % DAY);
+/** Số mili giây từ `now` tới 0 giờ ngày kế tiếp. `offMs`: độ lệch múi giờ (mặc định giờ Việt Nam; client truyền múi giờ thiết bị). */
+export const msUntilNextVnDay = (now = Date.now(), offMs = VN) => DAY - ((now + offMs) % DAY);
 export function fmtCountdown(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000)), p = (n) => String(n).padStart(2, '0');
   return `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;

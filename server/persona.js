@@ -213,7 +213,9 @@ export function famousBlock(profile, chart) {
   if (!lines.length) return '';
   return `NGƯỜI NỔI TIẾNG CÙNG HOẶC SÁT NGÀY SINH (dữ kiện có thật trong sổ của My; chỉ dùng khi người dùng hỏi hoặc thật hợp câu chuyện; chỉ nói điều chắc chắn có thật về họ, không biết thì nói không rõ; không nói người dùng sẽ giống họ):\n${lines.join('\n')}`;
 }
-export function buildSystemBlocks(phase, profile, chart, messages = [], { minute = null, lens = null, resumeGreet = null, resumeLast = null, tarot = null, tarotTopic = null } = {}) {
+export function buildSystemBlocks(phase, profile, chart, messages = [], { minute = null, lens = null, resumeGreet = null, resumeLast = null, tarot = null, tarotTopic = null, tz = 420 } = {}) {
+  // `tz`: phút lệch múi giờ của người dùng; dời đồng hồ để các hàm tính ngày (vốn lấy giờ Việt Nam) ra đúng ngày nơi họ ở
+  const now = new Date(Date.now() + ((Number.isFinite(+tz) ? Math.max(-720, Math.min(840, Math.round(+tz))) : 420) - 420) * 60_000);
   const who = JSON.stringify({ ten_goi: profile.nickname, ho_ten_khai_sinh: profile.fullName, gioi_tinh: profile.gender, linh_vuc_lam_viec: profile.field ?? 'chua_noi' });
   const traits = distinctiveTraits(profile, chart).map((t) => `- ${t}`).join('\n');
   const used = messages.filter((m) => m.role === 'assistant').slice(-5).map((m) => `- "${m.content.replace(/\s+/g, ' ').slice(0, 70)}…"`).join('\n');
@@ -227,9 +229,9 @@ export function buildSystemBlocks(phase, profile, chart, messages = [], { minute
   ].filter(Boolean).join('\n\n');
   const turn = [
     PHASES[phase] ?? PHASES.companion,
-    describeTimeExtra(profile, chart, messages.filter((m) => m.role === 'user').at(-1)?.content),
-    describeDayExtra(profile, chart, messages.filter((m) => m.role === 'user').at(-1)?.content),
-    describeNhipExtra(profile, messages.filter((m) => m.role === 'user').map((m) => m.content)),
+    describeTimeExtra(profile, chart, messages.filter((m) => m.role === 'user').at(-1)?.content, now),
+    describeDayExtra(profile, chart, messages.filter((m) => m.role === 'user').at(-1)?.content, now),
+    describeNhipExtra(profile, messages.filter((m) => m.role === 'user').map((m) => m.content), now),
     resumeHint(resumeGreet, resumeLast),
     tarotBlock(tarot, tarotTopic),
     arcHint(minute),

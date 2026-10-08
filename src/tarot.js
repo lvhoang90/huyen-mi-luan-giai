@@ -6,7 +6,7 @@ import './explore.css';
 import './tarot.css';
 import { mountLogo } from './logo.js';
 import { track } from './track.js';
-import { CARDS, cardById, drawCards, dailyCard, vnDay, TOPICS, topicLabel } from './tarot/cards.js';
+import { CARDS, cardById, drawCards, dailyCard, myDay as vnDay, tzMin, TOPICS, topicLabel } from './tarot/cards.js';
 import { nextStreak, liveStreak, msUntilNextVnDay, fmtCountdown } from './tarot/ritual.js';
 import { icon } from './icons.js';
 import { SUITS } from './tarot/minor.js';
@@ -147,19 +147,19 @@ const streakNow = () => liveStreak(getStreak(), vnDay());
 
 function nextBlock() {
   const n = getStreak()?.last === vnDay() ? getStreak().n : 0;
-  return `<div class="tr-next"><div class="tn-main"><span class="tn-ic">${icon('tarot')}</span><div><b>Lá bài của ngày mai đang chờ bạn</b><small>Mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay())}</time> nữa. Quay lại để biết bộ bài sẽ nói gì.</small></div></div>${n ? `<div class="tn-streak">${icon('flame')}<b>${n}</b> ngày liên tiếp${n >= 2 ? '. Giữ chuỗi bằng cách quay lại ngày mai.' : '. Quay lại ngày mai để nối chuỗi.'}</div>` : ''}</div>`;
+  return `<div class="tr-next"><div class="tn-main"><span class="tn-ic">${icon('tarot')}</span><div><b>Lá bài của ngày mai đang chờ bạn</b><small>Mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay(Date.now(), tzMin() * 60_000))}</time> nữa. Quay lại để biết bộ bài sẽ nói gì.</small></div></div>${n ? `<div class="tn-streak">${icon('flame')}<b>${n}</b> ngày liên tiếp${n >= 2 ? '. Giữ chuỗi bằng cách quay lại ngày mai.' : '. Quay lại ngày mai để nối chuỗi.'}</div>` : ''}</div>`;
 }
 let cdTimer = 0;
 function tickCountdown() {
   clearInterval(cdTimer);
-  const upd = () => { const t = fmtCountdown(msUntilNextVnDay()); for (const e of document.querySelectorAll('[data-cd]')) e.textContent = t; };
-  upd(); cdTimer = setInterval(() => { upd(); if (msUntilNextVnDay() > 86_399_000) { clearInterval(cdTimer); refreshIdle(); } }, 1000); // qua 0 giờ: ngày mới, bộ bài có lá mới
+  const upd = () => { const t = fmtCountdown(msUntilNextVnDay(Date.now(), tzMin() * 60_000)); for (const e of document.querySelectorAll('[data-cd]')) e.textContent = t; };
+  upd(); cdTimer = setInterval(() => { upd(); if (msUntilNextVnDay(Date.now(), tzMin() * 60_000) > 86_399_000) { clearInterval(cdTimer); refreshIdle(); } }, 1000); // qua 0 giờ: ngày mới, bộ bài có lá mới
 }
 function refreshIdle() {
   const done = mode === 'daily' && TODAY_DONE(), n = streakNow(), el = $('#tr-streak'), w = $('#tr-wait');
   $('#tr-hint').textContent = HINT[mode]; $('#tr-go').textContent = done ? 'Xem lại lá hôm nay' : 'Bắt đầu bốc bài';
   el.hidden = !n; el.innerHTML = n ? `${icon('flame')} Bạn đã bốc bài <b>${n}</b> ngày liên tiếp. ${TODAY_DONE() ? 'Hôm nay bạn đã bốc rồi.' : 'Bốc hôm nay để nối chuỗi nhé.'}` : '';
-  w.hidden = !done; w.innerHTML = done ? `Lá bài của ngày mai mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay())}</time>` : '';
+  w.hidden = !done; w.innerHTML = done ? `Lá bài của ngày mai mở sau <time data-cd>${fmtCountdown(msUntilNextVnDay(Date.now(), tzMin() * 60_000))}</time>` : '';
   tickCountdown();
 }
 
@@ -256,13 +256,17 @@ refreshIdle();
 // Bộ sưu tập: chỉ hiện những lá bạn đã bốc được. Các lá còn lại giữ bí mật, để mỗi lần bốc là một lần khám phá.
 const grid = $('#tr-grid');
 const tile = (c) => `<figure class="tcard" data-id="${c.id}" tabindex="0" role="button" aria-label="Đọc lại lá ${esc(c.name)}"><div class="tc-inner"><div class="tc-face"><div class="tc-top">${c.roman}</div><div class="tc-art"></div><div class="tc-name"><b>${esc(c.name)}</b><i>${esc(c.en)}</i></div></div><div class="tc-back">${cardBackSvg()}</div></div></figure>`;
-const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { const el = e.target, c = cardById(el.dataset.id); el.querySelector('.tc-art').innerHTML = cardArtSvg(c, `g${c.id}`); io.unobserve(el); } }, { rootMargin: '300px' });
+// Mỗi lá có nhân vật vẽ bằng SVG khá nặng: chỉ vẽ khi lá gần màn hình, cuộn đi xa thì gỡ ra, và chỉ hiện 12 lá một lần để máy yếu vẫn mượt khi bộ sưu tập đầy.
+const io = new IntersectionObserver((es) => { for (const e of es) { const el = e.target, art = el.querySelector('.tc-art'); if (e.isIntersecting) { if (!art.firstChild) art.innerHTML = cardArtSvg(cardById(el.dataset.id), `g${el.dataset.id}`); } else art.replaceChildren(); } }, { rootMargin: '400px 0px' });
+const PAGE = 12; let shownN = PAGE;
 function renderCollection() {
-  const have = getCol().map(cardById).filter(Boolean), n = have.length, total = CARDS.length;
+  io.disconnect();
+  const have = getCol().map(cardById).filter(Boolean).sort((x, y) => x.id - y.id), n = have.length, total = CARDS.length;
   $('#tr-col-n').textContent = n ? `${n}/${total} lá` : '';
   $('#tr-col-bar').style.setProperty('--p', `${Math.round((n / total) * 100)}%`);
   $('#tr-col-sub').textContent = n ? 'Chạm vào một lá để đọc lại. Những lá còn lại vẫn đang chờ bạn bốc.' : 'Mỗi lá bạn bốc được sẽ nằm lại ở đây. Những lá chưa gặp vẫn là bí mật.';
-  grid.innerHTML = n ? `<div class="tr-sgrid">${have.sort((x, y) => x.id - y.id).map(tile).join('')}</div>` : `<div class="tr-lock" aria-hidden="true">${[0, 1, 2].map(() => `<div class="tcard back"><div class="tc-inner"><div class="tc-back">${cardBackSvg()}</div></div></div>`).join('')}</div>`;
+  grid.innerHTML = n ? `<div class="tr-sgrid">${have.slice(0, shownN).map(tile).join('')}</div>${n > shownN ? `<button type="button" class="btn tr-more" id="tr-more">Xem thêm ${Math.min(PAGE, n - shownN)} lá (còn ${n - shownN})</button>` : ''}` : `<div class="tr-lock" aria-hidden="true">${[0, 1, 2].map(() => `<div class="tcard back"><div class="tc-inner"><div class="tc-back">${cardBackSvg()}</div></div></div>`).join('')}</div>`;
+  $('#tr-more')?.addEventListener('click', () => { shownN += PAGE; renderCollection(); });
   for (const el of grid.querySelectorAll('.tcard[data-id]')) {
     io.observe(el);
     const open = () => { track('tarot_browse', { id: +el.dataset.id }); show([+el.dataset.id], { flipDelay: 150, via: 'browse' }); };

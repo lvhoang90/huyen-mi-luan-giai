@@ -652,3 +652,22 @@ test('trang Tarot không phơi cả bộ bài: chỉ có bộ sưu tập những
   assert.doesNotMatch(h, /Cả bộ 78 lá/); assert.match(h, /Bộ sưu tập của bạn/);
   assert.doesNotMatch(j, /CARDS\.filter\(pick\)/); assert.match(j, /huyenmy\.tarotcol/);
 });
+
+test('ngày theo múi giờ thiết bị: người ở nước ngoài có ngày mới theo nơi họ ở', async () => {
+  const { dayAt, vnDay } = await import('../src/tarot/ids.js');
+  const { msUntilNextVnDay } = await import('../src/tarot/ritual.js');
+  const t = new Date('2026-10-07T20:00:00Z'); // 3 giờ sáng ngày 8 ở Việt Nam, 1 giờ chiều ngày 7 ở vùng UTC-7
+  assert.equal(vnDay(t), '2026-10-08'); assert.equal(dayAt(t, 420), '2026-10-08'); assert.equal(dayAt(t, -420), '2026-10-07'); assert.equal(dayAt(t, 600), '2026-10-08');
+  assert.equal(Math.round(msUntilNextVnDay(t.getTime(), 420 * 60000) / 3.6e6), 21); assert.equal(Math.round(msUntilNextVnDay(t.getTime(), -420 * 60000) / 3.6e6), 11);
+  const { buildSystemPrompt } = await import('../server/persona.js');
+  const { normalizeProfile, buildChart } = await import('../src/engine/index.js');
+  const pr = normalizeProfile({ fullName: 'Trần An', gender: 'nu', birth: { y: 1990, m: 5, d: 5, hour: 9, minute: 0 } });
+  assert.equal(typeof buildSystemPrompt('companion', pr, buildChart(pr), [{ role: 'user', content: 'hôm nay thế nào' }], { tz: -420 }), 'string');
+});
+
+test('lá của hôm nay có thể ra đủ cả 78 lá, phân bố không lệch', async () => {
+  const { dailyCard, CARDS } = await import('../src/tarot/cards.js');
+  const cnt = new Map(); for (let i = 0; i < 20000; i++) { const id = dailyCard('s' + i, '2026-10-' + String(1 + (i % 28)).padStart(2, '0')); cnt.set(id, (cnt.get(id) ?? 0) + 1); }
+  assert.equal(cnt.size, CARDS.length); assert.ok(Math.min(...cnt.values()) > 150 && Math.max(...cnt.values()) < 400);
+  assert.equal(dailyCard('abc', '2026-10-08'), dailyCard('abc', '2026-10-08'));
+});
