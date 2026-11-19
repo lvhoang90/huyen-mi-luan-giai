@@ -683,3 +683,14 @@ test('bộ sưu tập Tarot trên tài khoản: cần đăng nhập, chỉ nhậ
   assert.deepEqual((await h.call('GET', '/api/cards')).body.ids, [0, 3, 5, 77]);
   h.close();
 });
+
+test('SEO: robots.txt và sitemap.xml là tệp thật, trang chủ có canonical, JSON-LD hợp lệ và liên kết về Viện ISA', async () => {
+  const { readFileSync } = await import('node:fs');
+  const f = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+  assert.match(f('public/robots.txt'), /Sitemap: https:\/\/huyenmy\.isavietnam\.app\/sitemap\.xml/); assert.match(f('public/robots.txt'), /Disallow: \/api\//);
+  const sm = f('public/sitemap.xml'); for (const p of ['/', '/tarot', '/privacy.html']) assert.ok(sm.includes(`<loc>https://huyenmy.isavietnam.app${p}</loc>`));
+  const html = f('index.html'); assert.match(html, /<link rel="canonical" href="https:\/\/huyenmy\.isavietnam\.app\/" \/>/);
+  const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld['@type'], 'WebApplication'); assert.equal(ld.offers.price, '0'); assert.equal(ld.inLanguage, 'vi'); assert.equal(ld.publisher.url, 'https://isavn.edu.vn/');
+  assert.match(html, /href="https:\/\/isavietnam\.app\/"/);
+});

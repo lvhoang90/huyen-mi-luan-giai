@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /goc-cua-toi
+
+Sitemap: https://huyenmy.isavietnam.app/sitemap.xml
