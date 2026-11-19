@@ -130,7 +130,7 @@ async function handleChat(req, res) {
 }
 
 // ---- static / vite ----
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
 let vite = null;
 if (!isProd) {
   const { createServer } = await import('vite');
@@ -152,7 +152,7 @@ function serveStatic(req, res) {
   if (!file.startsWith(dist)) { res.writeHead(403); return res.end(); }
   if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(dist, 'index.html');
   const ext = path.extname(file);
-  const headers = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' || /^\/(sw\.js|manifest\.webmanifest)$/.test(p) ? 'no-cache' : /^\/(icons|art)\//.test(p) ? 'public, max-age=86400' : 'public, max-age=31536000, immutable' };
+  const headers = { 'Content-Type': MIME[ext] ?? 'application/octet-stream', 'Cache-Control': ext === '.html' || /^\/(sw\.js|manifest\.webmanifest|robots\.txt|sitemap\.xml)$/.test(p) ? 'no-cache' : /^\/(icons|art)\//.test(p) ? 'public, max-age=86400' : 'public, max-age=31536000, immutable' };
   const z = compressed(file, ext, String(req.headers['accept-encoding'] ?? ''));
   if (z) { res.writeHead(200, { ...headers, 'Content-Encoding': z.enc, 'Content-Length': z.buf.length, Vary: 'Accept-Encoding' }); return res.end(req.method === 'HEAD' ? undefined : z.buf); }
   res.writeHead(200, headers);
